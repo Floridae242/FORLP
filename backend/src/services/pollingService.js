@@ -1,8 +1,5 @@
 // =====================================================
-// Kad Kong Ta Smart Insight - Polling Service (Simplified)
-// ดึงข้อมูลอัตโนมัติและ Schedule Daily Report
-// - Daily Report: เสาร์-อาทิตย์ เวลา 23:00 น.
-// - Early Warning: เสาร์-อาทิตย์ เวลา 14:00 น.
+// Kad Kong Ta - Polling Service (Single Zone)
 // =====================================================
 
 import { config } from '../config/index.js';
@@ -19,23 +16,14 @@ let isPolling = false;
  * เริ่ม Polling Service
  */
 export function startPolling() {
-    if (pollingInterval) {
-        console.log('[Polling] Already running');
-        return;
-    }
+    if (pollingInterval) return;
     
     console.log(`[Polling] Starting with interval ${config.pollingInterval / 1000}s`);
     
-    // ดึงข้อมูลครั้งแรกทันที
     pollData();
-    
-    // ตั้ง interval สำหรับดึงข้อมูล
     pollingInterval = setInterval(pollData, config.pollingInterval);
     
-    // ตั้ง schedule สำหรับ Daily Report (เสาร์-อาทิตย์ 23:00)
     scheduleDailyReport();
-    
-    // ตั้ง schedule สำหรับ Early Warning (เสาร์-อาทิตย์ 14:00)
     scheduleEarlyWarning();
     
     console.log('[Polling] Service started');
@@ -61,27 +49,23 @@ export function stopPolling() {
 }
 
 /**
- * ดึงข้อมูลและบันทึก
+ * ดึงข้อมูลและบันทึก (Single Zone)
  */
 async function pollData() {
-    if (isPolling) {
-        console.log('[Polling] Skip - previous poll still running');
-        return;
-    }
+    if (isPolling) return;
     
     isPolling = true;
     
     try {
-        // ดึงข้อมูลจำนวนคน
-        const peopleCounts = await peopleCountService.fetchPeopleCounts();
+        // ดึงข้อมูลจำนวนคน (Single Zone)
+        const peopleData = await peopleCountService.fetchPeopleCount();
         
         // บันทึกลง Database
-        if (peopleCounts && peopleCounts.length > 0) {
-            peopleCountService.savePeopleCounts(peopleCounts);
+        if (peopleData) {
+            peopleCountService.savePeopleCount(peopleData);
             
             if (config.nodeEnv === 'development') {
-                const total = peopleCounts.reduce((sum, z) => sum + z.people_count, 0);
-                console.log(`[Polling] Saved people counts - Total: ${total}`);
+                console.log(`[Polling] Count: ${peopleData.people_count} (${peopleData.source})`);
             }
         }
     } catch (error) {

@@ -1,75 +1,68 @@
-// =====================================================
-// กาดกองต้า - ระบบข้อมูลเทศบาลนครลำปาง
-// Human-centered design for Government System
-// =====================================================
-
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import PeoplePage from './pages/PeoplePage.jsx';
-import WeatherPage from './pages/WeatherPage.jsx';
-import ReportsPage from './pages/ReportsPage.jsx';
-
-const LOGO_URL = 'https://iocpiramid.com/images/citylogo/1754587002746_lampang_logo.png';
-
-function Navigation() {
-    return (
-        <nav className="nav-bar">
-            <div className="nav-content">
-                <div className="nav-brand">
-                    <img src={LOGO_URL} alt="เทศบาลนครลำปาง" className="nav-logo-img" />
-                </div>
-                
-                <div className="nav-tabs">
-                    <NavLink 
-                        to="/people"
-                        className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
-                    >
-                        ผู้ใช้งานพื้นที่
-                    </NavLink>
-                    
-                    <NavLink 
-                        to="/weather"
-                        className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
-                    >
-                        สภาพอากาศ
-                    </NavLink>
-                    
-                    <NavLink 
-                        to="/reports"
-                        className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
-                    >
-                        รายงาน
-                    </NavLink>
-                </div>
-            </div>
-        </nav>
-    );
-}
-
-function Footer() {
-    return (
-        <footer className="app-footer">
-            <p>ระบบส่งรายงานสรุปไปยัง Line OA อัตโนมัติ ทุกวันเสาร์-อาทิตย์ เวลา 23.00 น.</p>
-            <p className="footer-sub">เทศบาลนครลำปาง • ถนนคนเดินกาดกองต้า</p>
-        </footer>
-    );
-}
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import PeoplePage from './pages/PeoplePage';
+import ReportsPage from './pages/ReportsPage';
+import WeatherPage from './pages/WeatherPage';
+import CameraPage from './pages/CameraPage';
 
 export default function App() {
     return (
         <BrowserRouter>
             <div className="app-container">
-                <Navigation />
-                
+                <nav className="nav-bar">
+                    <div className="nav-content">
+                        <div className="nav-brand">
+                            <div>
+                                <div className="nav-title">ระบบข้อมูลถนนคนเดินกาดกองต้า</div>
+                                <div className="nav-subtitle">เทศบาลนครลำปาง</div>
+                            </div>
+                        </div>
+                        
+                        <div className="nav-tabs">
+                            <NavLink
+                                to="/"
+                                className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
+                            >
+                                ภาพรวมพื้นที่
+                            </NavLink>
+                            <NavLink
+                                to="/camera"
+                                className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
+                            >
+                                กล้องวงจรปิด
+                            </NavLink>
+                            <NavLink
+                                to="/reports"
+                                className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
+                            >
+                                รายงานข้อมูล
+                            </NavLink>
+                            <NavLink
+                                to="/weather"
+                                className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
+                            >
+                                สภาพอากาศ
+                            </NavLink>
+                        </div>
+                    </div>
+                </nav>
+
                 <main className="main-content">
                     <Routes>
-                        <Route path="/" element={<Navigate to="/people" replace />} />
-                        <Route path="/people" element={<PeoplePage />} />
-                        <Route path="/weather" element={<WeatherPage />} />
+                        <Route path="/" element={<PeoplePage />} />
+                        <Route path="/camera" element={<CameraPage />} />
                         <Route path="/reports" element={<ReportsPage />} />
+                        <Route path="/weather" element={<WeatherPage />} />
                     </Routes>
                 </main>
-                
-                <Footer />
+
+                <footer className="app-footer">
+                    <div className="footer-text">
+                        ระบบข้อมูลถนนคนเดินกาดกองต้า
+                    </div>
+                    <div className="footer-sub">
+                        เทศบาลนครลำปาง • ข้อมูลอัปเดตอัตโนมัติทุก 5 นาที
+                    </div>
+                </footer>
             </div>
         </BrowserRouter>
     );

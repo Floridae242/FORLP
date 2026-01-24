@@ -1,14 +1,12 @@
 // =====================================================
-// Kad Kong Ta Smart Insight - Main Server (Simplified)
-// ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา
-// Version: 2.0 - Minimal
+// Kad Kong Ta Smart Insight - Main Server
+// Single Zone People Counting + AI Integration
 // =====================================================
 
 import express from 'express';
 import cors from 'cors';
 import { config, validateConfig } from './config/index.js';
 import { initDatabase } from './db/index.js';
-import { startPolling, getPollingStatus, forcePoll, forceDailyReport, forceEarlyWarning } from './services/pollingService.js';
 import { peopleCountService } from './services/peopleCountService.js';
 import { weatherService } from './services/weatherService.js';
 import { dailyReportService } from './services/dailyReportService.js';
@@ -20,7 +18,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Request logging (development only)
 if (config.nodeEnv === 'development') {
     app.use((req, res, next) => {
         console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -32,42 +29,102 @@ if (config.nodeEnv === 'development') {
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
-        mode: config.mockMode ? 'mock' : 'live',
-        version: '2.0.0',
-        system: 'Kad Kong Ta Smart Insight',
+        version: '3.0.0',
+        system: 'Kad Kong Ta - AI People Counter',
         timestamp: new Date().toISOString() 
     });
 });
 
-// ==================== Root Endpoint ====================
-app.get('/', (req, res) => {
+// ==================== PEOPLE COUNT APIs ====================
+
+// GET /api/people/current - จำนวนคนปัจจุบัน (Real-time)
+app.get('/api/people/current', (req, res) => {
+    const data = peopleCountService.getCurrentCount();
+    
+    // ถ้ายังไม่มีข้อมูล ให้ generate mock
+    if (data.count === 0 && !data.timestamp) {
+        const mock = peopleCountService.generateMockCount();
+        return res.json({
+            success: true,
+            data: mock,
+            source: 'mock'
+        });
+    }
+    
     res.json({
         success: true,
-        name: 'Kad Kong Ta Smart Insight API',
-        version: '2.0.0',
-        description: 'ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา (Minimal)',
-        mode: config.mockMode ? 'mock' : 'live',
-        status: 'running',
-        timestamp: new Date().toISOString(),
-        endpoints: {
-            health: '/health',
-            dashboard: '/api/dashboard',
-            zones: '/api/zones',
-            weather: '/api/weather',
-            reports: '/api/reports',
-            earlyWarning: '/api/early-warning'
-        }
+        data: data
     });
 });
 
-// ==================== Dashboard API ====================
-// GET /api/dashboard - ข้อมูลรวมสำหรับแสดงผล
+// POST /api/people/ingest - รับข้อมูลจาก AI Service
+app.post('/api/people/ingest', (req, res) => {
+    const { count, timestamp } = req.body;
+    
+    if (typeof count !== 'number' || count < 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid count value'
+        });
+    }
+    
+    const result = peopleCountService.ingestPeopleCount(count, timestamp);
+    
+    console.log(`[Ingest] People count: ${count}`);
+    
+    res.json({
+        success: true,
+        data: result
+    });
+});
+
+// GET /api/people/summary - สรุปรายวัน
+app.get('/api/people/summary', (req, res) => {
+    const { date } = req.query;
+    const summary = peopleCountService.getDailySummary(date);
+    
+    res.json({
+        success: true,
+        data: summary
+    });
+});
+
+// GET /api/people/history - ข้อมูลย้อนหลัง
+app.get('/api/people/history', (req, res) => {
+    const days = parseInt(req.query.days) || 7;
+    const history = peopleCountService.getHistoricalData(days);
+    
+    res.json({
+        success: true,
+        data: history,
+        count: history.length
+    });
+});
+
+// GET /api/people/hourly - ข้อมูลรายชั่วโมง
+app.get('/api/people/hourly', (req, res) => {
+    const { date } = req.query;
+    const hourly = peopleCountService.getHourlyData(date);
+    
+    res.json({
+        success: true,
+        data: hourly
+    });
+});
+
+// ==================== DASHBOARD API ====================
+
+// GET /api/dashboard - ข้อมูลรวมสำหรับ Dashboard
 app.get('/api/dashboard', async (req, res) => {
     try {
-        // ดึงข้อมูลจำนวนคนล่าสุด
-        const peopleCounts = peopleCountService.getLatestCounts();
+        // จำนวนคนปัจจุบัน
+        let peopleData = peopleCountService.getCurrentCount();
         
-        // ดึงข้อมูล Weather และ PM2.5
+        if (peopleData.count === 0 && !peopleData.timestamp) {
+            peopleData = peopleCountService.generateMockCount();
+        }
+        
+        // Weather
         let weather = null;
         let airQuality = null;
         
@@ -81,108 +138,30 @@ app.get('/api/dashboard', async (req, res) => {
                 weather = {
                     temperature: weatherResult.data?.temperature?.current,
                     humidity: weatherResult.data?.humidity,
-                    description: weatherResult.data?.weather?.description,
-                    icon: weatherResult.data?.weather?.icon_url
+                    description: weatherResult.data?.weather?.description
                 };
             }
             
             if (airResult.success) {
                 airQuality = {
                     pm25: airResult.data?.components?.pm2_5?.value,
-                    pm25_level: airResult.data?.components?.pm2_5?.label,
-                    aqi: airResult.data?.aqi
+                    pm25_level: airResult.data?.components?.pm2_5?.label
                 };
             }
         } catch (err) {
-            console.warn('[Dashboard] Weather/Air API error:', err.message);
-        }
-        
-        // คำนวณยอดรวม
-        const totalPeople = peopleCounts.reduce((sum, z) => sum + z.people_count, 0);
-        
-        res.json({
-            success: true,
-            data: {
-                timestamp: new Date().toISOString(),
-                location: 'กาดก้องตา ลำปาง',
-                
-                // จำนวนคนแต่ละ Zone
-                zones: peopleCounts.map(z => ({
-                    zone_code: z.zone_code,
-                    zone_name: z.zone_name,
-                    people_count: z.people_count,
-                    capacity: z.capacity,
-                    percent: z.capacity > 0 ? Math.round((z.people_count / z.capacity) * 100) : 0
-                })),
-                
-                // ยอดรวม
-                total_people: totalPeople,
-                
-                // สภาพอากาศ
-                weather: weather || { description: 'ไม่สามารถดึงข้อมูลได้' },
-                
-                // คุณภาพอากาศ
-                air_quality: airQuality || { pm25: null, pm25_level: 'ไม่มีข้อมูล' },
-                
-                // System info
-                system: {
-                    mode: config.mockMode ? 'mock' : 'live',
-                    polling: getPollingStatus()
-                }
-            }
-        });
-    } catch (error) {
-        console.error('[Dashboard] Error:', error.message);
-        res.status(500).json({
-            success: false,
-            error: 'ไม่สามารถดึงข้อมูลได้',
-            message: error.message
-        });
-    }
-});
-
-// ==================== Zones API ====================
-// GET /api/zones - ข้อมูลจำนวนคนแต่ละ Zone
-app.get('/api/zones', (req, res) => {
-    try {
-        const peopleCounts = peopleCountService.getLatestCounts();
-        
-        res.json({
-            success: true,
-            data: peopleCounts.map(z => ({
-                zone_code: z.zone_code,
-                zone_name: z.zone_name,
-                people_count: z.people_count,
-                capacity: z.capacity,
-                percent: z.capacity > 0 ? Math.round((z.people_count / z.capacity) * 100) : 0,
-                recorded_at: z.recorded_at
-            }))
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// GET /api/zones/:code - ข้อมูล Zone เดียว
-app.get('/api/zones/:code', (req, res) => {
-    try {
-        const { code } = req.params;
-        const peopleCounts = peopleCountService.getLatestCounts();
-        const zone = peopleCounts.find(z => z.zone_code.toUpperCase() === code.toUpperCase());
-        
-        if (!zone) {
-            return res.status(404).json({ success: false, error: 'ไม่พบ Zone นี้' });
+            console.warn('[Dashboard] Weather error:', err.message);
         }
         
         res.json({
             success: true,
             data: {
-                zone_code: zone.zone_code,
-                zone_name: zone.zone_name,
-                people_count: zone.people_count,
-                capacity: zone.capacity,
-                percent: zone.capacity > 0 ? Math.round((zone.people_count / zone.capacity) * 100) : 0,
-                recorded_at: zone.recorded_at
+                people: {
+                    count: peopleData.count,
+                    timestamp: peopleData.timestamp
+                },
+                weather: weather,
+                air_quality: airQuality,
+                timestamp: new Date().toISOString()
             }
         });
     } catch (error) {
@@ -190,8 +169,110 @@ app.get('/api/zones/:code', (req, res) => {
     }
 });
 
-// ==================== Weather API ====================
-// GET /api/weather - สภาพอากาศและ PM2.5
+// ==================== REPORTS API ====================
+
+// GET /api/reports/daily - รายงานประจำวัน
+app.get('/api/reports/daily', (req, res) => {
+    try {
+        const { date } = req.query;
+        const summary = peopleCountService.getDailySummary(date);
+        const hourly = peopleCountService.getHourlyData(date);
+        
+        res.json({
+            success: true,
+            data: {
+                summary: summary,
+                hourly: hourly
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/reports/weekly - รายงานรายสัปดาห์
+app.get('/api/reports/weekly', (req, res) => {
+    try {
+        const history = peopleCountService.getHistoricalData(7);
+        
+        const totalMax = Math.max(...history.map(d => d.max_people || 0), 0);
+        const avgPeople = history.length > 0 
+            ? Math.round(history.reduce((sum, d) => sum + (d.avg_people || 0), 0) / history.length)
+            : 0;
+        
+        res.json({
+            success: true,
+            data: {
+                summary: {
+                    total_days: history.length,
+                    max_people: totalMax,
+                    avg_people: avgPeople
+                },
+                daily: history
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/reports/history - ประวัติรายงาน
+app.get('/api/reports/history', (req, res) => {
+    try {
+        const days = parseInt(req.query.days) || 30;
+        const history = peopleCountService.getHistoricalData(days);
+        
+        res.json({
+            success: true,
+            data: history,
+            count: history.length
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== WEATHER API ====================
+
+// GET /api/weather/current - สภาพอากาศปัจจุบัน (สำหรับ Frontend)
+app.get('/api/weather/current', async (req, res) => {
+    try {
+        const [weatherResult, airResult] = await Promise.all([
+            weatherService.getCurrentWeather(),
+            weatherService.getAirQuality()
+        ]);
+        
+        // รวมข้อมูลให้ง่ายต่อการใช้งาน
+        const data = {
+            temperature: weatherResult.data?.temperature?.current ?? null,
+            humidity: weatherResult.data?.humidity ?? null,
+            wind_speed: weatherResult.data?.wind?.speed ?? null,
+            description: weatherResult.data?.weather?.description ?? 'ไม่มีข้อมูล',
+            pm25: airResult.data?.components?.pm2_5?.value ?? null,
+            timestamp: new Date().toISOString()
+        };
+        
+        res.json({
+            success: true,
+            data: data
+        });
+    } catch (error) {
+        // ถ้า error ให้ส่ง mock data
+        res.json({
+            success: true,
+            data: {
+                temperature: 28,
+                humidity: 65,
+                wind_speed: 8,
+                description: 'อากาศดี',
+                pm25: 25,
+                timestamp: new Date().toISOString()
+            },
+            source: 'mock'
+        });
+    }
+});
+
 app.get('/api/weather', async (req, res) => {
     try {
         const [weatherResult, airResult] = await Promise.all([
@@ -202,115 +283,8 @@ app.get('/api/weather', async (req, res) => {
         res.json({
             success: true,
             data: {
-                weather: weatherResult.success ? {
-                    temperature: weatherResult.data?.temperature?.current,
-                    feels_like: weatherResult.data?.temperature?.feels_like,
-                    humidity: weatherResult.data?.humidity,
-                    description: weatherResult.data?.weather?.description,
-                    icon: weatherResult.data?.weather?.icon_url,
-                    wind_speed: weatherResult.data?.wind?.speed_kmh
-                } : null,
-                
-                air_quality: airResult.success ? {
-                    pm25: airResult.data?.components?.pm2_5?.value,
-                    pm25_level: airResult.data?.components?.pm2_5?.label,
-                    pm25_color: airResult.data?.components?.pm2_5?.color,
-                    aqi: airResult.data?.aqi,
-                    recommendation: airResult.data?.health_recommendation
-                } : null,
-                
-                fetched_at: new Date().toISOString(),
-                errors: {
-                    weather: weatherResult.success ? null : weatherResult.error,
-                    air_quality: airResult.success ? null : airResult.error
-                }
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            error: 'ไม่สามารถดึงข้อมูลสภาพอากาศได้',
-            message: error.message 
-        });
-    }
-});
-
-// ==================== Reports API ====================
-// GET /api/reports/daily - รายงานประจำวันล่าสุด
-app.get('/api/reports/daily', (req, res) => {
-    try {
-        const { date } = req.query;
-        
-        let report;
-        if (date) {
-            report = dailyReportService.getReportByDate(date);
-        } else {
-            report = dailyReportService.getLatestReport();
-        }
-        
-        if (!report) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'ไม่พบรายงาน',
-                message: date ? `ไม่พบรายงานวันที่ ${date}` : 'ยังไม่มีรายงาน'
-            });
-        }
-        
-        res.json({ success: true, data: report });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// GET /api/reports/history - รายงานย้อนหลัง
-app.get('/api/reports/history', (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 7;
-        const reports = dailyReportService.getRecentReports(limit);
-        
-        res.json({ 
-            success: true, 
-            data: reports,
-            count: reports.length
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// POST /api/reports/generate - สร้างรายงานใหม่ (manual trigger)
-app.post('/api/reports/generate', async (req, res) => {
-    try {
-        const { date, send_line } = req.body;
-        
-        if (send_line) {
-            // สร้างและส่ง LINE
-            const result = await forceDailyReport(date);
-            res.json({ success: true, data: result });
-        } else {
-            // สร้างรายงานอย่างเดียว
-            const result = await dailyReportService.generateDailyReport(date);
-            res.json({ success: true, data: result });
-        }
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==================== Early Warning API ====================
-// GET /api/early-warning/status - สถานะระบบแจ้งเตือน
-app.get('/api/early-warning/status', (req, res) => {
-    try {
-        const status = earlyWarningService.getEarlyWarningStatus();
-        const pollingStatus = getPollingStatus();
-        
-        res.json({
-            success: true,
-            data: {
-                ...status,
-                nextAlertTime: pollingStatus.earlyWarningTime,
-                nextAlertDate: pollingStatus.nextEarlyWarningDate,
-                scheduled: pollingStatus.earlyWarningScheduled
+                weather: weatherResult.success ? weatherResult.data : null,
+                air_quality: airResult.success ? airResult.data : null
             }
         });
     } catch (error) {
@@ -318,181 +292,151 @@ app.get('/api/early-warning/status', (req, res) => {
     }
 });
 
-// GET /api/early-warning/assess - ประเมินความเสี่ยงปัจจุบัน (ไม่ส่งแจ้งเตือน)
-app.get('/api/early-warning/assess', async (req, res) => {
-    try {
-        const assessment = await earlyWarningService.assessAllRisks();
-        const message = earlyWarningService.generateWarningMessage(assessment);
-        
-        res.json({
-            success: true,
-            data: {
-                assessment,
-                previewMessage: message,
-                wouldSendAlert: assessment.hasAnyRisk
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+// ==================== SYSTEM API ====================
 
-// POST /api/early-warning/trigger - บังคับส่งแจ้งเตือนทันที (manual trigger)
-app.post('/api/early-warning/trigger', async (req, res) => {
-    try {
-        const result = await forceEarlyWarning();
-        
-        res.json({
-            success: result.success,
-            data: result
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==================== System API ====================
-// GET /api/system/status - สถานะระบบ
 app.get('/api/system/status', (req, res) => {
     res.json({
         success: true,
         data: {
-            mode: config.mockMode ? 'mock' : 'live',
-            polling: getPollingStatus(),
-            config: {
-                line_configured: !!config.lineChannelAccessToken,
-                weather_configured: !!config.openWeatherApiKey,
-                camera_configured: !!config.cameraApiUrl
-            },
+            version: '3.0.0',
+            uptime: process.uptime(),
             timestamp: new Date().toISOString()
         }
     });
 });
 
-// POST /api/system/refresh - Force refresh data
-app.post('/api/system/refresh', async (req, res) => {
-    try {
-        await forcePoll();
-        res.json({ success: true, message: 'ข้อมูลถูกอัพเดทแล้ว' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==================== API Documentation ====================
-app.get('/api', (req, res) => {
-    res.json({
-        name: 'Kad Kong Ta Smart Insight API',
-        version: '2.0.0',
-        description: 'ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา (Minimal)',
-        mode: config.mockMode ? 'mock' : 'live',
-        endpoints: {
-            dashboard: {
-                'GET /api/dashboard': 'ข้อมูลรวมสำหรับแสดงผล Dashboard'
-            },
-            zones: {
-                'GET /api/zones': 'ข้อมูลจำนวนคนทุก Zone',
-                'GET /api/zones/:code': 'ข้อมูลจำนวนคน Zone เดียว (A, B, C)'
-            },
-            weather: {
-                'GET /api/weather': 'สภาพอากาศและคุณภาพอากาศ (PM2.5)'
-            },
-            reports: {
-                'GET /api/reports/daily': 'รายงานประจำวันล่าสุด',
-                'GET /api/reports/daily?date=YYYY-MM-DD': 'รายงานประจำวันตามวันที่',
-                'GET /api/reports/history': 'รายงานย้อนหลัง 7 วัน',
-                'POST /api/reports/generate': 'สร้างรายงานใหม่ (manual)'
-            },
-            earlyWarning: {
-                'GET /api/early-warning/status': 'สถานะระบบแจ้งเตือนความเสี่ยง',
-                'GET /api/early-warning/assess': 'ประเมินความเสี่ยงปัจจุบัน (preview)',
-                'POST /api/early-warning/trigger': 'บังคับส่งแจ้งเตือนทันที (manual)'
-            },
-            system: {
-                'GET /api/system/status': 'สถานะระบบ',
-                'POST /api/system/refresh': 'Force refresh ข้อมูล'
-            }
-        }
-    });
-});
-
-// ==================== Error Handler ====================
-app.use((err, req, res, next) => {
-    console.error('Error:', err.message);
-    res.status(err.status || 500).json({ 
-        success: false,
-        error: err.message
-    });
-});
-
-// 404 Handler
+// ==================== 404 Handler ====================
 app.use((req, res) => {
-    res.status(404).json({ 
-        success: false,
-        error: 'Endpoint not found',
-        path: req.path 
-    });
+    res.status(404).json({ success: false, error: 'Endpoint not found' });
 });
 
-// ==================== Initialize and Start ====================
+// ==================== Polling Service ====================
+let pollingInterval = null;
+
+function startPolling() {
+    const interval = 5 * 60 * 1000; // 5 นาที
+    
+    console.log(`[Polling] Starting with interval ${interval / 1000}s`);
+    
+    // Poll ครั้งแรก
+    pollData();
+    
+    // ตั้ง interval
+    pollingInterval = setInterval(pollData, interval);
+}
+
+async function pollData() {
+    // ลองดึงจาก AI Service ก่อน
+    const result = await peopleCountService.fetchFromAI();
+    
+    if (!result.success) {
+        // ถ้าไม่ได้ ใช้ mock
+        peopleCountService.generateMockCount();
+        console.log('[Polling] Using mock data');
+    } else {
+        console.log('[Polling] Got data from AI');
+    }
+}
+
+// ==================== LINE Notification Scheduler ====================
+let lineSchedulerInterval = null;
+
+/**
+ * ตรวจสอบและส่ง LINE Notification ตามกำหนดเวลา
+ * - Early Warning: ทุกวันเสาร์-อาทิตย์ เวลา 14:00
+ * - Daily Report: ทุกวัน เวลา 23:00
+ */
+function startLineScheduler() {
+    console.log('[LINE Scheduler] Starting...');
+    
+    // ตรวจสอบทุก 1 นาที
+    lineSchedulerInterval = setInterval(checkAndSendNotifications, 60 * 1000);
+    
+    // ตรวจสอบครั้งแรกทันที
+    checkAndSendNotifications();
+}
+
+// เก็บสถานะว่าส่งไปแล้วหรือยังในแต่ละวัน
+const sentToday = {
+    earlyWarning: null,  // เก็บวันที่ที่ส่งล่าสุด
+    dailyReport: null
+};
+
+async function checkAndSendNotifications() {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const dayOfWeek = now.getDay(); // 0 = อาทิตย์, 6 = เสาร์
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    
+    // Early Warning: วันเสาร์-อาทิตย์ เวลา 14:00
+    if (isWeekend && hour === 14 && minute === 0 && sentToday.earlyWarning !== today) {
+        console.log('[LINE Scheduler] Sending Early Warning...');
+        try {
+            const result = await earlyWarningService.processEarlyWarning();
+            sentToday.earlyWarning = today;
+            console.log('[LINE Scheduler] Early Warning result:', result);
+        } catch (error) {
+            console.error('[LINE Scheduler] Early Warning error:', error.message);
+        }
+    }
+    
+    // Daily Report: ทุกวัน เวลา 23:00
+    if (hour === 23 && minute === 0 && sentToday.dailyReport !== today) {
+        console.log('[LINE Scheduler] Sending Daily Report...');
+        try {
+            const result = await dailyReportService.processAndSendDailyReport(today);
+            sentToday.dailyReport = today;
+            console.log('[LINE Scheduler] Daily Report result:', result);
+        } catch (error) {
+            console.error('[LINE Scheduler] Daily Report error:', error.message);
+        }
+    }
+}
+
+// ==================== Start Server ====================
 async function start() {
     console.log('');
-    console.log('╔══════════════════════════════════════════════════════════╗');
-    console.log('║     🏮 Kad Kong Ta Smart Insight - Backend Server 🏮      ║');
-    console.log('║     ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา                  ║');
-    console.log('║     Version 2.0 - Minimal                                ║');
-    console.log('╚══════════════════════════════════════════════════════════╝');
-    console.log('');
-
+    console.log('🏮 Kad Kong Ta - AI People Counter v3.0');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     try {
-        // Validate configuration
         console.log('📋 Validating configuration...');
         validateConfig();
 
-        // Initialize database
         console.log('💾 Initializing database...');
         await initDatabase();
 
-        // Start polling service
         console.log('🔄 Starting polling service...');
         startPolling();
+        
+        console.log('📱 Starting LINE notification scheduler...');
+        startLineScheduler();
 
-        // Start server
         app.listen(config.port, () => {
             console.log('');
-            console.log(`🚀 Server running on http://localhost:${config.port}`);
-            console.log(`📊 Dashboard API: http://localhost:${config.port}/api/dashboard`);
-            console.log(`📖 API Docs: http://localhost:${config.port}/api`);
+            console.log(`🚀 Server: http://localhost:${config.port}`);
             console.log('');
-            console.log('🔌 Configuration:');
-            console.log(`   - Mode: ${config.mockMode ? '🎭 Mock Data' : '📡 Live Data'}`);
-            console.log(`   - LINE OA: ${config.lineChannelAccessToken ? '✓ Configured' : '✗ Not configured'}`);
-            console.log(`   - Weather API: ${config.openWeatherApiKey ? '✓ Configured' : '✗ Not configured'}`);
-            console.log(`   - Camera API: ${config.cameraApiUrl ? '✓ Configured' : '✗ Not configured'}`);
+            console.log('📡 API Endpoints:');
+            console.log(`   GET  /api/people/current  - จำนวนคนปัจจุบัน`);
+            console.log(`   POST /api/people/ingest   - รับข้อมูลจาก AI`);
+            console.log(`   GET  /api/reports/daily   - รายงานรายวัน`);
+            console.log(`   GET  /api/reports/weekly  - รายงานรายสัปดาห์`);
             console.log('');
-            console.log('📋 Features:');
-            console.log('   ✓ People Count (Zone A, B, C)');
-            console.log('   ✓ Weather & PM2.5');
-            console.log('   ✓ Daily Report to LINE OA');
-            console.log('   ✓ Early Warning Alert (Sat-Sun 14:00)');
+            console.log('📱 LINE Notifications:');
+            console.log('   ⚠️  Early Warning  - เสาร์-อาทิตย์ 14:00');
+            console.log('   📊 Daily Report   - ทุกวัน 23:00');
             console.log('');
         });
     } catch (error) {
-        console.error('❌ Failed to start server:', error);
+        console.error('❌ Failed to start:', error);
         process.exit(1);
     }
 }
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received. Shutting down gracefully...');
-    process.exit(0);
-});
-
-process.on('SIGINT', () => {
-    console.log('SIGINT received. Shutting down gracefully...');
-    process.exit(0);
-});
+process.on('SIGTERM', () => process.exit(0));
+process.on('SIGINT', () => process.exit(0));
 
 start();
 

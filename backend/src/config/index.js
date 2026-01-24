@@ -1,16 +1,10 @@
-// =====================================================
-// Kad Kong Ta Smart Insight - Configuration (Simplified)
-// ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา
-// Version: 2.0 - Minimal
-// =====================================================
-
 import 'dotenv/config';
 
 export const config = {
     // ==================== General Settings ====================
     port: process.env.PORT || 3001,
     nodeEnv: process.env.NODE_ENV || 'development',
-    mockMode: process.env.MOCK_MODE !== 'false', // Default to mock mode
+    mockMode: process.env.MOCK_MODE !== 'false', 
     
     // ==================== Database ====================
     dbPath: process.env.DB_PATH || './data/kadkongta.db',
@@ -31,10 +25,10 @@ export const config = {
     cameraApiKey: process.env.CAMERA_API_KEY || '',
 
     // ==================== Polling Settings ====================
-    pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 60000, // 60 seconds
+    pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 60000, 
 
     // ==================== Daily Report Settings ====================
-    dailyReportHour: parseInt(process.env.DAILY_REPORT_HOUR) || 18, // 18:00
+    dailyReportHour: parseInt(process.env.DAILY_REPORT_HOUR) || 23, 
     dailyReportMinute: parseInt(process.env.DAILY_REPORT_MINUTE) || 0,
 
     // ==================== Zone Configuration ====================

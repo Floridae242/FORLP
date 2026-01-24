@@ -1,56 +1,37 @@
--- =====================================================
--- Kad Kong Ta Smart Insight - Database Schema (Minimal)
--- ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา
--- Version: 2.0 - Simplified
--- =====================================================
-
--- Zone Configuration (โซนหลัก A, B, C เท่านั้น)
-CREATE TABLE IF NOT EXISTS zones (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  zone_code VARCHAR(10) UNIQUE NOT NULL,      -- A, B, C
-  zone_name VARCHAR(100) NOT NULL,
-  description TEXT,
-  capacity INTEGER DEFAULT 500,               -- ความจุสูงสุด (คน)
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
--- Seed initial zones (ถนนคนเดิน Zone A/B/C เท่านั้น)
-INSERT OR IGNORE INTO zones (zone_code, zone_name, description, capacity) VALUES
-  ('A', 'โซน A - ทางเข้าหลัก', 'บริเวณทางเข้าหลักถนนคนเดิน', 500),
-  ('B', 'โซน B - ตลาดกลาง', 'บริเวณตลาดกลางถนนคนเดิน', 800),
-  ('C', 'โซน C - โซนอาหาร', 'บริเวณศูนย์อาหารและเวที', 600);
-
--- People Counts (บันทึกจำนวนคนตาม Zone)
+-- People Counts (บันทึกจำนวนคนรวมทั้งหมด - ไม่แยก Zone)
 CREATE TABLE IF NOT EXISTS people_counts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  zone_code VARCHAR(10) NOT NULL,             -- A, B, C
-  people_count INTEGER DEFAULT 0,
-  recorded_at TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (zone_code) REFERENCES zones(zone_code)
+  count INTEGER NOT NULL DEFAULT 0,
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+  source TEXT DEFAULT 'ai'
 );
 
-CREATE INDEX IF NOT EXISTS idx_people_counts_zone ON people_counts(zone_code);
-CREATE INDEX IF NOT EXISTS idx_people_counts_recorded ON people_counts(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_people_counts_date 
+ON people_counts(DATE(recorded_at));
 
--- Daily Reports (สรุปข้อมูลรายวัน)
+CREATE INDEX IF NOT EXISTS idx_people_counts_hour 
+ON people_counts(strftime('%Y-%m-%d %H', recorded_at));
+
+-- Daily Reports (สรุปข้อมูลรายวัน + สภาพอากาศ + PM2.5)
 CREATE TABLE IF NOT EXISTS daily_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_date TEXT NOT NULL UNIQUE,           -- YYYY-MM-DD
-  zone_a_total INTEGER DEFAULT 0,             -- รวมคน Zone A ทั้งวัน
-  zone_a_peak INTEGER DEFAULT 0,              -- สูงสุด Zone A
-  zone_b_total INTEGER DEFAULT 0,             -- รวมคน Zone B ทั้งวัน
-  zone_b_peak INTEGER DEFAULT 0,              -- สูงสุด Zone B
-  zone_c_total INTEGER DEFAULT 0,             -- รวมคน Zone C ทั้งวัน
-  zone_c_peak INTEGER DEFAULT 0,              -- สูงสุด Zone C
-  weather_summary TEXT,                       -- สรุปสภาพอากาศ
-  temperature_avg REAL,                       -- อุณหภูมิเฉลี่ย
-  pm25_avg REAL,                              -- PM2.5 เฉลี่ย
-  pm25_max REAL,                              -- PM2.5 สูงสุด
-  pm25_level TEXT,                            -- ระดับคุณภาพอากาศ
-  is_sent_line INTEGER DEFAULT 0,             -- ส่ง LINE แล้วหรือยัง
-  sent_line_at TEXT,                          -- เวลาที่ส่ง LINE
+  report_date TEXT UNIQUE NOT NULL,
+  -- ข้อมูลจำนวนคน (รวมทุกกล้อง)
+  max_people INTEGER DEFAULT 0,
+  avg_people REAL DEFAULT 0,
+  min_people INTEGER DEFAULT 0,
+  total_samples INTEGER DEFAULT 0,
+  -- ข้อมูลสภาพอากาศ
+  weather_summary TEXT,
+  temperature_avg REAL,
+  humidity_avg REAL,
+  -- ข้อมูล PM2.5
+  pm25_avg REAL,
+  pm25_max REAL,
+  pm25_status TEXT,  -- ดี / ปานกลาง / เสี่ยง
+  -- สถานะการส่ง LINE
+  is_sent_line INTEGER DEFAULT 0,
+  sent_line_at TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -59,24 +40,28 @@ CREATE INDEX IF NOT EXISTS idx_daily_reports_date ON daily_reports(report_date);
 -- LINE Broadcast Logs (บันทึกการส่ง LINE)
 CREATE TABLE IF NOT EXISTS line_broadcast_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_date TEXT NOT NULL,
+  report_date TEXT,
+  message_type TEXT DEFAULT 'daily_report',  -- daily_report / early_warning
   message_content TEXT,
-  status TEXT DEFAULT 'pending',              -- pending, sent, failed
+  status TEXT DEFAULT 'pending',  -- pending / sent / failed
   error_message TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE INDEX IF NOT EXISTS idx_line_logs_date ON line_broadcast_logs(report_date);
+CREATE INDEX IF NOT EXISTS idx_line_logs_type ON line_broadcast_logs(message_type);
+
 -- System Settings
 CREATE TABLE IF NOT EXISTS system_settings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  setting_key VARCHAR(100) UNIQUE NOT NULL,
+  setting_key TEXT PRIMARY KEY,
   setting_value TEXT,
-  description TEXT,
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
 -- Insert default settings
-INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) VALUES
-  ('daily_report_time', '18:00', 'เวลาสรุปข้อมูลและส่ง LINE ประจำวัน'),
-  ('polling_interval', '60', 'ความถี่ในการดึงข้อมูล (วินาที)'),
-  ('mock_mode', 'true', 'โหมด Mock Data สำหรับ Demo');
+INSERT OR IGNORE INTO system_settings (setting_key, setting_value) VALUES 
+    ('polling_interval', '300000'),
+    ('ai_service_url', 'http://localhost:8000'),
+    ('line_enabled', 'true'),
+    ('early_warning_time', '14:00'),
+    ('daily_report_time', '23:00');
