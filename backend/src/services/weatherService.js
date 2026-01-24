@@ -1,24 +1,267 @@
 // filepath: /Users/floridae/Desktop/FORLP/backend/src/services/weatherService.js
 /**
- * OpenWeatherMap API Service
- * เชื่อมต่อกับ OpenWeatherMap สำหรับ:
- * - Weather (สภาพอากาศ ฝน/อุณหภูมิ)
- * - Air Quality (PM2.5, AQI)
+ * Weather API Service
+ * เชื่อมต่อกับ:
+ * - OpenWeatherMap: สภาพอากาศปัจจุบัน, Air Quality (PM2.5, AQI)
+ * - Open-Meteo: พยากรณ์อากาศล่วงหน้า (ฟรี ไม่ต้องใช้ API Key)
  */
 
 import { config } from '../config/index.js';
 
 // =====================================================
 // Kad Kong Ta Smart Insight - Weather Service
-// เชื่อมต่อ OpenWeatherMap API จริง
 // =====================================================
 
 const OPENWEATHER_BASE_URL = 'https://api.openweathermap.org/data/2.5';
+const OPENMETEO_BASE_URL = 'https://api.open-meteo.com/v1';
 const API_KEY = process.env.OPENWEATHER_API_KEY || '2e840e910703cfed79919cef0a09f771';
 
 // Default location: กาดก้องตา ลำปาง
 const DEFAULT_LAT = parseFloat(process.env.DEFAULT_LAT) || 18.2816;
 const DEFAULT_LON = parseFloat(process.env.DEFAULT_LON) || 99.5082;
+
+// =====================================================
+// Open-Meteo API (พยากรณ์อากาศล่วงหน้า - ฟรี)
+// =====================================================
+
+/**
+ * ดึงพยากรณ์อากาศล่วงหน้าจาก Open-Meteo (ฟรี ไม่ต้องใช้ API Key)
+ * เหมาะสำหรับ Early Warning System
+ * @param {number} lat - Latitude
+ * @param {number} lon - Longitude
+ * @returns {Object} ข้อมูลพยากรณ์อากาศ
+ */
+export async function getOpenMeteoForecast(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
+    try {
+        // ดึงข้อมูลพยากรณ์รายชั่วโมง รวมถึง precipitation probability และ weather code
+        const url = `${OPENMETEO_BASE_URL}/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relativehumidity_2m,precipitation_probability,precipitation,weathercode,windspeed_10m&daily=weathercode,precipitation_sum,precipitation_probability_max,temperature_2m_max,temperature_2m_min&timezone=Asia%2FBangkok&forecast_days=2`;
+        
+        console.log('[Weather] Fetching Open-Meteo forecast...');
+        
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Open-Meteo API Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        return {
+            success: true,
+            data: normalizeOpenMeteoData(data),
+            source: 'open-meteo',
+            fetchedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('[Weather] Failed to fetch Open-Meteo forecast:', error.message);
+        return {
+            success: false,
+            error: error.message,
+            data: null,
+            source: 'open-meteo'
+        };
+    }
+}
+
+/**
+ * Normalize Open-Meteo data
+ */
+function normalizeOpenMeteoData(data) {
+    if (!data) return null;
+
+    const current = data.current_weather || {};
+    const hourly = data.hourly || {};
+    const daily = data.daily || {};
+    
+    // แปลง Weather Code เป็นคำอธิบาย
+    const weatherDescription = getWeatherCodeDescription(current.weathercode);
+    
+    // หาช่วงเวลาตลาด (14:00 - 22:00 วันนี้)
+    const todayMarketHours = extractMarketHoursForecast(hourly);
+    
+    return {
+        current: {
+            temperature: current.temperature,
+            windspeed: current.windspeed,
+            winddirection: current.winddirection,
+            weathercode: current.weathercode,
+            weatherDescription: weatherDescription,
+            isRaining: isRainyWeatherCode(current.weathercode),
+            time: current.time
+        },
+        // พยากรณ์วันนี้
+        today: {
+            date: daily.time?.[0],
+            weathercode: daily.weathercode?.[0],
+            weatherDescription: getWeatherCodeDescription(daily.weathercode?.[0]),
+            isRainy: isRainyWeatherCode(daily.weathercode?.[0]),
+            precipitation_sum: daily.precipitation_sum?.[0], // mm
+            precipitation_probability_max: daily.precipitation_probability_max?.[0], // %
+            temperature_max: daily.temperature_2m_max?.[0],
+            temperature_min: daily.temperature_2m_min?.[0]
+        },
+        // พยากรณ์พรุ่งนี้
+        tomorrow: {
+            date: daily.time?.[1],
+            weathercode: daily.weathercode?.[1],
+            weatherDescription: getWeatherCodeDescription(daily.weathercode?.[1]),
+            isRainy: isRainyWeatherCode(daily.weathercode?.[1]),
+            precipitation_sum: daily.precipitation_sum?.[1],
+            precipitation_probability_max: daily.precipitation_probability_max?.[1],
+            temperature_max: daily.temperature_2m_max?.[1],
+            temperature_min: daily.temperature_2m_min?.[1]
+        },
+        // พยากรณ์ช่วงเวลาตลาด (14:00 - 22:00)
+        marketHours: todayMarketHours,
+        // ข้อมูลดิบรายชั่วโมง (24 ชั่วโมงแรก)
+        hourlyForecast: extractHourlyForecast(hourly, 24)
+    };
+}
+
+/**
+ * ดึงพยากรณ์ช่วงเวลาตลาด (14:00 - 22:00)
+ */
+function extractMarketHoursForecast(hourly) {
+    if (!hourly?.time) return null;
+    
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    const marketHours = [];
+    let hasRainRisk = false;
+    let maxPrecipitationProb = 0;
+    let totalPrecipitation = 0;
+    
+    for (let i = 0; i < hourly.time.length; i++) {
+        const time = hourly.time[i];
+        const hour = new Date(time).getHours();
+        
+        // เฉพาะวันนี้ ช่วง 14:00 - 22:00
+        if (time.startsWith(todayStr) && hour >= 14 && hour <= 22) {
+            const precipProb = hourly.precipitation_probability?.[i] || 0;
+            const precip = hourly.precipitation?.[i] || 0;
+            const weathercode = hourly.weathercode?.[i];
+            
+            marketHours.push({
+                time: time,
+                hour: hour,
+                temperature: hourly.temperature_2m?.[i],
+                humidity: hourly.relativehumidity_2m?.[i],
+                precipitation_probability: precipProb,
+                precipitation: precip,
+                weathercode: weathercode,
+                weatherDescription: getWeatherCodeDescription(weathercode),
+                isRainy: isRainyWeatherCode(weathercode)
+            });
+            
+            if (precipProb > maxPrecipitationProb) {
+                maxPrecipitationProb = precipProb;
+            }
+            totalPrecipitation += precip;
+            
+            if (isRainyWeatherCode(weathercode) || precipProb >= 50) {
+                hasRainRisk = true;
+            }
+        }
+    }
+    
+    return {
+        hours: marketHours,
+        summary: {
+            hasRainRisk,
+            maxPrecipitationProbability: maxPrecipitationProb,
+            totalPrecipitation: Math.round(totalPrecipitation * 10) / 10,
+            hoursWithRainRisk: marketHours.filter(h => h.isRainy || h.precipitation_probability >= 50).length
+        }
+    };
+}
+
+/**
+ * ดึงพยากรณ์รายชั่วโมง
+ */
+function extractHourlyForecast(hourly, hours = 24) {
+    if (!hourly?.time) return [];
+    
+    const forecast = [];
+    const limit = Math.min(hours, hourly.time.length);
+    
+    for (let i = 0; i < limit; i++) {
+        forecast.push({
+            time: hourly.time[i],
+            temperature: hourly.temperature_2m?.[i],
+            humidity: hourly.relativehumidity_2m?.[i],
+            precipitation_probability: hourly.precipitation_probability?.[i],
+            precipitation: hourly.precipitation?.[i],
+            weathercode: hourly.weathercode?.[i],
+            weatherDescription: getWeatherCodeDescription(hourly.weathercode?.[i]),
+            windspeed: hourly.windspeed_10m?.[i]
+        });
+    }
+    
+    return forecast;
+}
+
+/**
+ * แปลง WMO Weather Code เป็นคำอธิบายภาษาไทย
+ * https://open-meteo.com/en/docs#weathervariables
+ */
+function getWeatherCodeDescription(code) {
+    const weatherCodes = {
+        0: 'ท้องฟ้าแจ่มใส',
+        1: 'ท้องฟ้าโปร่ง',
+        2: 'มีเมฆบางส่วน',
+        3: 'มีเมฆมาก',
+        45: 'หมอก',
+        48: 'หมอกแข็ง',
+        51: 'ฝนละอองเบา',
+        53: 'ฝนละอองปานกลาง',
+        55: 'ฝนละอองหนัก',
+        56: 'ฝนละอองเยือกแข็งเบา',
+        57: 'ฝนละอองเยือกแข็งหนัก',
+        61: 'ฝนเบา',
+        63: 'ฝนปานกลาง',
+        65: 'ฝนหนัก',
+        66: 'ฝนเยือกแข็งเบา',
+        67: 'ฝนเยือกแข็งหนัก',
+        71: 'หิมะเบา',
+        73: 'หิมะปานกลาง',
+        75: 'หิมะหนัก',
+        77: 'เม็ดหิมะ',
+        80: 'ฝนตกปรอยๆ',
+        81: 'ฝนตกปานกลาง',
+        82: 'ฝนตกหนัก',
+        85: 'หิมะตกเบา',
+        86: 'หิมะตกหนัก',
+        95: 'พายุฝนฟ้าคะนอง',
+        96: 'พายุฝนฟ้าคะนองกับลูกเห็บเบา',
+        99: 'พายุฝนฟ้าคะนองกับลูกเห็บหนัก'
+    };
+    
+    return weatherCodes[code] || 'ไม่ทราบ';
+}
+
+/**
+ * ตรวจสอบว่า Weather Code เป็นสภาพอากาศที่มีฝนหรือไม่
+ */
+function isRainyWeatherCode(code) {
+    // Weather codes ที่เกี่ยวกับฝน/พายุ
+    const rainyCodes = [
+        51, 53, 55,     // Drizzle
+        56, 57,         // Freezing Drizzle
+        61, 63, 65,     // Rain
+        66, 67,         // Freezing Rain
+        80, 81, 82,     // Rain showers
+        95, 96, 99      // Thunderstorm
+    ];
+    
+    return rainyCodes.includes(code);
+}
+
+// =====================================================
+// OpenWeatherMap API (สภาพอากาศปัจจุบัน + PM2.5)
+// =====================================================
 
 /**
  * ดึงข้อมูลสภาพอากาศปัจจุบัน
@@ -91,7 +334,7 @@ export async function getAirQuality(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
 }
 
 /**
- * ดึงพยากรณ์อากาศ 5 วัน
+ * ดึงพยากรณ์อากาศ 5 วัน (OpenWeatherMap)
  * GET https://api.openweathermap.org/data/2.5/forecast
  */
 export async function getWeatherForecast(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
@@ -126,13 +369,14 @@ export async function getWeatherForecast(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
 }
 
 /**
- * ดึงข้อมูลรวม Weather + Air Quality
+ * ดึงข้อมูลรวม Weather + Air Quality + Open-Meteo Forecast
  */
 export async function getFullWeatherData(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
-    const [weather, airQuality, forecast] = await Promise.all([
+    const [weather, airQuality, forecast, openMeteoForecast] = await Promise.all([
         getCurrentWeather(lat, lon),
         getAirQuality(lat, lon),
-        getWeatherForecast(lat, lon)
+        getWeatherForecast(lat, lon),
+        getOpenMeteoForecast(lat, lon)
     ]);
 
     return {
@@ -141,9 +385,10 @@ export async function getFullWeatherData(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
             current: weather.data,
             airQuality: airQuality.data,
             forecast: forecast.data,
+            openMeteoForecast: openMeteoForecast.data,
             alerts: generateWeatherAlerts(weather.data, airQuality.data)
         },
-        source: 'openweathermap',
+        source: 'combined',
         fetchedAt: new Date().toISOString()
     };
 }
@@ -151,7 +396,7 @@ export async function getFullWeatherData(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
 // ==================== Normalizers ====================
 
 /**
- * Normalize weather data
+ * Normalize weather data (OpenWeatherMap)
  */
 function normalizeWeatherData(data) {
     if (!data) return null;
@@ -174,14 +419,14 @@ function normalizeWeatherData(data) {
         },
         humidity: data.main?.humidity,
         pressure: data.main?.pressure,
-        visibility: data.visibility ? Math.round(data.visibility / 1000 * 10) / 10 : null, // km
+        visibility: data.visibility ? Math.round(data.visibility / 1000 * 10) / 10 : null,
         wind: {
-            speed: data.wind?.speed, // m/s
-            speed_kmh: data.wind?.speed ? Math.round(data.wind.speed * 3.6 * 10) / 10 : null, // km/h
+            speed: data.wind?.speed,
+            speed_kmh: data.wind?.speed ? Math.round(data.wind.speed * 3.6 * 10) / 10 : null,
             deg: data.wind?.deg,
             direction: getWindDirection(data.wind?.deg)
         },
-        clouds: data.clouds?.all, // %
+        clouds: data.clouds?.all,
         rain: data.rain ? {
             '1h': data.rain['1h'],
             '3h': data.rain['3h']
@@ -211,7 +456,6 @@ function normalizeAirQualityData(data) {
     const airData = data.list[0];
     const components = airData.components || {};
     
-    // AQI levels: 1=Good, 2=Fair, 3=Moderate, 4=Poor, 5=Very Poor
     const aqiLabels = {
         1: { label: 'ดี', color: '#00e400', emoji: '😊' },
         2: { label: 'พอใช้', color: '#ffff00', emoji: '🙂' },
@@ -223,7 +467,6 @@ function normalizeAirQualityData(data) {
     const aqiLevel = airData.main?.aqi || 1;
     const aqiInfo = aqiLabels[aqiLevel] || aqiLabels[1];
     
-    // PM2.5 levels (Thailand standards)
     const pm25 = components.pm2_5;
     const pm25Level = getPM25Level(pm25);
     
@@ -262,7 +505,7 @@ function normalizeAirQualityData(data) {
 }
 
 /**
- * Normalize forecast data
+ * Normalize forecast data (OpenWeatherMap)
  */
 function normalizeForecastData(data) {
     if (!data || !data.list) return null;
@@ -447,6 +690,7 @@ export const weatherService = {
     getCurrentWeather,
     getAirQuality,
     getWeatherForecast,
+    getOpenMeteoForecast,
     getFullWeatherData
 };
 

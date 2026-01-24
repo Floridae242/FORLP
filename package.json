@@ -10,7 +10,8 @@
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "start": "cd backend && npm start",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "build:frontend": "cd frontend && npm run build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

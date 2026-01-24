@@ -8,10 +8,11 @@ import express from 'express';
 import cors from 'cors';
 import { config, validateConfig } from './config/index.js';
 import { initDatabase } from './db/index.js';
-import { startPolling, getPollingStatus, forcePoll, forceDailyReport } from './services/pollingService.js';
+import { startPolling, getPollingStatus, forcePoll, forceDailyReport, forceEarlyWarning } from './services/pollingService.js';
 import { peopleCountService } from './services/peopleCountService.js';
 import { weatherService } from './services/weatherService.js';
 import { dailyReportService } from './services/dailyReportService.js';
+import { earlyWarningService } from './services/earlyWarningService.js';
 
 const app = express();
 
@@ -53,7 +54,8 @@ app.get('/', (req, res) => {
             dashboard: '/api/dashboard',
             zones: '/api/zones',
             weather: '/api/weather',
-            reports: '/api/reports'
+            reports: '/api/reports',
+            earlyWarning: '/api/early-warning'
         }
     });
 });
@@ -295,6 +297,60 @@ app.post('/api/reports/generate', async (req, res) => {
     }
 });
 
+// ==================== Early Warning API ====================
+// GET /api/early-warning/status - สถานะระบบแจ้งเตือน
+app.get('/api/early-warning/status', (req, res) => {
+    try {
+        const status = earlyWarningService.getEarlyWarningStatus();
+        const pollingStatus = getPollingStatus();
+        
+        res.json({
+            success: true,
+            data: {
+                ...status,
+                nextAlertTime: pollingStatus.earlyWarningTime,
+                nextAlertDate: pollingStatus.nextEarlyWarningDate,
+                scheduled: pollingStatus.earlyWarningScheduled
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/early-warning/assess - ประเมินความเสี่ยงปัจจุบัน (ไม่ส่งแจ้งเตือน)
+app.get('/api/early-warning/assess', async (req, res) => {
+    try {
+        const assessment = await earlyWarningService.assessAllRisks();
+        const message = earlyWarningService.generateWarningMessage(assessment);
+        
+        res.json({
+            success: true,
+            data: {
+                assessment,
+                previewMessage: message,
+                wouldSendAlert: assessment.hasAnyRisk
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/early-warning/trigger - บังคับส่งแจ้งเตือนทันที (manual trigger)
+app.post('/api/early-warning/trigger', async (req, res) => {
+    try {
+        const result = await forceEarlyWarning();
+        
+        res.json({
+            success: result.success,
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ==================== System API ====================
 // GET /api/system/status - สถานะระบบ
 app.get('/api/system/status', (req, res) => {
@@ -346,6 +402,11 @@ app.get('/api', (req, res) => {
                 'GET /api/reports/daily?date=YYYY-MM-DD': 'รายงานประจำวันตามวันที่',
                 'GET /api/reports/history': 'รายงานย้อนหลัง 7 วัน',
                 'POST /api/reports/generate': 'สร้างรายงานใหม่ (manual)'
+            },
+            earlyWarning: {
+                'GET /api/early-warning/status': 'สถานะระบบแจ้งเตือนความเสี่ยง',
+                'GET /api/early-warning/assess': 'ประเมินความเสี่ยงปัจจุบัน (preview)',
+                'POST /api/early-warning/trigger': 'บังคับส่งแจ้งเตือนทันที (manual)'
             },
             system: {
                 'GET /api/system/status': 'สถานะระบบ',
@@ -413,6 +474,7 @@ async function start() {
             console.log('   ✓ People Count (Zone A, B, C)');
             console.log('   ✓ Weather & PM2.5');
             console.log('   ✓ Daily Report to LINE OA');
+            console.log('   ✓ Early Warning Alert (Sat-Sun 14:00)');
             console.log('');
         });
     } catch (error) {
