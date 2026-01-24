@@ -277,6 +277,9 @@ body {
 }
 
 .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--space-md);
 }
 
@@ -286,6 +289,15 @@ body {
     color: var(--text-on-light-subtle);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.section-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    background: var(--color-soft);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
 }
 
 /* ==================== Zone List ==================== */
@@ -639,6 +651,123 @@ body {
     margin-top: var(--space-sm);
 }
 
+/* ==================== Report Tabs ==================== */
+.report-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--color-soft);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    margin-bottom: var(--space-xl);
+}
+
+.report-tab {
+    flex: 1;
+    font-family: var(--font-main);
+    font-size: 0.9375rem;
+    font-weight: 400;
+    color: var(--text-on-light-muted);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.report-tab:hover {
+    color: var(--text-on-light);
+}
+
+.report-tab-active {
+    background: white;
+    color: var(--color-primary);
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ==================== Report Stats Grid ==================== */
+.report-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+}
+
+.report-stat-box {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    background: var(--color-soft-muted);
+    border-radius: var(--radius-sm);
+    padding: var(--space-lg);
+}
+
+.report-stat-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.report-stat-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.report-stat-box .report-stat-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1.1;
+}
+
+.report-stat-box .report-stat-unit {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--text-on-light-subtle);
+    margin-left: 4px;
+}
+
+.report-stat-box .report-stat-label {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-subtle);
+    margin-top: 4px;
+}
+
+/* ==================== History Zones ==================== */
+.history-zones {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-xs);
+}
+
+.history-zone {
+    font-size: 0.75rem;
+    color: var(--text-on-light-faint);
+    background: var(--color-soft-muted);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+/* ==================== Report Note ==================== */
+.report-note {
+    background: var(--status-normal-bg);
+    border: 1px solid rgba(74, 124, 155, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+}
+
+.report-note-title {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.report-note-text {
+    font-size: 0.875rem;
+    color: var(--text-on-light-muted);
+    line-height: 1.7;
+}
+
 /* ==================== Report Actions ==================== */
 .report-actions {
     display: flex;
@@ -758,6 +887,31 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--space-xs);
+    }
+    
+    .report-tabs {
+        flex-direction: row;
+    }
+    
+    .report-tab {
+        padding: 8px 12px;
+        font-size: 0.875rem;
+    }
+    
+    .report-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .report-stat-box {
+        padding: var(--space-md);
+    }
+    
+    .report-stat-box .report-stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .history-zones {
+        flex-wrap: wrap;
     }
 }
 

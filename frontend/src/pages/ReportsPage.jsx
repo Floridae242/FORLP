@@ -1,6 +1,6 @@
 // =====================================================
 // กาดกองต้า - หน้ารายงาน
-// แสดงรายงานประจำวันและรายงานย้อนหลัง
+// แสดงสรุปข้อมูลประจำสัปดาห์และประจำเดือน
 // =====================================================
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,18 +18,6 @@ function formatDate(dateStr) {
     });
 }
 
-function formatDateTime(dateStr) {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleString('th-TH', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
 function formatShortDate(dateStr) {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
@@ -39,31 +27,84 @@ function formatShortDate(dateStr) {
     });
 }
 
+// แปลงชื่อเดือนเป็นภาษาไทย
+function getThaiMonth(month, year) {
+    const months = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    return `${months[month]} ${year + 543}`;
+}
+
+// คำนวณสัปดาห์ของปี
+function getWeekNumber(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
+}
+
+// คำนวณสรุปข้อมูลจาก history
+function calculateSummary(reports) {
+    if (!reports || reports.length === 0) {
+        return { totalPeople: 0, avgPeople: 0, peakPeople: 0, totalDays: 0 };
+    }
+
+    const totalDays = reports.length;
+    const totalPeople = reports.reduce((sum, r) => sum + (r.zone_a_peak || 0) + (r.zone_b_peak || 0) + (r.zone_c_peak || 0), 0);
+    const peakPeople = Math.max(...reports.map(r => (r.zone_a_peak || 0) + (r.zone_b_peak || 0) + (r.zone_c_peak || 0)));
+    const avgPeople = Math.round(totalPeople / totalDays);
+
+    return { totalPeople, avgPeople, peakPeople, totalDays };
+}
+
+// แยกข้อมูลสัปดาห์นี้และเดือนนี้
+function separateReports(reports) {
+    const now = new Date();
+    const currentWeek = getWeekNumber(now);
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const weekReports = [];
+    const monthReports = [];
+
+    reports.forEach(report => {
+        const reportDate = new Date(report.report_date);
+        const reportWeek = getWeekNumber(reportDate);
+        const reportMonth = reportDate.getMonth();
+        const reportYear = reportDate.getFullYear();
+
+        // สัปดาห์นี้
+        if (reportWeek === currentWeek && reportYear === currentYear) {
+            weekReports.push(report);
+        }
+
+        // เดือนนี้
+        if (reportMonth === currentMonth && reportYear === currentYear) {
+            monthReports.push(report);
+        }
+    });
+
+    return { weekReports, monthReports };
+}
+
 export default function ReportsPage() {
-    const [latestReport, setLatestReport] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [generating, setGenerating] = useState(false);
+    const [activeTab, setActiveTab] = useState('week'); // 'week' | 'month'
 
     const loadData = useCallback(async () => {
         try {
             setError(null);
             
-            // โหลดรายงานล่าสุดและประวัติพร้อมกัน
-            const [dailyRes, historyRes] = await Promise.allSettled([
-                api.getDailyReport(),
-                api.getReportHistory(7)
-            ]);
+            // โหลดรายงานย้อนหลัง 30 วัน
+            const historyRes = await api.getReportHistory(30);
 
-            if (dailyRes.status === 'fulfilled' && dailyRes.value.success) {
-                setLatestReport(dailyRes.value.data);
-            } else {
-                setLatestReport(null);
-            }
-
-            if (historyRes.status === 'fulfilled' && historyRes.value.success) {
-                setHistory(historyRes.value.data || []);
+            if (historyRes.success) {
+                setHistory(historyRes.data || []);
             }
         } catch (err) {
             setError(showError(err));
@@ -76,28 +117,6 @@ export default function ReportsPage() {
         loadData();
     }, [loadData]);
 
-    // สร้างรายงานใหม่
-    const handleGenerate = async (sendLine = false) => {
-        if (generating) return;
-        
-        const confirmMsg = sendLine 
-            ? 'ต้องการสร้างรายงานและส่งไปยัง LINE OA หรือไม่?' 
-            : 'ต้องการสร้างรายงานใหม่หรือไม่?';
-        
-        if (!window.confirm(confirmMsg)) return;
-
-        setGenerating(true);
-        try {
-            await api.generateReport(null, sendLine);
-            await loadData(); // โหลดข้อมูลใหม่
-            alert(sendLine ? 'สร้างรายงานและส่ง LINE เรียบร้อยแล้ว' : 'สร้างรายงานเรียบร้อยแล้ว');
-        } catch (err) {
-            alert('ไม่สามารถสร้างรายงานได้: ' + showError(err));
-        } finally {
-            setGenerating(false);
-        }
-    };
-
     if (loading) {
         return (
             <div className="loading-container">
@@ -107,12 +126,21 @@ export default function ReportsPage() {
         );
     }
 
+    const now = new Date();
+    const { weekReports, monthReports } = separateReports(history);
+    const weekSummary = calculateSummary(weekReports);
+    const monthSummary = calculateSummary(monthReports);
+
+    const currentData = activeTab === 'week' 
+        ? { reports: weekReports, summary: weekSummary, label: `สัปดาห์ที่ ${getWeekNumber(now)}` }
+        : { reports: monthReports, summary: monthSummary, label: getThaiMonth(now.getMonth(), now.getFullYear()) };
+
     return (
         <div className="page-container">
             {/* Header */}
             <header className="page-header">
-                <h1 className="page-title">รายงานประจำวัน</h1>
-                <p className="page-subtitle">สรุปข้อมูลถนนคนเดินกาดกองต้า</p>
+                <h1 className="page-title">สรุปรายงาน</h1>
+                <p className="page-subtitle">ข้อมูลสถิติถนนคนเดินกาดกองต้า</p>
             </header>
 
             {/* Error */}
@@ -124,105 +152,131 @@ export default function ReportsPage() {
                 </div>
             )}
 
-            {/* Latest Report */}
+            {/* Tab Selector */}
+            <div className="report-tabs">
+                <button 
+                    className={`report-tab ${activeTab === 'week' ? 'report-tab-active' : ''}`}
+                    onClick={() => setActiveTab('week')}
+                >
+                    ประจำสัปดาห์
+                </button>
+                <button 
+                    className={`report-tab ${activeTab === 'month' ? 'report-tab-active' : ''}`}
+                    onClick={() => setActiveTab('month')}
+                >
+                    ประจำเดือน
+                </button>
+            </div>
+
+            {/* Summary Card */}
             <section className="section">
                 <div className="section-header">
-                    <h2 className="section-title">รายงานล่าสุด</h2>
+                    <h2 className="section-title">
+                        {activeTab === 'week' ? 'สรุปประจำสัปดาห์' : 'สรุปประจำเดือน'}
+                    </h2>
+                    <span className="section-badge">{currentData.label}</span>
                 </div>
 
-                {latestReport ? (
+                {currentData.summary.totalDays > 0 ? (
                     <div className="report-card">
-                        <div className="report-header">
-                            <div>
-                                <p className="report-date">{formatDate(latestReport.report_date)}</p>
-                                <p className="report-meta">สร้างเมื่อ {formatDateTime(latestReport.created_at)}</p>
+                        <div className="report-stats-grid">
+                            <div className="report-stat-box">
+                                <div className="report-stat-content">
+                                    <span className="report-stat-value">
+                                        {currentData.summary.totalDays}
+                                        <span className="report-stat-unit">วัน</span>
+                                    </span>
+                                    <span className="report-stat-label">จำนวนวันที่เปิดตลาด</span>
+                                </div>
                             </div>
-                            {latestReport.sent_to_line && (
-                                <span className="report-badge report-badge-sent">ส่ง LINE แล้ว</span>
-                            )}
+                            
+                            <div className="report-stat-box">
+                                <div className="report-stat-content">
+                                    <span className="report-stat-value">
+                                        {currentData.summary.totalPeople.toLocaleString()}
+                                        <span className="report-stat-unit">คน</span>
+                                    </span>
+                                    <span className="report-stat-label">ผู้ใช้งานพื้นที่รวม</span>
+                                </div>
+                            </div>
+
+                            <div className="report-stat-box">
+                                <div className="report-stat-content">
+                                    <span className="report-stat-value">
+                                        {currentData.summary.peakPeople.toLocaleString()}
+                                        <span className="report-stat-unit">คน</span>
+                                    </span>
+                                    <span className="report-stat-label">จำนวนสูงสุดต่อวัน</span>
+                                </div>
+                            </div>
+
+                            <div className="report-stat-box">
+                                <div className="report-stat-content">
+                                    <span className="report-stat-value">
+                                        {currentData.summary.avgPeople.toLocaleString()}
+                                        <span className="report-stat-unit">คน</span>
+                                    </span>
+                                    <span className="report-stat-label">เฉลี่ยต่อวัน</span>
+                                </div>
+                            </div>
                         </div>
-
-                        <div className="report-stats">
-                            <div className="report-stat">
-                                <span className="report-stat-label">จำนวนผู้ใช้งานสูงสุด</span>
-                                <span className="report-stat-value">
-                                    {latestReport.peak_people?.toLocaleString() || '-'}
-                                    <span className="report-stat-unit">คน</span>
-                                </span>
-                            </div>
-                            <div className="report-stat">
-                                <span className="report-stat-label">จำนวนผู้ใช้งานเฉลี่ย</span>
-                                <span className="report-stat-value">
-                                    {latestReport.avg_people?.toLocaleString() || '-'}
-                                    <span className="report-stat-unit">คน</span>
-                                </span>
-                            </div>
-                        </div>
-
-                        {latestReport.weather_summary && (
-                            <div className="report-weather">
-                                <span className="report-weather-label">สภาพอากาศ:</span>
-                                <span className="report-weather-text">{latestReport.weather_summary}</span>
-                            </div>
-                        )}
-
-                        {latestReport.summary && (
-                            <p className="report-summary">{latestReport.summary}</p>
-                        )}
                     </div>
                 ) : (
                     <div className="report-empty">
-                        <p>ยังไม่มีรายงาน</p>
-                        <p className="report-empty-hint">รายงานจะถูกสร้างอัตโนมัติทุกวันเสาร์-อาทิตย์ เวลา 23.00 น.</p>
+                        <p>ยังไม่มีข้อมูล{activeTab === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้'}</p>
+                        <p className="report-empty-hint">ข้อมูลจะถูกบันทึกอัตโนมัติทุกวันเสาร์-อาทิตย์</p>
                     </div>
                 )}
             </section>
 
-            {/* Actions */}
-            <section className="section" style={{ marginTop: '2rem' }}>
-                <div className="report-actions">
-                    <button 
-                        onClick={() => handleGenerate(false)} 
-                        disabled={generating}
-                        className="action-button action-button-secondary"
-                    >
-                        {generating ? 'กำลังสร้าง...' : 'สร้างรายงานใหม่'}
-                    </button>
-                    <button 
-                        onClick={() => handleGenerate(true)} 
-                        disabled={generating}
-                        className="action-button action-button-primary"
-                    >
-                        {generating ? 'กำลังส่ง...' : 'สร้างและส่ง LINE'}
-                    </button>
-                </div>
-            </section>
-
-            {/* History */}
-            {history.length > 0 && (
-                <section className="section" style={{ marginTop: '3rem' }}>
+            {/* Report List */}
+            {currentData.reports.length > 0 && (
+                <section className="section" style={{ marginTop: '2rem' }}>
                     <div className="section-header">
-                        <h2 className="section-title">รายงานย้อนหลัง</h2>
+                        <h2 className="section-title">รายละเอียดแต่ละวัน</h2>
                     </div>
 
                     <div className="history-list">
-                        {history.map((report, index) => (
-                            <div key={report.id || index} className="history-item">
-                                <div className="history-date">
-                                    <span className="history-day">{formatShortDate(report.report_date)}</span>
-                                </div>
-                                <div className="history-content">
-                                    <div className="history-stats">
-                                        <span>สูงสุด <strong>{report.peak_people?.toLocaleString() || '-'}</strong> คน</span>
-                                        <span className="history-divider">•</span>
-                                        <span>เฉลี่ย <strong>{report.avg_people?.toLocaleString() || '-'}</strong> คน</span>
+                        {currentData.reports.map((report, index) => {
+                            const totalPeak = (report.zone_a_peak || 0) + (report.zone_b_peak || 0) + (report.zone_c_peak || 0);
+                            return (
+                                <div key={report.id || index} className="history-item">
+                                    <div className="history-date">
+                                        <span className="history-day">{formatShortDate(report.report_date)}</span>
                                     </div>
-                                    {report.sent_to_line && (
-                                        <span className="history-sent">✓ ส่ง LINE</span>
-                                    )}
+                                    <div className="history-content">
+                                        <div className="history-stats">
+                                            <span>รวม <strong>{totalPeak.toLocaleString()}</strong> คน</span>
+                                            {report.weather_summary && (
+                                                <>
+                                                    <span className="history-divider">•</span>
+                                                    <span>{report.weather_summary}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        <div className="history-zones">
+                                            <span className="history-zone">A: {(report.zone_a_peak || 0).toLocaleString()}</span>
+                                            <span className="history-zone">B: {(report.zone_b_peak || 0).toLocaleString()}</span>
+                                            <span className="history-zone">C: {(report.zone_c_peak || 0).toLocaleString()}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
+            {/* Comparison Note */}
+            {activeTab === 'month' && monthSummary.totalDays > 0 && (
+                <section className="section" style={{ marginTop: '2rem' }}>
+                    <div className="report-note">
+                        <p className="report-note-title">สรุปภาพรวม</p>
+                        <p className="report-note-text">
+                            เดือน{getThaiMonth(now.getMonth(), now.getFullYear())} มีการเปิดตลาดทั้งหมด {monthSummary.totalDays} วัน 
+                            มีผู้ใช้งานพื้นที่รวมทั้งสิ้น {monthSummary.totalPeople.toLocaleString()} คน 
+                            เฉลี่ยวันละ {monthSummary.avgPeople.toLocaleString()} คน
+                        </p>
                     </div>
                 </section>
             )}
@@ -230,7 +284,7 @@ export default function ReportsPage() {
             {/* Disclaimer */}
             <aside className="disclaimer">
                 <p className="disclaimer-text">
-                    รายงานถูกสร้างอัตโนมัติจากข้อมูลระบบ เพื่อประกอบการวิเคราะห์และวางแผนของเจ้าหน้าที่
+                    ข้อมูลสถิติรวบรวมจากระบบอัตโนมัติ เพื่อประกอบการวิเคราะห์และวางแผนของเจ้าหน้าที่
                 </p>
             </aside>
         </div>

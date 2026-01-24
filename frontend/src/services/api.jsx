@@ -81,22 +81,11 @@ export const api = {
     getWeather: () => request(`${API_BASE}/weather`),
 
     // ==================== Reports ====================
-    getDailyReport: (date = null) => 
-        request(`${API_BASE}/reports/daily${date ? `?date=${date}` : ''}`),
-    
-    getReportHistory: (limit = 7) => 
+    getReportHistory: (limit = 30) => 
         request(`${API_BASE}/reports/history?limit=${limit}`),
 
-    generateReport: (date = null, sendLine = false) =>
-        request(`${API_BASE}/reports/generate`, {
-            method: 'POST',
-            body: JSON.stringify({ date, send_line: sendLine })
-        }),
-
     // ==================== System ====================
-    getSystemStatus: () => request(`${API_BASE}/system/status`),
-    
-    refreshData: () => request(`${API_BASE}/system/refresh`, { method: 'POST' })
+    getSystemStatus: () => request(`${API_BASE}/system/status`)
 };
 
 // Zone names ภาษาไทย
@@ -108,12 +97,12 @@ export const ZONE_NAMES = {
 
 // PM2.5 levels
 export const PM25_LEVELS = {
-    good: { label: 'ดีมาก', color: '#00e400', bg: 'bg-green-100', text: 'text-green-700' },
-    moderate: { label: 'ดี', color: '#92d050', bg: 'bg-green-50', text: 'text-green-600' },
-    sensitive: { label: 'ปานกลาง', color: '#ffff00', bg: 'bg-yellow-100', text: 'text-yellow-700' },
-    unhealthy: { label: 'เริ่มมีผลต่อสุขภาพ', color: '#ff7e00', bg: 'bg-orange-100', text: 'text-orange-700' },
-    very_unhealthy: { label: 'มีผลต่อสุขภาพ', color: '#ff0000', bg: 'bg-red-100', text: 'text-red-700' },
-    hazardous: { label: 'อันตราย', color: '#7e0023', bg: 'bg-red-200', text: 'text-red-800' }
+    good: { label: 'ดีมาก', color: '#00e400' },
+    moderate: { label: 'ดี', color: '#92d050' },
+    sensitive: { label: 'ปานกลาง', color: '#ffff00' },
+    unhealthy: { label: 'เริ่มมีผลต่อสุขภาพ', color: '#ff7e00' },
+    very_unhealthy: { label: 'มีผลต่อสุขภาพ', color: '#ff0000' },
+    hazardous: { label: 'อันตราย', color: '#7e0023' }
 };
 
 export function getPM25Level(pm25) {
