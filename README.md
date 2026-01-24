@@ -1,54 +1,36 @@
-##  ระบบนี้ทำอะไร
+# Kad Kong Ta Smart Insight
 
-| สิ่งที่ทำ 
-| แสดงจำนวนคนใน Zone A, B, C 
-| แสดงสภาพอากาศ (อุณหภูมิ, ฝน) 
-| แสดงคุณภาพอากาศ (PM2.5) 
-| สรุปข้อมูลประจำวัน 
-| ส่ง Daily Report ไป LINE OA 
-
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/dashboard` | ข้อมูลรวมสำหรับ Dashboard |
-| GET | `/api/zones` | จำนวนคนทุก Zone |
-| GET | `/api/zones/:code` | จำนวนคน Zone เดียว (A, B, C) |
-| GET | `/api/weather` | สภาพอากาศและ PM2.5 |
-| GET | `/api/reports/daily` | รายงานประจำวันล่าสุด |
-| GET | `/api/reports/history` | รายงานย้อนหลัง 7 วัน |
-| POST | `/api/reports/generate` | สร้างรายงานใหม่ |
-| POST | `/api/system/refresh` | Force refresh ข้อมูล |
+ระบบแสดงข้อมูลถนนคนเดินกาดกองต้า เทศบาลนครลำปาง
 
 ---
 
-##  Database Schema
+## ระบบนี้ทำอะไร
 
-```sql
--- จำนวนคนตาม Zone
-people_counts (id, zone_code, people_count, recorded_at)
-
--- รายงานประจำวัน
-daily_reports (id, report_date, zone_a_total, zone_b_total, zone_c_total, 
-               weather_summary, pm25_avg, pm25_level, is_sent_line)
-```
+| ฟีเจอร์ | รายละเอียด |
+|---------|------------|
+| แสดงจำนวนคน | แสดงจำนวนผู้คนในพื้นที่แบบ Real-time |
+| สภาพอากาศ | อุณหภูมิ, ความชื้น, ความเร็วลม |
+| คุณภาพอากาศ | ค่า PM2.5 พร้อมคำแนะนำ |
+| 📊 รายงานข้อมูล | สรุปรายวัน, รายสัปดาห์, ประวัติย้อนหลัง |
+| 📷 กล้องวงจรปิด | ดูภาพจากกล้อง CCTV |
+| 📨 Daily Report | ส่งรายงานประจำวันไป LINE OA |
+| ⚠️ Early Warning | แจ้งเตือนเมื่อมีความเสี่ยงฝนตก |
 
 ---
 
-##  Daily Report (LINE OA)
+## Daily Report (LINE OA)
 
-ระบบจะส่งรายงานไป LINE Official Account ทุกวันเวลา **18:00 น.**
+ระบบจะส่งรายงานสรุปประจำวันไป LINE Official Account ทุกวันเสาร์-อาทิตย์ เวลา **23:00 น.**
 
-ตัวอย่างข้อความ:
+**ตัวอย่างข้อความ:**
 
 ```
- รายงานกาดก้องตา ประจำวัน
-วันศุกร์ที่ 24 มกราคม 2569
+📊 รายงานกาดกองต้า ประจำวัน
+วันเสาร์ที่ 24 มกราคม 2569
 
 👥 จำนวนผู้ใช้งานพื้นที่ (สูงสุด)
-• Zone A: 350 คน
-• Zone B: 520 คน
-• Zone C: 410 คน
-• รวม: 1,280 คน
+เวลา 19:00
+• 1,280 คน
 
 🌦 สภาพอากาศ: ท้องฟ้าแจ่มใส (28°C)
 
@@ -61,37 +43,135 @@ daily_reports (id, report_date, zone_a_total, zone_b_total, zone_c_total,
 
 ---
 
-## 🔧 Configuration
+## Early Warning System
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MOCK_MODE` | `true` | ใช้ Mock Data สำหรับ Demo |
-| `POLLING_INTERVAL` | `60000` | ความถี่ดึงข้อมูล (ms) |
-| `DAILY_REPORT_HOUR` | `18` | ชั่วโมงส่ง Daily Report |
-| `DAILY_REPORT_MINUTE` | `0` | นาทีส่ง Daily Report |
+ระบบแจ้งเตือนล่วงหน้าทุกวันเสาร์-อาทิตย์ เวลา **14:00 น.** เมื่อตรวจพบความเสี่ยงฝนตกในช่วงเวลาตลาด
+
+### การทำงาน
+
+1. ดึงข้อมูลพยากรณ์อากาศจาก **Open-Meteo API**
+2. วิเคราะห์ช่วงเวลาตลาด (14:00 - 22:00 น.)
+3. ตรวจสอบโอกาสฝนตกในแต่ละชั่วโมง
+4. ถ้าพบโอกาสฝน ≥ 40% → สร้างข้อความแจ้งเตือนพร้อม % โอกาสฝน
+
+### เกณฑ์การแจ้งเตือน
+
+| เงื่อนไข | การแจ้งเตือน |
+|----------|--------------|
+| โอกาสฝน ≥ 40% | แจ้งเตือนผ่าน LINE OA |
+
+**ตัวอย่างข้อความแจ้งเตือน:**
+
+```
+📢 แจ้งเตือนสภาพอากาศ (เบื้องต้น)
+━━━━━━━━━━━━━━━
+
+จากการประเมินข้อมูลพยากรณ์อากาศ
+วันนี้มีความเสี่ยงฝนตกในพื้นที่กาดกองต้า (โอกาส 65%)
+
+🌡 อุณหภูมิเฉลี่ย: 28°C
+🌧 โอกาสฝนเฉลี่ย: 45%
+
+⏰ ช่วงเวลาที่ควรระวัง:
+  • 17.00 น. - โอกาสฝน 55% (ฝนตกเป็นระยะเบา)
+  • 18.00 น. - โอกาสฝน 65% (ฝนปานกลาง)
+  • 19.00 น. - โอกาสฝน 50% (ฝนตกเป็นระยะเบา)
+
+💡 ขอแนะนำให้ผู้ใช้งานพื้นที่
+เตรียมอุปกรณ์กันฝน และใช้ความระมัดระวังในการเดินพื้นที่
+
+━━━━━━━━━━━━━━━
+ข้อมูลนี้เป็นการประเมินจากระบบอัตโนมัติ
+ใช้เพื่อการเตรียมความพร้อมเบื้องต้น
+🐓 Kad Kong Ta Smart Insight
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React, Vite, TailwindCSS |
+| Backend | Node.js, Express |
+| Database | SQLite |
+
+---
+
+## การติดตั้ง
+
+```bash
+# Clone project
+git clone <repository-url>
+cd FORLP
+
+# ติดตั้ง dependencies
+npm install
+
+# รัน Backend
+cd backend
+npm install
+npm run dev
+
+# รัน Frontend (terminal ใหม่)
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
 ## Project Structure
 
 ```
-backend/
-├── src/
-│   ├── index.js              # Main server
-│   ├── config/index.js       # Configuration
-│   ├── db/
-│   │   ├── index.js          # Database queries
-│   │   └── schema.sql        # Database schema
-│   └── services/
-│       ├── peopleCountService.js   # จำนวนคน
-│       ├── weatherService.js       # Weather & PM2.5
-│       ├── dailyReportService.js   # Daily Report
-│       └── pollingService.js       # Scheduler
-
-frontend/
-├── src/
-│   ├── App.jsx               # Main app
-│   ├── pages/Dashboard.jsx   # หน้าหลัก
-│   └── services/api.jsx      # API calls
+FORLP/
+├── backend/
+│   ├── src/
+│   │   ├── index.js              # Main server
+│   │   ├── config/index.js       # Configuration
+│   │   ├── db/
+│   │   │   ├── index.js          # Database queries
+│   │   │   └── schema.sql        # Database schema
+│   │   └── services/
+│   │       ├── peopleCountService.js
+│   │       ├── weatherService.js
+│   │       ├── dailyReportService.js
+│   │       └── pollingService.js
+│   └── data/
+│       └── kadkongta.db          # SQLite database
+│
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx               # Main app + routing
+│   │   ├── index.css             # Global styles
+│   │   └── pages/
+│   │       ├── PeoplePage.jsx    # หน้าจำนวนผู้คน
+│   │       ├── WeatherPage.jsx   # หน้าสภาพอากาศ
+│   │       ├── ReportsPage.jsx   # หน้ารายงาน
+│   │       └── CameraPage.jsx    # หน้ากล้อง CCTV
+│   └── index.html
+│
+├── docs/
+│   ├── architecture.md
+│   └── openapi.yaml
+│
+└── docker-compose.yml
 ```
+
+---
+
+## หน้าจอในระบบ
+
+| หน้า | Path | รายละเอียด |
+|------|------|------------|
+| ภาพรวมพื้นที่ | `/` | แสดงจำนวนผู้คนในพื้นที่ |
+| กล้องวงจรปิด | `/camera` | ดูภาพจากกล้อง CCTV |
+| สภาพอากาศ | `/weather` | อุณหภูมิ, ความชื้น, PM2.5 |
+| รายงานข้อมูล | `/reports` | สรุปข้อมูลรายวัน/รายสัปดาห์ |
+
+---
+
+## พัฒนาโดย
+
+เทศบาลนครลำปาง
 
