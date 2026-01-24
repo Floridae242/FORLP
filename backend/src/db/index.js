@@ -30,14 +30,14 @@ export async function initDatabase() {
         const hasMessageType = tableInfo.some(col => col.name === 'message_type');
         
         if (tableInfo.length > 0 && !hasMessageType) {
-            console.log('🔄 Migrating database schema...');
+            console.log('Migrating database schema...');
             // Add missing column to existing table
             db.exec('ALTER TABLE line_broadcast_logs ADD COLUMN message_type TEXT DEFAULT "daily_report"');
             console.log('✓ Added message_type column');
         }
     } catch (e) {
         // Table doesn't exist yet, will be created by schema
-        console.log('📦 Creating new database...');
+        console.log('Creating new database...');
     }
 
     // Execute schema (CREATE IF NOT EXISTS is safe)
