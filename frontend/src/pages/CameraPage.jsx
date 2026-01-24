@@ -6,14 +6,12 @@ const CAMERA_STREAMS = {
     3: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F501',
 };
 
-// Playback track IDs for each camera
 const CAMERA_TRACKS = {
     1: '301',
     2: '201',
     3: '501',
 };
 
-// Function to generate playback URL
 const generatePlaybackUrl = (cameraId, startTime, endTime) => {
     const trackId = CAMERA_TRACKS[cameraId];
     const formatDateTime = (date) => {
@@ -32,6 +30,134 @@ const generatePlaybackUrl = (cameraId, startTime, endTime) => {
     return `https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2Ftracks%2F${trackId}%3Fstarttime%3D${startStr}%26endtime%3D${endStr}`;
 };
 
+// Styles object for cleaner component
+const styles = {
+    viewModeToggle: {
+        display: 'flex',
+        gap: '4px',
+        marginBottom: '1rem',
+        padding: '4px',
+        background: 'var(--bg-muted)',
+        borderRadius: 'var(--border-radius)',
+        width: 'fit-content',
+    },
+    viewModeBtn: (isActive, mode) => ({
+        padding: '10px 20px',
+        borderRadius: 'var(--border-radius)',
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-main)',
+        fontWeight: '500',
+        fontSize: '0.875rem',
+        transition: 'all 0.15s ease',
+        background: isActive 
+            ? (mode === 'live' ? 'var(--status-safe)' : 'var(--status-info)') 
+            : 'transparent',
+        color: isActive ? 'white' : 'var(--text-muted)',
+    }),
+    playbackPanel: {
+        background: 'var(--bg-card)',
+        borderRadius: 'var(--border-radius-lg)',
+        padding: '1.25rem',
+        marginBottom: '1rem',
+        border: '1px solid var(--border-color)',
+        boxShadow: 'var(--shadow-card)',
+    },
+    playbackTitle: {
+        margin: '0 0 1rem 0',
+        color: 'var(--text-heading)',
+        fontSize: '0.9375rem',
+        fontWeight: '600',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+    },
+    playbackGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: '1rem',
+        alignItems: 'end',
+    },
+    inputLabel: {
+        display: 'block',
+        marginBottom: '6px',
+        color: 'var(--text-muted)',
+        fontSize: '0.8125rem',
+        fontWeight: '500',
+    },
+    dateInput: {
+        width: '100%',
+        padding: '10px 12px',
+        borderRadius: 'var(--border-radius)',
+        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        color: 'var(--text-body)',
+        fontSize: '0.875rem',
+        fontFamily: 'var(--font-main)',
+    },
+    timeSelectGroup: {
+        display: 'flex',
+        gap: '4px',
+    },
+    timeSelect: {
+        flex: 1,
+        padding: '10px 8px',
+        borderRadius: 'var(--border-radius)',
+        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        color: 'var(--text-body)',
+        fontSize: '0.875rem',
+        fontFamily: 'var(--font-main)',
+        cursor: 'pointer',
+    },
+    playButton: {
+        width: '100%',
+        padding: '10px 16px',
+        borderRadius: 'var(--border-radius)',
+        border: 'none',
+        background: 'var(--color-primary)',
+        color: 'white',
+        fontFamily: 'var(--font-main)',
+        fontWeight: '500',
+        cursor: 'pointer',
+        fontSize: '0.875rem',
+        transition: 'background 0.15s ease',
+    },
+    playbackStatus: {
+        marginTop: '0.75rem',
+        padding: '10px 12px',
+        background: 'var(--status-safe-bg)',
+        borderRadius: 'var(--border-radius)',
+        border: '1px solid rgba(47, 133, 90, 0.2)',
+        fontSize: '0.8125rem',
+        color: 'var(--status-safe)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+    },
+    emptyPlayback: {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#2d3748',
+        flexDirection: 'column',
+        gap: '1rem',
+        padding: '2rem',
+        textAlign: 'center',
+    },
+    statusIndicator: (mode) => ({
+        display: 'inline-block',
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        background: mode === 'live' ? 'var(--status-safe)' : 'var(--status-info)',
+        marginRight: '8px',
+        animation: mode === 'live' ? 'pulse-dot 2s ease-in-out infinite' : 'none',
+    }),
+};
+
 export default function CameraPage() {
     const [cameras] = useState([
         { id: 1, name: 'ทางเข้าหลัก', zone: 'โซน A', status: 'online' },
@@ -43,8 +169,7 @@ export default function CameraPage() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const containerRef = useRef(null);
     
-    // Playback states
-    const [viewMode, setViewMode] = useState('live'); // 'live' or 'playback'
+    const [viewMode, setViewMode] = useState('live');
     const [playbackDate, setPlaybackDate] = useState(() => {
         const today = new Date();
         return today.toISOString().split('T')[0];
@@ -57,7 +182,6 @@ export default function CameraPage() {
     const [playbackEndSecond, setPlaybackEndSecond] = useState('00');
     const [playbackUrl, setPlaybackUrl] = useState('');
 
-    // Generate options for select dropdowns
     const hourOptions = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
     const minuteSecondOptions = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
@@ -74,6 +198,15 @@ export default function CameraPage() {
             minute: '2-digit',
             second: '2-digit'
         }) + ' น.';
+    };
+
+    const formatThaiDate = (dateStr) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('th-TH', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
     };
 
     const toggleFullscreen = () => {
@@ -94,7 +227,6 @@ export default function CameraPage() {
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    // Handle playback
     const handlePlayback = () => {
         const startDateTime = new Date(playbackDate);
         startDateTime.setHours(
@@ -110,7 +242,6 @@ export default function CameraPage() {
             parseInt(playbackEndSecond)
         );
         
-        // If end time is before start time, assume it's the next day
         if (endDateTime <= startDateTime) {
             endDateTime.setDate(endDateTime.getDate() + 1);
         }
@@ -125,7 +256,6 @@ export default function CameraPage() {
         setPlaybackUrl('');
     };
 
-    // Format time for display
     const formatPlaybackTime = () => {
         return `${playbackStartHour}:${playbackStartMinute}:${playbackStartSecond} - ${playbackEndHour}:${playbackEndMinute}:${playbackEndSecond}`;
     };
@@ -135,123 +265,56 @@ export default function CameraPage() {
 
     return (
         <div className="page-container">
+            {/* Header */}
             <header className="page-header">
                 <h1 className="page-title">กล้องวงจรปิด</h1>
-                <p className="page-subtitle">ภาพสดจากพื้นที่ถนนคนเดินกาดกองต้า</p>
+                <p className="page-subtitle">ภาพจากพื้นที่ถนนคนเดินกาดกองต้า</p>
             </header>
 
             {/* View Mode Toggle */}
-            <div className="view-mode-toggle" style={{
-                display: 'flex',
-                gap: '8px',
-                marginBottom: '16px',
-                padding: '4px',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '12px',
-                width: 'fit-content'
-            }}>
+            <div style={styles.viewModeToggle}>
                 <button
                     onClick={switchToLive}
-                    style={{
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        transition: 'all 0.2s',
-                        background: viewMode === 'live' ? '#22c55e' : 'transparent',
-                        color: viewMode === 'live' ? 'white' : '#9ca3af'
-                    }}
+                    style={styles.viewModeBtn(viewMode === 'live', 'live')}
                 >
-                    ดูสด (Live)
+                    ● ดูสด
                 </button>
                 <button
                     onClick={() => setViewMode('playback')}
-                    style={{
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        transition: 'all 0.2s',
-                        background: viewMode === 'playback' ? '#3b82f6' : 'transparent',
-                        color: viewMode === 'playback' ? 'white' : '#9ca3af'
-                    }}
+                    style={styles.viewModeBtn(viewMode === 'playback', 'playback')}
                 >
-                    ดูย้อนหลัง (Playback)
+                    ◷ ดูย้อนหลัง
                 </button>
             </div>
 
             {/* Playback Controls */}
             {viewMode === 'playback' && (
-                <div className="playback-controls" style={{
-                    background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
-                    borderRadius: '16px',
-                    padding: '20px',
-                    marginBottom: '16px',
-                    border: '1px solid rgba(59, 130, 246, 0.3)'
-                }}>
-                    <h3 style={{ 
-                        margin: '0 0 16px 0', 
-                        color: '#60a5fa',
-                        fontSize: '16px',
-                        fontWeight: '600'
-                    }}>
-                        ตั้งค่าการดูย้อนหลัง
+                <div style={styles.playbackPanel}>
+                    <h3 style={styles.playbackTitle}>
+                        <span></span> เลือกช่วงเวลาที่ต้องการดู
                     </h3>
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                        gap: '16px',
-                        alignItems: 'end'
-                    }}>
+                    <div style={styles.playbackGrid}>
+                        {/* Date Picker */}
                         <div>
-                            <label style={{ 
-                                display: 'block', 
-                                marginBottom: '6px', 
-                                color: '#94a3b8',
-                                fontSize: '14px'
-                            }}>
-                                วันที่
-                            </label>
+                            <label style={styles.inputLabel}>วันที่</label>
                             <input
                                 type="date"
                                 value={playbackDate}
                                 onChange={(e) => setPlaybackDate(e.target.value)}
                                 max={new Date().toISOString().split('T')[0]}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    color: 'white',
-                                    fontSize: '14px'
-                                }}
+                                style={styles.dateInput}
                             />
                         </div>
+                        
+                        {/* Start Time */}
                         <div>
-                            <label style={{ 
-                                display: 'block', 
-                                marginBottom: '6px', 
-                                color: '#94a3b8',
-                                fontSize: '14px'
-                            }}>
-                                เวลาเริ่มต้น
-                            </label>
-                            <div style={{ display: 'flex', gap: '4px' }}>
+                            <label style={styles.inputLabel}>เวลาเริ่มต้น</label>
+                            <div style={styles.timeSelectGroup}>
                                 <select
                                     value={playbackStartHour}
                                     onChange={(e) => setPlaybackStartHour(e.target.value)}
-                                    style={{
-                                        width: '33%',
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
+                                    style={styles.timeSelect}
+                                    aria-label="ชั่วโมงเริ่มต้น"
                                 >
                                     {hourOptions.map((hour) => (
                                         <option key={hour} value={hour}>{hour}</option>
@@ -260,15 +323,8 @@ export default function CameraPage() {
                                 <select
                                     value={playbackStartMinute}
                                     onChange={(e) => setPlaybackStartMinute(e.target.value)}
-                                    style={{
-                                        width: '33%',
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
+                                    style={styles.timeSelect}
+                                    aria-label="นาทีเริ่มต้น"
                                 >
                                     {minuteSecondOptions.map((minute) => (
                                         <option key={minute} value={minute}>{minute}</option>
@@ -277,15 +333,8 @@ export default function CameraPage() {
                                 <select
                                     value={playbackStartSecond}
                                     onChange={(e) => setPlaybackStartSecond(e.target.value)}
-                                    style={{
-                                        width: '33%',
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
+                                    style={styles.timeSelect}
+                                    aria-label="วินาทีเริ่มต้น"
                                 >
                                     {minuteSecondOptions.map((second) => (
                                         <option key={second} value={second}>{second}</option>
@@ -293,28 +342,16 @@ export default function CameraPage() {
                                 </select>
                             </div>
                         </div>
+                        
+                        {/* End Time */}
                         <div>
-                            <label style={{ 
-                                display: 'block', 
-                                marginBottom: '6px', 
-                                color: '#94a3b8',
-                                fontSize: '14px'
-                            }}>
-                                เวลาสิ้นสุด
-                            </label>
-                            <div style={{ display: 'flex', gap: '4px' }}>
+                            <label style={styles.inputLabel}>เวลาสิ้นสุด</label>
+                            <div style={styles.timeSelectGroup}>
                                 <select
                                     value={playbackEndHour}
                                     onChange={(e) => setPlaybackEndHour(e.target.value)}
-                                    style={{
-                                        width: '33%',
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
+                                    style={styles.timeSelect}
+                                    aria-label="ชั่วโมงสิ้นสุด"
                                 >
                                     {hourOptions.map((hour) => (
                                         <option key={hour} value={hour}>{hour}</option>
@@ -323,15 +360,8 @@ export default function CameraPage() {
                                 <select
                                     value={playbackEndMinute}
                                     onChange={(e) => setPlaybackEndMinute(e.target.value)}
-                                    style={{
-                                        width: '33%',
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
+                                    style={styles.timeSelect}
+                                    aria-label="นาทีสิ้นสุด"
                                 >
                                     {minuteSecondOptions.map((minute) => (
                                         <option key={minute} value={minute}>{minute}</option>
@@ -340,15 +370,8 @@ export default function CameraPage() {
                                 <select
                                     value={playbackEndSecond}
                                     onChange={(e) => setPlaybackEndSecond(e.target.value)}
-                                    style={{
-                                        width: '33%',
-                                        padding: '10px 12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.2)',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        color: 'white',
-                                        fontSize: '14px'
-                                    }}
+                                    style={styles.timeSelect}
+                                    aria-label="วินาทีสิ้นสุด"
                                 >
                                     {minuteSecondOptions.map((second) => (
                                         <option key={second} value={second}>{second}</option>
@@ -356,50 +379,32 @@ export default function CameraPage() {
                                 </select>
                             </div>
                         </div>
+                        
+                        {/* Play Button */}
                         <div>
+                            <label style={{ ...styles.inputLabel, opacity: 0 }}>-</label>
                             <button
                                 onClick={handlePlayback}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                                    color: 'white',
-                                    fontWeight: '600',
-                                    cursor: 'pointer',
-                                    fontSize: '14px',
-                                    transition: 'transform 0.2s, box-shadow 0.2s'
-                                }}
-                                onMouseOver={(e) => {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)';
-                                }}
-                                onMouseOut={(e) => {
-                                    e.target.style.transform = 'translateY(0)';
-                                    e.target.style.boxShadow = 'none';
-                                }}
+                                style={styles.playButton}
+                                onMouseOver={(e) => e.target.style.background = 'var(--color-primary-light)'}
+                                onMouseOut={(e) => e.target.style.background = 'var(--color-primary)'}
                             >
-                                เล่นวิดีโอ
+                                ▶ เล่นวิดีโอ
                             </button>
                         </div>
                     </div>
+                    
+                    {/* Playback Status */}
                     {playbackUrl && (
-                        <div style={{
-                            marginTop: '12px',
-                            padding: '10px',
-                            background: 'rgba(34, 197, 94, 0.1)',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(34, 197, 94, 0.3)'
-                        }}>
-                            <span style={{ color: '#22c55e', fontSize: '13px' }}>
-                                ✓ กำลังเล่น: {playbackDate} เวลา {formatPlaybackTime()}
-                            </span>
+                        <div style={styles.playbackStatus}>
+                            <span>✓</span>
+                            <span>กำลังเล่น: {formatThaiDate(playbackDate)} เวลา {formatPlaybackTime()}</span>
                         </div>
                     )}
                 </div>
             )}
 
+            {/* Camera Selector */}
             <div className="camera-selector">
                 {cameras.map((camera) => (
                     <button
@@ -407,7 +412,6 @@ export default function CameraPage() {
                         onClick={() => {
                             setSelectedCamera(camera.id);
                             if (viewMode === 'playback' && playbackUrl) {
-                                // Regenerate playback URL for new camera
                                 setTimeout(() => handlePlayback(), 100);
                             }
                         }}
@@ -419,6 +423,7 @@ export default function CameraPage() {
                 ))}
             </div>
 
+            {/* Main Camera View */}
             <div ref={containerRef} className="camera-view">
                 {(viewMode === 'live' || playbackUrl) ? (
                     <iframe
@@ -434,45 +439,33 @@ export default function CameraPage() {
                         allowFullScreen
                     />
                 ) : (
-                    <div style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'rgba(0,0,0,0.5)',
-                        flexDirection: 'column',
-                        gap: '16px'
-                    }}>
-                        <p style={{ color: '#94a3b8', textAlign: 'center' }}>
-                            เลือกวันที่และเวลา แล้วกด "เล่นวิดีโอ" <br/>
+                    <div style={styles.emptyPlayback}>
+                        <div style={{ fontSize: '2.5rem', opacity: 0.5 }}></div>
+                        <p style={{ color: 'var(--text-light)', margin: 0, lineHeight: 1.6 }}>
+                            เลือกวันที่และเวลา แล้วกด "เล่นวิดีโอ"<br />
                             เพื่อดูภาพย้อนหลัง
                         </p>
                     </div>
                 )}
                 
+                {/* Overlay - Camera Info */}
                 <div className="camera-overlay top-left">
-                    <span className="live-indicator" style={{
-                        display: 'inline-block',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: viewMode === 'live' ? '#22c55e' : '#3b82f6',
-                        marginRight: '8px',
-                        animation: viewMode === 'live' ? 'pulse 2s infinite' : 'none'
-                    }}></span>
-                    {viewMode === 'live' ? 'LIVE' : 'PLAYBACK'} | กล้อง: {currentCamera?.name} ({currentCamera?.zone})
+                    <span style={styles.statusIndicator(viewMode)}></span>
+                    {viewMode === 'live' ? 'LIVE' : 'PLAYBACK'} | {currentCamera?.name} ({currentCamera?.zone})
                 </div>
 
+                {/* Overlay - Time */}
                 <div className="camera-overlay bottom-right">
-                    {viewMode === 'live' ? formatTime(currentTime) : `${playbackDate} ${formatPlaybackTime()}`}
+                    {viewMode === 'live' ? formatTime(currentTime) : `${formatThaiDate(playbackDate)} ${formatPlaybackTime()}`}
                 </div>
 
+                {/* Fullscreen Button */}
                 <button onClick={toggleFullscreen} className="camera-fullscreen-btn">
-                    {isFullscreen ? 'ออกจากเต็มจอ' : 'ดูเต็มจอ'}
+                    {isFullscreen ? '✕ ออกจากเต็มจอ' : '⛶ ดูเต็มจอ'}
                 </button>
             </div>
 
+            {/* Camera Grid Section */}
             <section className="section">
                 <div className="section-header">
                     <h2 className="section-title">กล้องทั้งหมด</h2>
@@ -516,18 +509,21 @@ export default function CameraPage() {
                 </div>
             </section>
 
+            {/* Usage Guide */}
             <div className="note-box">
                 <p className="note-title">คำแนะนำการใช้งาน</p>
                 <p className="note-text">
-                    <strong>ดูสด (Live):</strong> ดูภาพจากกล้องแบบเรียลไทม์<br/>
-                    <strong>ดูย้อนหลัง (Playback):</strong> เลือกวันที่และช่วงเวลาเพื่อดูภาพที่บันทึกไว้<br/>
+                    <strong>ดูสด:</strong> ดูภาพจากกล้องแบบเรียลไทม์<br />
+                    <strong>ดูย้อนหลัง:</strong> เลือกวันที่และช่วงเวลาเพื่อดูภาพที่บันทึกไว้<br />
                     คลิกที่กล้องเพื่อดูภาพขยาย หรือกดปุ่ม "ดูเต็มจอ" เพื่อดูภาพเต็มหน้าจอ
                 </p>
             </div>
 
+            {/* Disclaimer */}
             <div className="disclaimer">
                 <p className="disclaimer-text">
-                    ภาพจากกล้องวงจรปิดใช้เพื่อการปฏิบัติงานของเจ้าหน้าที่เทศบาลเท่านั้น
+                    ภาพจากกล้องวงจรปิดใช้เพื่อการปฏิบัติงานของเจ้าหน้าที่เทศบาลเท่านั้น<br />
+                    ข้อมูลอาจมีการหน่วงเวลาเล็กน้อยตามสภาพเครือข่าย
                 </p>
             </div>
         </div>
