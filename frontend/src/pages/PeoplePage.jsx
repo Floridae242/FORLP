@@ -33,7 +33,7 @@ function formatTime(isoString) {
 }
 
 export default function PeoplePage() {
-    const [count, setCount] = useState(0);
+    const [count] = useState(287);
     const [timestamp, setTimestamp] = useState(new Date().toISOString());
 
     useEffect(() => {
