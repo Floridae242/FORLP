@@ -1,0 +1,18 @@
+{
+  "name": "kadkongta-smart-insight",
+  "version": "1.0.0",
+  "description": "Kad Kong Ta Smart Insight - Zone-based Smart City Platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "start": "cd backend && npm start",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "kad-kong-ta-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Kad Kong Ta Smart Insight Platform",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "start:prod": "MOCK_MODE=false node src/index.js",
+    "db:seed": "node src/db/seed.js",
+    "db:seed:fresh": "node src/db/seed.js --clear",
+    "db:reset": "rm -f ./data/kadkongta.db* && node src/db/seed.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^8.0.0",
+    "better-sqlite3": "^9.4.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4"
+  }
+}

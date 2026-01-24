@@ -1,0 +1,496 @@
+openapi: 3.0.3
+info:
+  title: Kad Kong Ta Smart Insight API
+  description: Backend API for smart market analytics platform
+  version: 1.0.0
+  contact:
+    name: KKT Team
+servers:
+  - url: http://localhost:3001
+    description: Development server
+
+tags:
+  - name: Zones
+    description: Zone management and analytics
+  - name: Cameras
+    description: Camera analytics and parking
+  - name: Incidents
+    description: Incident and repair management
+  - name: Alerts
+    description: Alert management
+  - name: PA
+    description: PA announcement system
+  - name: Reroute
+    description: Traffic rerouting
+  - name: LINE
+    description: LINE OA integration
+
+paths:
+  /api/zones/summary:
+    get:
+      tags: [Zones]
+      summary: Get summary of all zones
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Zone summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ZoneSummary'
+
+  /api/zones/{zone}:
+    get:
+      tags: [Zones]
+      summary: Get single zone details
+      parameters:
+        - name: zone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Zone details
+        '404':
+          description: Zone not found
+
+  /api/cameras:
+    get:
+      tags: [Cameras]
+      summary: List all cameras
+      responses:
+        '200':
+          description: Camera list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Camera'
+
+  /api/cameras/{id}/analytics:
+    get:
+      tags: [Cameras]
+      summary: Get camera analytics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Camera analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraAnalytics'
+
+  /api/cameras/parking/status:
+    get:
+      tags: [Cameras]
+      summary: Get parking status for all zones
+      responses:
+        '200':
+          description: Parking status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ParkingZone'
+
+  /api/incidents:
+    get:
+      tags: [Incidents]
+      summary: List incidents
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, acknowledged, in_progress, resolved, closed]
+      responses:
+        '200':
+          description: Incident list
+    post:
+      tags: [Incidents]
+      summary: Create new incident
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [zone, type]
+              properties:
+                zone:
+                  type: string
+                type:
+                  type: string
+                description:
+                  type: string
+                photo:
+                  type: string
+                  format: binary
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                reported_by:
+                  type: string
+      responses:
+        '201':
+          description: Incident created
+
+  /api/incidents/{id}:
+    patch:
+      tags: [Incidents]
+      summary: Update incident status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, acknowledged, in_progress, resolved, closed]
+                assigned_to:
+                  type: string
+      responses:
+        '200':
+          description: Incident updated
+
+  /api/alerts:
+    get:
+      tags: [Alerts]
+      summary: List recent alerts
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Alert list
+
+  /api/alerts/{id}/acknowledge:
+    post:
+      tags: [Alerts]
+      summary: Acknowledge alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert acknowledged
+
+  /api/alerts/summary/daily:
+    get:
+      tags: [Alerts]
+      summary: Get daily summary
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Daily summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySummary'
+
+  /api/alerts/export:
+    get:
+      tags: [Alerts]
+      summary: Export alerts as CSV
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /api/pa:
+    post:
+      tags: [PA]
+      summary: Trigger PA announcement
+      security:
+        - apiKey: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [zone, message]
+              properties:
+                zone:
+                  type: string
+                message:
+                  type: string
+                notify_line:
+                  type: object
+                  properties:
+                    user_ids:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: PA triggered
+        '403':
+          description: Insufficient permissions
+
+  /api/reroute:
+    post:
+      tags: [Reroute]
+      summary: Send reroute command
+      security:
+        - apiKey: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                from_zone:
+                  type: string
+                to_zone:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Reroute sent
+        '403':
+          description: Insufficient permissions
+
+  /api/reroute/suggestions:
+    get:
+      tags: [Reroute]
+      summary: Get route suggestions
+      parameters:
+        - name: zone
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Route suggestions
+
+  /api/events:
+    get:
+      tags: [Real-time]
+      summary: SSE stream for real-time updates
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /line/webhook:
+    post:
+      tags: [LINE]
+      summary: LINE webhook handler
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+
+  /line/push:
+    post:
+      tags: [LINE]
+      summary: Push message to LINE users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_ids, message_type]
+              properties:
+                user_ids:
+                  type: array
+                  items:
+                    type: string
+                message_type:
+                  type: string
+                  enum: [alert, parking, summary, text]
+                data:
+                  type: object
+      responses:
+        '200':
+          description: Messages sent
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+
+  schemas:
+    ZoneSummary:
+      type: object
+      properties:
+        zone:
+          type: string
+        total_people:
+          type: integer
+        total_vehicles:
+          type: integer
+        cameras:
+          type: array
+          items:
+            type: string
+        parking:
+          $ref: '#/components/schemas/ParkingStatus'
+        last_updated:
+          type: string
+          format: date-time
+
+    Camera:
+      type: object
+      properties:
+        camera_id:
+          type: string
+        zone:
+          type: string
+        last_seen:
+          type: string
+          format: date-time
+
+    CameraAnalytics:
+      type: object
+      properties:
+        camera_id:
+          type: string
+        zone:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        people_count:
+          type: integer
+        vehicle_count:
+          type: integer
+        confidence:
+          type: number
+
+    ParkingStatus:
+      type: object
+      properties:
+        slot_total:
+          type: integer
+        slot_free:
+          type: integer
+
+    ParkingZone:
+      type: object
+      properties:
+        zone:
+          type: string
+        slot_total:
+          type: integer
+        slot_free:
+          type: integer
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              occupied:
+                type: boolean
+        last_updated:
+          type: string
+          format: date-time
+
+    DailySummary:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        analytics:
+          type: array
+          items:
+            type: object
+        incidents:
+          type: array
+          items:
+            type: object
+        alerts:
+          type: array
+          items:
+            type: object

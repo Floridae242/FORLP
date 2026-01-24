@@ -1,0 +1,726 @@
+/* =====================================================
+   กาดกองต้า - ระบบข้อมูลเทศบาลนครลำปาง
+   
+   Design Philosophy:
+   - Human-Centered, Calm & Trustworthy
+   - Clarity over Decoration
+   - เหมาะสมกับบริบทหน่วยงานรัฐ
+   ===================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap');
+
+/* ==================== Design Tokens ==================== */
+:root {
+    --font-main: 'IBM Plex Sans Thai', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif;
+    
+    /* Primary Palette - Calm Government Theme */
+    --color-dark: #2D3748;
+    --color-primary: #3D5A80;
+    --color-info: #4A7C9B;
+    --color-soft: #E8EEF2;
+    
+    /* Derived Colors */
+    --color-dark-light: #4A5568;
+    --color-primary-light: #5A7A9A;
+    --color-soft-muted: #EDF2F7;
+    --color-soft-pale: #F7FAFC;
+    --color-soft-ultra: #FAFCFD;
+    
+    /* Warm Accent - เพิ่มความอบอุ่น */
+    --color-warm: #8B7355;
+    --color-warm-light: #D4C5B5;
+    
+    /* Text Colors - สบายตา */
+    --text-on-dark: #FFFFFF;
+    --text-on-dark-muted: #E2E8F0;
+    --text-on-light: #2D3748;
+    --text-on-light-muted: #4A5568;
+    --text-on-light-subtle: #718096;
+    --text-on-light-faint: #A0AEC0;
+    
+    /* Status Colors - โทนสุภาพ */
+    --status-normal: #4A7C9B;
+    --status-normal-bg: #E8F4F8;
+    
+    --status-moderate: #6B8E8E;
+    --status-moderate-bg: #E8F0F0;
+    
+    --status-warning: #9A7B4F;
+    --status-warning-bg: #FAF5EB;
+    
+    --status-critical: #8B6B6B;
+    --status-critical-bg: #F8F0F0;
+    
+    /* Spacing Scale - มี rhythm */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2.5rem;
+    --space-2xl: 4rem;
+    
+    /* Border Radius - subtle */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+    
+    /* Shadows - เบา ๆ */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ==================== Reset & Base ==================== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-main);
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--text-on-light);
+    background: var(--color-soft-pale);
+    min-height: 100vh;
+}
+
+/* ==================== App Layout ==================== */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    background: var(--color-soft-pale);
+}
+
+/* ==================== Navigation - เรียบง่าย ==================== */
+.nav-bar {
+    background: var(--color-dark);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-content {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--space-md) var(--space-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.nav-logo-img {
+    height: 62px;
+    width: auto;
+}
+
+.nav-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-on-dark);
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 2px;
+}
+
+.nav-tab {
+    padding: 10px 20px;
+    font-size: 0.9375rem;
+    font-weight: 400;
+    color: var(--text-on-dark-muted);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.nav-tab:hover {
+    color: var(--text-on-dark);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-tab-active {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-on-dark);
+    font-weight: 500;
+}
+
+/* Mobile Nav */
+@media (max-width: 540px) {
+    .nav-content {
+        flex-direction: column;
+        gap: var(--space-sm);
+        padding: var(--space-sm) var(--space-md);
+    }
+    
+    .nav-tab {
+        padding: 8px 16px;
+        font-size: 0.875rem;
+    }
+}
+
+/* ==================== Page Container ==================== */
+.page-container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+}
+
+/* ==================== Page Header - ลดความแข็ง ==================== */
+.page-header {
+    margin-bottom: var(--space-md);
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-on-light);
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+}
+
+.page-subtitle {
+    font-size: 0.9375rem;
+    color: var(--text-on-light-subtle);
+    font-weight: 400;
+}
+
+/* ==================== Meta Info - เบา ๆ ==================== */
+.meta-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.8125rem;
+    color: var(--text-on-light-faint);
+    margin-bottom: var(--space-xl);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-soft);
+}
+
+.meta-divider {
+    width: 3px;
+    height: 3px;
+    background: var(--text-on-light-faint);
+    border-radius: 50%;
+}
+
+.mock-indicator {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--status-warning);
+    background: var(--status-warning-bg);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+/* ==================== Summary Section - ลดขนาด ทำให้สุภาพ ==================== */
+.summary-section {
+    background: white;
+    border: 1px solid var(--color-soft);
+    border-left: 3px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg) var(--space-xl);
+    margin-bottom: var(--space-2xl);
+}
+
+.summary-eyebrow {
+    font-size: 0.875rem;
+    color: var(--text-on-light-muted);
+    margin-bottom: var(--space-xs);
+}
+
+.summary-value {
+    font-size: 2.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+.summary-unit {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-on-light-subtle);
+    margin-left: 6px;
+}
+
+.summary-context {
+    font-size: 0.9375rem;
+    color: var(--text-on-light-muted);
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--color-soft);
+}
+
+/* ==================== Section ==================== */
+.section {
+    margin-bottom: var(--space-xl);
+}
+
+.section-header {
+    margin-bottom: var(--space-md);
+}
+
+.section-title {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-on-light-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ==================== Zone List ==================== */
+.zone-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+/* ==================== Zone Card - แต่ละ card มีความแตกต่างกันบ้าง ==================== */
+.zone-card {
+    background: white;
+    border: 1px solid var(--color-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    transition: border-color 0.15s ease;
+}
+
+.zone-card:hover {
+    border-color: var(--color-info);
+}
+
+/* Status Border - subtle */
+.zone-card[data-status="normal"] { 
+    border-left: 3px solid var(--status-normal); 
+}
+.zone-card[data-status="moderate"] { 
+    border-left: 3px solid var(--status-moderate); 
+}
+.zone-card[data-status="busy"] { 
+    border-left: 3px solid var(--status-warning); 
+}
+.zone-card[data-status="crowded"] { 
+    border-left: 3px solid var(--status-critical); 
+}
+
+.zone-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-md);
+}
+
+.zone-info {
+    flex: 1;
+}
+
+.zone-name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-on-light);
+    margin-bottom: 2px;
+}
+
+.zone-area {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-faint);
+}
+
+.zone-count {
+    text-align: right;
+}
+
+.zone-count-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1;
+}
+
+.zone-count-unit {
+    font-size: 0.75rem;
+    color: var(--text-on-light-subtle);
+    margin-left: 3px;
+}
+
+.zone-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--space-md);
+    margin-top: var(--space-md);
+    border-top: 1px solid var(--color-soft-muted);
+}
+
+.zone-status-text {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-subtle);
+}
+
+.zone-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+}
+
+.zone-badge[data-status="normal"] {
+    color: var(--status-normal);
+    background: var(--status-normal-bg);
+}
+.zone-badge[data-status="moderate"] {
+    color: var(--status-moderate);
+    background: var(--status-moderate-bg);
+}
+.zone-badge[data-status="busy"] {
+    color: var(--status-warning);
+    background: var(--status-warning-bg);
+}
+.zone-badge[data-status="crowded"] {
+    color: var(--status-critical);
+    background: var(--status-critical-bg);
+}
+
+/* ==================== Weather Card - เรียบง่าย ==================== */
+.weather-card {
+    background: white;
+    border: 1px solid var(--color-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+}
+
+.weather-main {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-xl);
+}
+
+.weather-temp {
+    font-size: 3rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1;
+}
+
+.weather-temp-unit {
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: var(--text-on-light-subtle);
+}
+
+.weather-condition {
+    padding-top: 6px;
+}
+
+.weather-desc {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-on-light);
+    margin-bottom: 2px;
+}
+
+.weather-detail {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-subtle);
+}
+
+.weather-summary {
+    font-size: 0.875rem;
+    color: var(--text-on-light-muted);
+    margin-top: var(--space-lg);
+    padding: var(--space-md);
+    background: var(--color-soft-muted);
+    border-radius: var(--radius-sm);
+    line-height: 1.6;
+}
+
+/* ==================== Air Quality Card ==================== */
+.air-card {
+    background: white;
+    border: 1px solid var(--color-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+}
+
+.air-card[data-status="good"] { border-left: 3px solid var(--status-normal); }
+.air-card[data-status="moderate"] { border-left: 3px solid var(--status-moderate); }
+.air-card[data-status="unhealthy"] { border-left: 3px solid var(--status-warning); }
+.air-card[data-status="hazardous"] { border-left: 3px solid var(--status-critical); }
+
+.air-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-md);
+}
+
+.air-label {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-subtle);
+    margin-bottom: 4px;
+}
+
+.air-value {
+    font-size: 2.25rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1;
+}
+
+.air-unit {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--text-on-light-subtle);
+    margin-left: 4px;
+}
+
+.air-badge {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+}
+
+.air-badge[data-status="good"] {
+    color: var(--status-normal);
+    background: var(--status-normal-bg);
+}
+.air-badge[data-status="moderate"] {
+    color: var(--status-moderate);
+    background: var(--status-moderate-bg);
+}
+.air-badge[data-status="unhealthy"] {
+    color: var(--status-warning);
+    background: var(--status-warning-bg);
+}
+.air-badge[data-status="hazardous"] {
+    color: var(--status-critical);
+    background: var(--status-critical-bg);
+}
+.air-badge[data-status="unknown"] {
+    color: var(--text-on-light-subtle);
+    background: var(--color-soft-muted);
+}
+
+.air-advice {
+    font-size: 0.875rem;
+    color: var(--text-on-light-muted);
+    line-height: 1.6;
+    padding: var(--space-md);
+    background: var(--color-soft-muted);
+    border-radius: var(--radius-sm);
+}
+
+/* ==================== Disclaimer - subtle ==================== */
+.disclaimer {
+    margin-top: var(--space-2xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--color-soft);
+    text-align: left;
+}
+
+.disclaimer-text {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-faint);
+    line-height: 1.6;
+}
+
+/* ==================== Loading State ==================== */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    gap: var(--space-sm);
+}
+
+.loading-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-on-light-muted);
+}
+
+.loading-subtext {
+    font-size: 0.875rem;
+    color: var(--text-on-light-faint);
+}
+
+/* Loading Animation - subtle */
+.loading-container::before {
+    content: '';
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--color-soft);
+    border-top-color: var(--color-info);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: var(--space-md);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==================== Error State ==================== */
+.error-box {
+    background: var(--status-critical-bg);
+    border: 1px solid rgba(139, 107, 107, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.error-title {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--status-critical);
+    margin-bottom: 4px;
+}
+
+.error-message {
+    font-size: 0.8125rem;
+    color: var(--text-on-light-muted);
+    margin-bottom: var(--space-md);
+}
+
+.retry-button {
+    font-family: var(--font-main);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: white;
+    background: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.retry-button:hover {
+    background: var(--color-primary-light);
+}
+
+/* ==================== No Data ==================== */
+.no-data {
+    font-size: 0.875rem;
+    color: var(--text-on-light-subtle);
+    text-align: center;
+    padding: var(--space-xl) 0;
+}
+
+/* ==================== Footer - subtle ==================== */
+.app-footer {
+    background: var(--color-dark);
+    padding: var(--space-lg);
+    text-align: center;
+}
+
+.app-footer p {
+    font-size: 0.8125rem;
+    color: var(--text-on-dark-muted);
+    margin: 0;
+    line-height: 1.6;
+}
+
+.app-footer .footer-sub {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 4px;
+}
+
+/* ==================== Helper Classes ==================== */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 540px) {
+    .page-container {
+        padding: var(--space-lg) var(--space-md) var(--space-xl);
+    }
+    
+    .page-title {
+        font-size: 1.25rem;
+    }
+    
+    .summary-section {
+        padding: var(--space-md) var(--space-lg);
+    }
+    
+    .summary-value {
+        font-size: 2.25rem;
+    }
+    
+    .zone-card {
+        padding: var(--space-md);
+    }
+    
+    .zone-count-value {
+        font-size: 1.5rem;
+    }
+    
+    .weather-card {
+        padding: var(--space-lg);
+    }
+    
+    .weather-main {
+        flex-direction: column;
+        gap: var(--space-md);
+    }
+    
+    .weather-temp {
+        font-size: 2.5rem;
+    }
+    
+    .air-card {
+        padding: var(--space-lg);
+    }
+    
+    .air-value {
+        font-size: 1.75rem;
+    }
+}
+
+/* ==================== Print Styles ==================== */
+@media print {
+    .nav-bar, .app-footer {
+        display: none;
+    }
+    
+    .page-container {
+        max-width: none;
+        padding: 0;
+    }
+    
+    .zone-card, .weather-card, .air-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
