@@ -6,6 +6,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import PeoplePage from './pages/PeoplePage.jsx';
 import WeatherPage from './pages/WeatherPage.jsx';
+import ReportsPage from './pages/ReportsPage.jsx';
 
 const LOGO_URL = 'https://iocpiramid.com/images/citylogo/1754587002746_lampang_logo.png';
 
@@ -30,6 +31,13 @@ function Navigation() {
                         className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
                     >
                         สภาพอากาศ
+                    </NavLink>
+                    
+                    <NavLink 
+                        to="/reports"
+                        className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
+                    >
+                        รายงาน
                     </NavLink>
                 </div>
             </div>
@@ -57,6 +65,7 @@ export default function App() {
                         <Route path="/" element={<Navigate to="/people" replace />} />
                         <Route path="/people" element={<PeoplePage />} />
                         <Route path="/weather" element={<WeatherPage />} />
+                        <Route path="/reports" element={<ReportsPage />} />
                     </Routes>
                 </main>
                 
