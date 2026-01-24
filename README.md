@@ -104,19 +104,43 @@
 # Clone project
 git clone <repository-url>
 cd FORLP
+```
 
-# ติดตั้ง dependencies
-npm install
+| Setting | Command / Value |
+|---------|-----------------|
+| **Install Command** | `npm run install:all` |
+| **Build Command** | `cd frontend && npm install && npm run build` |
+| **Output Directory** | `frontend/dist` |
 
-# รัน Backend
-cd backend
-npm install
+### Development
+
+```bash
+# รัน Backend + Frontend พร้อมกัน
 npm run dev
 
-# รัน Frontend (terminal ใหม่)
-cd frontend
-npm install
-npm run dev
+# หรือรันแยก
+npm run dev:backend    # Backend: http://localhost:3000
+npm run dev:frontend   # Frontend: http://localhost:5173
+```
+
+### Production
+
+```bash
+# Build frontend
+npm run build:frontend
+
+# Start backend server
+npm start
+```
+
+### Docker
+
+```bash
+# Start all services
+npm run docker:up
+
+# Stop all services
+npm run docker:down
 ```
 
 ---

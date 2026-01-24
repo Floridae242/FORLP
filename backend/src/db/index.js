@@ -1,9 +1,3 @@
-// =====================================================
-// Kad Kong Ta Smart Insight - Database (Simplified)
-// ระบบติดตามอัจฉริยะ ถนนคนเดินกาดก้องตา
-// Version: 2.0 - Minimal
-// =====================================================
-
 import Database from 'better-sqlite3';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
@@ -30,7 +24,23 @@ export async function initDatabase() {
     db = new Database(config.dbPath);
     db.pragma('journal_mode = WAL');
 
-    // Execute schema
+    // Check if we need to migrate (check for message_type column)
+    try {
+        const tableInfo = db.prepare("PRAGMA table_info(line_broadcast_logs)").all();
+        const hasMessageType = tableInfo.some(col => col.name === 'message_type');
+        
+        if (tableInfo.length > 0 && !hasMessageType) {
+            console.log('🔄 Migrating database schema...');
+            // Add missing column to existing table
+            db.exec('ALTER TABLE line_broadcast_logs ADD COLUMN message_type TEXT DEFAULT "daily_report"');
+            console.log('✓ Added message_type column');
+        }
+    } catch (e) {
+        // Table doesn't exist yet, will be created by schema
+        console.log('📦 Creating new database...');
+    }
+
+    // Execute schema (CREATE IF NOT EXISTS is safe)
     const schemaPath = join(__dirname, 'schema.sql');
     const schema = readFileSync(schemaPath, 'utf-8');
     db.exec(schema);
@@ -39,9 +49,6 @@ export async function initDatabase() {
     return db;
 }
 
-// =====================================================
-// Query Helpers - Simplified for Minimal Spec
-// =====================================================
 export const queries = {
     // ==================== ZONES ====================
     getAllZones: () => {
@@ -53,7 +60,6 @@ export const queries = {
     },
 
     // ==================== PEOPLE COUNTS ====================
-    // บันทึกจำนวนคน
     insertPeopleCount: (zoneCode, peopleCount, recordedAt = null) => {
         const stmt = getDb().prepare(`
             INSERT INTO people_counts (zone_code, people_count, recorded_at)
@@ -126,7 +132,6 @@ export const queries = {
     },
 
     // ==================== DAILY REPORTS ====================
-    // สร้างรายงานประจำวัน
     createDailyReport: (data) => {
         const stmt = getDb().prepare(`
             INSERT OR REPLACE INTO daily_reports 
