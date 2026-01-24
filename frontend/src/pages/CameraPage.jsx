@@ -49,9 +49,17 @@ export default function CameraPage() {
         const today = new Date();
         return today.toISOString().split('T')[0];
     });
-    const [playbackStartTime, setPlaybackStartTime] = useState('18:00');
-    const [playbackEndTime, setPlaybackEndTime] = useState('20:00');
+    const [playbackStartHour, setPlaybackStartHour] = useState('18');
+    const [playbackStartMinute, setPlaybackStartMinute] = useState('00');
+    const [playbackStartSecond, setPlaybackStartSecond] = useState('00');
+    const [playbackEndHour, setPlaybackEndHour] = useState('20');
+    const [playbackEndMinute, setPlaybackEndMinute] = useState('00');
+    const [playbackEndSecond, setPlaybackEndSecond] = useState('00');
     const [playbackUrl, setPlaybackUrl] = useState('');
+
+    // Generate options for select dropdowns
+    const hourOptions = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+    const minuteSecondOptions = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -88,14 +96,19 @@ export default function CameraPage() {
 
     // Handle playback
     const handlePlayback = () => {
-        const [startHour, startMin] = playbackStartTime.split(':').map(Number);
-        const [endHour, endMin] = playbackEndTime.split(':').map(Number);
-        
         const startDateTime = new Date(playbackDate);
-        startDateTime.setHours(startHour, startMin, 0);
+        startDateTime.setHours(
+            parseInt(playbackStartHour), 
+            parseInt(playbackStartMinute), 
+            parseInt(playbackStartSecond)
+        );
         
         const endDateTime = new Date(playbackDate);
-        endDateTime.setHours(endHour, endMin, 0);
+        endDateTime.setHours(
+            parseInt(playbackEndHour), 
+            parseInt(playbackEndMinute), 
+            parseInt(playbackEndSecond)
+        );
         
         // If end time is before start time, assume it's the next day
         if (endDateTime <= startDateTime) {
@@ -110,6 +123,11 @@ export default function CameraPage() {
     const switchToLive = () => {
         setViewMode('live');
         setPlaybackUrl('');
+    };
+
+    // Format time for display
+    const formatPlaybackTime = () => {
+        return `${playbackStartHour}:${playbackStartMinute}:${playbackStartSecond} - ${playbackEndHour}:${playbackEndMinute}:${playbackEndSecond}`;
     };
 
     const currentCamera = cameras.find(c => c.id === selectedCamera);
@@ -221,20 +239,59 @@ export default function CameraPage() {
                             }}>
                                 เวลาเริ่มต้น
                             </label>
-                            <input
-                                type="time"
-                                value={playbackStartTime}
-                                onChange={(e) => setPlaybackStartTime(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    color: 'white',
-                                    fontSize: '14px'
-                                }}
-                            />
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <select
+                                    value={playbackStartHour}
+                                    onChange={(e) => setPlaybackStartHour(e.target.value)}
+                                    style={{
+                                        width: '33%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {hourOptions.map((hour) => (
+                                        <option key={hour} value={hour}>{hour}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={playbackStartMinute}
+                                    onChange={(e) => setPlaybackStartMinute(e.target.value)}
+                                    style={{
+                                        width: '33%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {minuteSecondOptions.map((minute) => (
+                                        <option key={minute} value={minute}>{minute}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={playbackStartSecond}
+                                    onChange={(e) => setPlaybackStartSecond(e.target.value)}
+                                    style={{
+                                        width: '33%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {minuteSecondOptions.map((second) => (
+                                        <option key={second} value={second}>{second}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label style={{ 
@@ -245,20 +302,59 @@ export default function CameraPage() {
                             }}>
                                 เวลาสิ้นสุด
                             </label>
-                            <input
-                                type="time"
-                                value={playbackEndTime}
-                                onChange={(e) => setPlaybackEndTime(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    color: 'white',
-                                    fontSize: '14px'
-                                }}
-                            />
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <select
+                                    value={playbackEndHour}
+                                    onChange={(e) => setPlaybackEndHour(e.target.value)}
+                                    style={{
+                                        width: '33%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {hourOptions.map((hour) => (
+                                        <option key={hour} value={hour}>{hour}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={playbackEndMinute}
+                                    onChange={(e) => setPlaybackEndMinute(e.target.value)}
+                                    style={{
+                                        width: '33%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {minuteSecondOptions.map((minute) => (
+                                        <option key={minute} value={minute}>{minute}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={playbackEndSecond}
+                                    onChange={(e) => setPlaybackEndSecond(e.target.value)}
+                                    style={{
+                                        width: '33%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {minuteSecondOptions.map((second) => (
+                                        <option key={second} value={second}>{second}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <button
@@ -297,7 +393,7 @@ export default function CameraPage() {
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                         }}>
                             <span style={{ color: '#22c55e', fontSize: '13px' }}>
-                                ✓ กำลังเล่น: {playbackDate} เวลา {playbackStartTime} - {playbackEndTime}
+                                ✓ กำลังเล่น: {playbackDate} เวลา {formatPlaybackTime()}
                             </span>
                         </div>
                     )}
@@ -369,7 +465,7 @@ export default function CameraPage() {
                 </div>
 
                 <div className="camera-overlay bottom-right">
-                    {viewMode === 'live' ? formatTime(currentTime) : `${playbackDate} ${playbackStartTime}-${playbackEndTime}`}
+                    {viewMode === 'live' ? formatTime(currentTime) : `${playbackDate} ${formatPlaybackTime()}`}
                 </div>
 
                 <button onClick={toggleFullscreen} className="camera-fullscreen-btn">
@@ -423,8 +519,8 @@ export default function CameraPage() {
             <div className="note-box">
                 <p className="note-title">คำแนะนำการใช้งาน</p>
                 <p className="note-text">
-                    <strong>🔴 ดูสด (Live):</strong> ดูภาพจากกล้องแบบเรียลไทม์<br/>
-                    <strong>⏪ ดูย้อนหลัง (Playback):</strong> เลือกวันที่และช่วงเวลาเพื่อดูภาพที่บันทึกไว้<br/>
+                    <strong>ดูสด (Live):</strong> ดูภาพจากกล้องแบบเรียลไทม์<br/>
+                    <strong>ดูย้อนหลัง (Playback):</strong> เลือกวันที่และช่วงเวลาเพื่อดูภาพที่บันทึกไว้<br/>
                     คลิกที่กล้องเพื่อดูภาพขยาย หรือกดปุ่ม "ดูเต็มจอ" เพื่อดูภาพเต็มหน้าจอ
                 </p>
             </div>
