@@ -300,9 +300,84 @@ app.get('/api/system/status', (req, res) => {
         data: {
             version: '3.0.0',
             uptime: process.uptime(),
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            config: {
+                lineConfigured: !!config.lineChannelAccessToken,
+                weatherConfigured: !!config.openWeatherApiKey
+            }
         }
     });
+});
+
+// ==================== TEST APIs ====================
+
+// GET /api/test/line - ทดสอบส่งข้อความ LINE
+app.get('/api/test/line', async (req, res) => {
+    try {
+        const testMessage = `🧪 ทดสอบระบบแจ้งเตือน LINE
+
+━━━━━━━━━━━━━━━
+✅ ระบบ LINE OA เชื่อมต่อสำเร็จ
+📅 ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+━━━━━━━━━━━━━━━
+🐓 Kad Kong Ta Smart Insight`;
+
+        const result = await dailyReportService.sendLineMessage(testMessage);
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 'ส่งข้อความทดสอบสำเร็จ' : 'ส่งข้อความไม่สำเร็จ',
+            error: result.error || null
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/test/early-warning - ทดสอบระบบ Early Warning
+app.get('/api/test/early-warning', async (req, res) => {
+    try {
+        const result = await earlyWarningService.testSendWarning();
+        
+        res.json({
+            success: result.success,
+            sent: result.sent,
+            message: result.sent ? 'ส่ง Early Warning สำเร็จ' : 'ไม่มีความเสี่ยง หรือส่งไม่สำเร็จ',
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/test/daily-report - ทดสอบส่ง Daily Report
+app.get('/api/test/daily-report', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const result = await dailyReportService.processAndSendDailyReport(today);
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 'ส่ง Daily Report สำเร็จ' : 'ส่งไม่สำเร็จ',
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/test/forecast - ดูข้อมูลพยากรณ์อากาศ
+app.get('/api/test/forecast', async (req, res) => {
+    try {
+        const forecast = await earlyWarningService.getForecastSummary();
+        
+        res.json({
+            success: true,
+            data: forecast
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // ==================== 404 Handler ====================

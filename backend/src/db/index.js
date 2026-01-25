@@ -132,6 +132,29 @@ export const queries = {
     },
 
     // ==================== DAILY REPORTS ====================
+    
+    // บันทึกรายงานประจำวัน (ใช้โดย dailyReportService)
+    saveDailyReport: (data) => {
+        const stmt = getDb().prepare(`
+            INSERT OR REPLACE INTO daily_reports 
+            (report_date, max_people, avg_people, min_people, total_samples,
+             weather_summary, temperature_avg, humidity_avg, pm25_avg, pm25_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        return stmt.run(
+            data.report_date,
+            data.max_people || 0,
+            data.avg_people || 0,
+            data.min_people || 0,
+            data.total_samples || 0,
+            data.weather_summary || null,
+            data.temperature_avg || null,
+            data.humidity_avg || null,
+            data.pm25_avg || null,
+            data.pm25_status || null
+        );
+    },
+
     createDailyReport: (data) => {
         const stmt = getDb().prepare(`
             INSERT OR REPLACE INTO daily_reports 
