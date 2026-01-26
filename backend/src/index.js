@@ -419,7 +419,7 @@ let lineSchedulerInterval = null;
 /**
  * ตรวจสอบและส่ง LINE Notification ตามกำหนดเวลา
  * - Early Warning: ทุกวันเสาร์-อาทิตย์ เวลา 14:00
- * - Daily Report: ทุกวัน เวลา 23:00
+ * - Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตลาดเปิดเฉพาะ ส.-อา.)
  */
 function startLineScheduler() {
     console.log('[LINE Scheduler] Starting...');
@@ -457,8 +457,8 @@ async function checkAndSendNotifications() {
         }
     }
     
-    // Daily Report: ทุกวัน เวลา 23:00
-    if (hour === 23 && minute === 0 && sentToday.dailyReport !== today) {
+    // Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตลาดเปิดเฉพาะ ส.-อา.)
+    if (isWeekend && hour === 23 && minute === 0 && sentToday.dailyReport !== today) {
         console.log('[LINE Scheduler] Sending Daily Report...');
         try {
             const result = await dailyReportService.processAndSendDailyReport(today);
