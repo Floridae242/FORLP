@@ -65,3 +65,61 @@ INSERT OR IGNORE INTO system_settings (setting_key, setting_value) VALUES
     ('line_enabled', 'true'),
     ('early_warning_time', '14:00'),
     ('daily_report_time', '23:00');
+
+-- =====================================================
+-- USER MANAGEMENT (ระบบจัดการผู้ใช้งาน)
+-- =====================================================
+
+-- Users Table (ข้อมูลผู้ใช้จาก LINE Login)
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  line_user_id TEXT UNIQUE NOT NULL,
+  display_name TEXT,
+  picture_url TEXT,
+  role TEXT DEFAULT 'visitor' CHECK(role IN ('vendor', 'resident', 'tourist', 'officer')),
+  role_verified INTEGER DEFAULT 0,  -- 0 = ยังไม่ยืนยัน, 1 = ยืนยันแล้ว
+  officer_token_used TEXT,  -- token ที่ใช้ยืนยันสิทธิ์เจ้าหน้าที่
+  last_login_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_line_id ON users(line_user_id);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+-- Officer Tokens Table (Token สำหรับยืนยันสิทธิ์เจ้าหน้าที่)
+CREATE TABLE IF NOT EXISTS officer_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token TEXT UNIQUE NOT NULL,
+  description TEXT,  -- คำอธิบาย เช่น "สำหรับเจ้าหน้าที่เทศกิจ"
+  is_used INTEGER DEFAULT 0,
+  used_by_user_id INTEGER,
+  used_at TEXT,
+  expires_at TEXT,  -- วันหมดอายุ (NULL = ไม่หมดอายุ)
+  created_by TEXT,  -- ผู้สร้าง token
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (used_by_user_id) REFERENCES users(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_officer_tokens_token ON officer_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_officer_tokens_used ON officer_tokens(is_used);
+
+-- User Sessions Table (Session สำหรับจัดการ Login)
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  session_token TEXT UNIQUE NOT NULL,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at);
+
+-- Insert default officer tokens (สำหรับทดสอบ)
+INSERT OR IGNORE INTO officer_tokens (token, description, expires_at) VALUES 
+    ('OFFICER-2024-LAMPANG-001', 'Token สำหรับเจ้าหน้าที่เทศบาลนครลำปาง ชุดที่ 1', NULL),
+    ('OFFICER-2024-LAMPANG-002', 'Token สำหรับเจ้าหน้าที่เทศบาลนครลำปาง ชุดที่ 2', NULL),
+    ('OFFICER-2024-LAMPANG-003', 'Token สำหรับเจ้าหน้าที่เทศบาลนครลำปาง ชุดที่ 3', NULL);
