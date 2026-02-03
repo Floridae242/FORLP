@@ -766,25 +766,103 @@ app.get('/api/reports/daily', (req, res) => {
     }
 });
 
-// GET /api/reports/weekly - รายงานรายสัปดาห์
+// GET /api/reports/weekly - รายงานรายสัปดาห์ (เฉพาะวันเสาร์-อาทิตย์)
 app.get('/api/reports/weekly', (req, res) => {
     try {
-        const history = peopleCountService.getHistoricalData(7);
+        // ดึงข้อมูลย้อนหลัง 30 วัน แล้ว filter เฉพาะวันเสาร์-อาทิตย์
+        const allHistory = peopleCountService.getHistoricalData(30);
         
-        const totalMax = Math.max(...history.map(d => d.max_people || 0), 0);
-        const avgPeople = history.length > 0 
-            ? Math.round(history.reduce((sum, d) => sum + (d.avg_people || 0), 0) / history.length)
-            : 0;
+        // Filter เฉพาะวันเสาร์ (6) และอาทิตย์ (0)
+        const weekendHistory = allHistory.filter(day => {
+            const date = new Date(day.date);
+            const dayOfWeek = date.getDay();
+            return dayOfWeek === 0 || dayOfWeek === 6; // 0 = อาทิตย์, 6 = เสาร์
+        });
+        
+        // จัดกลุ่มเป็นสัปดาห์ (เสาร์-อาทิตย์ คู่กัน)
+        const weeks = [];
+        let currentWeek = null;
+        
+        weekendHistory.forEach(day => {
+            const date = new Date(day.date);
+            const dayOfWeek = date.getDay();
+            
+            // หา week number (ISO week)
+            const startOfYear = new Date(date.getFullYear(), 0, 1);
+            const weekNumber = Math.ceil((((date - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+            const weekKey = `${date.getFullYear()}-W${weekNumber}`;
+            
+            if (!currentWeek || currentWeek.weekKey !== weekKey) {
+                currentWeek = {
+                    weekKey,
+                    weekNumber,
+                    year: date.getFullYear(),
+                    days: [],
+                    saturday: null,
+                    sunday: null
+                };
+                weeks.push(currentWeek);
+            }
+            
+            currentWeek.days.push(day);
+            if (dayOfWeek === 6) currentWeek.saturday = day;
+            if (dayOfWeek === 0) currentWeek.sunday = day;
+        });
+        
+        // คำนวณสรุปแต่ละสัปดาห์
+        const weeklySummaries = weeks.map(week => {
+            const totalDays = week.days.length;
+            const maxPeople = totalDays > 0 ? Math.max(...week.days.map(d => d.max_people || 0)) : 0;
+            const avgPeople = totalDays > 0 
+                ? Math.round(week.days.reduce((sum, d) => sum + (d.avg_people || 0), 0) / totalDays)
+                : 0;
+            const totalSamples = week.days.reduce((sum, d) => sum + (d.total_samples || 0), 0);
+            
+            // หาช่วงวันที่
+            const dates = week.days.map(d => new Date(d.date)).sort((a, b) => a - b);
+            const startDate = dates.length > 0 ? dates[0].toISOString().split('T')[0] : null;
+            const endDate = dates.length > 0 ? dates[dates.length - 1].toISOString().split('T')[0] : null;
+            
+            return {
+                week_key: week.weekKey,
+                week_number: week.weekNumber,
+                year: week.year,
+                start_date: startDate,
+                end_date: endDate,
+                days_open: totalDays,
+                max_people: maxPeople,
+                avg_people: avgPeople,
+                total_samples: totalSamples,
+                saturday: week.saturday ? {
+                    date: week.saturday.date,
+                    max_people: week.saturday.max_people || 0,
+                    avg_people: week.saturday.avg_people || 0
+                } : null,
+                sunday: week.sunday ? {
+                    date: week.sunday.date,
+                    max_people: week.sunday.max_people || 0,
+                    avg_people: week.sunday.avg_people || 0
+                } : null,
+                daily: week.days
+            };
+        });
+        
+        // สรุปรวมทั้งหมด
+        const overallSummary = {
+            total_weeks: weeklySummaries.length,
+            total_days: weekendHistory.length,
+            max_people_ever: weekendHistory.length > 0 ? Math.max(...weekendHistory.map(d => d.max_people || 0)) : 0,
+            avg_people_overall: weekendHistory.length > 0
+                ? Math.round(weekendHistory.reduce((sum, d) => sum + (d.avg_people || 0), 0) / weekendHistory.length)
+                : 0
+        };
         
         res.json({
             success: true,
             data: {
-                summary: {
-                    total_days: history.length,
-                    max_people: totalMax,
-                    avg_people: avgPeople
-                },
-                daily: history
+                summary: overallSummary,
+                weeks: weeklySummaries,
+                all_weekend_days: weekendHistory
             }
         });
     } catch (error) {

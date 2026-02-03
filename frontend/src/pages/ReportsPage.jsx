@@ -48,11 +48,23 @@ function getDayName(dateStr) {
     return day === 0 ? 'อาทิตย์' : day === 6 ? 'เสาร์' : '-';
 }
 
+function formatWeekRange(startDate, endDate) {
+    if (!startDate) return '-';
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : start;
+    
+    const startStr = start.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+    const endStr = end.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+    
+    return startDate === endDate ? startStr : `${startStr} - ${endStr}`;
+}
+
 export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState('daily');
     const [selectedDate, setSelectedDate] = useState(getLastWeekendDate());
     
     const [dailyData, setDailyData] = useState(null);
+    const [weeklyData, setWeeklyData] = useState(null);
     const [historyData, setHistoryData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -86,16 +98,37 @@ export default function ReportsPage() {
         }
     }, []);
 
-    const fetchHistoryData = useCallback(async () => {
+    const fetchWeeklyData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${API_BASE}/api/people/history?days=30`);
+            const response = await fetch(`${API_BASE}/api/reports/weekly`);
             if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลได้');
             
             const data = await response.json();
             if (data.success) {
-                setHistoryData(data.data || []);
+                setWeeklyData(data.data);
+            }
+        } catch (err) {
+            console.error('[ReportsPage] Weekly data error:', err);
+            setError('ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const fetchHistoryData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch(`${API_BASE}/api/people/history?days=60`);
+            if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลได้');
+            
+            const data = await response.json();
+            if (data.success) {
+                // Filter เฉพาะวันเสาร์-อาทิตย์
+                const weekendOnly = (data.data || []).filter(day => isWeekend(day.date));
+                setHistoryData(weekendOnly);
             }
         } catch (err) {
             console.error('[ReportsPage] History data error:', err);
@@ -108,17 +141,12 @@ export default function ReportsPage() {
     useEffect(() => {
         if (activeTab === 'daily') {
             fetchDailyData(selectedDate);
-        } else if (activeTab === 'weekly' || activeTab === 'history') {
+        } else if (activeTab === 'weekly') {
+            fetchWeeklyData();
+        } else if (activeTab === 'history') {
             fetchHistoryData();
         }
-    }, [activeTab, selectedDate, fetchDailyData, fetchHistoryData]);
-
-    const weeklyData = historyData.slice(0, 8);
-    const weeklySummary = {
-        total_days: weeklyData.length,
-        max_people: weeklyData.length > 0 ? Math.max(...weeklyData.map(d => d.max_people || 0)) : 0,
-        avg_people: weeklyData.length > 0 ? Math.round(weeklyData.reduce((sum, d) => sum + (d.avg_people || 0), 0) / weeklyData.length) : 0
-    };
+    }, [activeTab, selectedDate, fetchDailyData, fetchWeeklyData, fetchHistoryData]);
 
     return (
         <div className="page-container">
@@ -161,6 +189,7 @@ export default function ReportsPage() {
                 </div>
             )}
 
+            {/* ==================== TAB: รายวัน ==================== */}
             {activeTab === 'daily' && !loading && (
                 <section className="section">
                     <div className="date-picker">
@@ -228,71 +257,206 @@ export default function ReportsPage() {
                 </section>
             )}
 
+            {/* ==================== TAB: สรุปรายสัปดาห์ ==================== */}
             {activeTab === 'weekly' && !loading && (
                 <section className="section">
-                    <div className="stats-grid">
-                        <div className="stat-card">
-                            <div className="stat-value">
-                                {weeklySummary.total_days}
-                                <span className="stat-unit"> วัน</span>
+                    {/* Overall Summary */}
+                    {weeklyData?.summary && (
+                        <>
+                            <div className="section-header">
+                                <h3 className="section-title">📊 สรุปภาพรวม</h3>
+                                <span className="section-badge">
+                                    {weeklyData.summary.total_days} วันที่เปิดตลาด
+                                </span>
                             </div>
-                            <div className="stat-label">วันที่เปิดตลาด</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-value">
-                                {weeklySummary.max_people}
-                                <span className="stat-unit"> คน</span>
+                            
+                            <div className="stats-grid">
+                                <div className="stat-card">
+                                    <div className="stat-value">
+                                        {weeklyData.summary.total_weeks || 0}
+                                        <span className="stat-unit"> สัปดาห์</span>
+                                    </div>
+                                    <div className="stat-label">สัปดาห์ที่บันทึก</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-value">
+                                        {weeklyData.summary.max_people_ever || 0}
+                                        <span className="stat-unit"> คน</span>
+                                    </div>
+                                    <div className="stat-label">สูงสุดตลอดกาล</div>
+                                </div>
+                                <div className="stat-card">
+                                    <div className="stat-value">
+                                        {weeklyData.summary.avg_people_overall || 0}
+                                        <span className="stat-unit"> คน</span>
+                                    </div>
+                                    <div className="stat-label">เฉลี่ยต่อวัน</div>
+                                </div>
                             </div>
-                            <div className="stat-label">สูงสุดในช่วงนี้</div>
-                        </div>
-                        <div className="stat-card">
-                            <div className="stat-value">
-                                {weeklySummary.avg_people}
-                                <span className="stat-unit"> คน</span>
-                            </div>
-                            <div className="stat-label">เฉลี่ยต่อวัน</div>
-                        </div>
-                    </div>
+                        </>
+                    )}
 
+                    {/* Weekly Breakdown */}
                     <div className="section-header" style={{ marginTop: '1.5rem' }}>
-                        <h3 className="section-title">รายละเอียดแต่ละวัน</h3>
+                        <h3 className="section-title">📅 รายละเอียดแต่ละสัปดาห์</h3>
                     </div>
                     
-                    {weeklyData.length > 0 ? (
-                        <div className="history-list">
-                            {weeklyData.map((day, i) => (
-                                <div key={i} className="history-item">
-                                    <div className="history-date">
-                                        {formatDateShort(day.date)}
-                                        <span style={{ 
-                                            fontSize: '0.75rem', 
-                                            color: 'var(--text-light)',
-                                            display: 'block'
+                    {weeklyData?.weeks?.length > 0 ? (
+                        <div className="weekly-list">
+                            {weeklyData.weeks.map((week, i) => (
+                                <div key={week.week_key} className="weekly-card" style={{
+                                    background: 'var(--card-bg)',
+                                    borderRadius: '12px',
+                                    padding: '1rem',
+                                    marginBottom: '1rem',
+                                    border: '1px solid var(--border-color)'
+                                }}>
+                                    {/* Week Header */}
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: '0.75rem'
+                                    }}>
+                                        <div>
+                                            <span style={{ 
+                                                fontSize: '1rem',
+                                                fontWeight: '600',
+                                                color: 'var(--text-primary)'
+                                            }}>
+                                                สัปดาห์ที่ {week.week_number}
+                                            </span>
+                                            <span style={{ 
+                                                fontSize: '0.8125rem',
+                                                color: 'var(--text-muted)',
+                                                marginLeft: '0.5rem'
+                                            }}>
+                                                ({formatWeekRange(week.start_date, week.end_date)})
+                                            </span>
+                                        </div>
+                                        <span style={{
+                                            background: 'var(--primary-light)',
+                                            color: 'var(--primary)',
+                                            padding: '0.25rem 0.5rem',
+                                            borderRadius: '6px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '500'
                                         }}>
-                                            {getDayName(day.date)}
+                                            {week.days_open} วัน
                                         </span>
                                     </div>
-                                    <div className="history-stats">
-                                        สูงสุด <strong>{day.max_people || 0} คน</strong> • 
-                                        เฉลี่ย <strong>{Math.round(day.avg_people || 0)} คน</strong>
+
+                                    {/* Week Stats */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, 1fr)',
+                                        gap: '0.75rem',
+                                        marginBottom: '0.75rem'
+                                    }}>
+                                        <div style={{
+                                            background: 'var(--bg-secondary)',
+                                            padding: '0.75rem',
+                                            borderRadius: '8px',
+                                            textAlign: 'center'
+                                        }}>
+                                            <div style={{ 
+                                                fontSize: '1.25rem', 
+                                                fontWeight: '700',
+                                                color: 'var(--primary)'
+                                            }}>
+                                                {week.max_people}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                สูงสุด
+                                            </div>
+                                        </div>
+                                        <div style={{
+                                            background: 'var(--bg-secondary)',
+                                            padding: '0.75rem',
+                                            borderRadius: '8px',
+                                            textAlign: 'center'
+                                        }}>
+                                            <div style={{ 
+                                                fontSize: '1.25rem', 
+                                                fontWeight: '700',
+                                                color: 'var(--text-primary)'
+                                            }}>
+                                                {week.avg_people}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                เฉลี่ย
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Saturday & Sunday Details */}
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: '0.5rem',
+                                        fontSize: '0.8125rem'
+                                    }}>
+                                        {week.saturday && (
+                                            <div style={{
+                                                flex: 1,
+                                                background: '#fef3c7',
+                                                padding: '0.5rem',
+                                                borderRadius: '6px',
+                                                textAlign: 'center'
+                                            }}>
+                                                <div style={{ fontWeight: '500', color: '#92400e' }}>
+                                                    🟡 เสาร์
+                                                </div>
+                                                <div style={{ color: '#b45309' }}>
+                                                    สูงสุด {week.saturday.max_people} คน
+                                                </div>
+                                            </div>
+                                        )}
+                                        {week.sunday && (
+                                            <div style={{
+                                                flex: 1,
+                                                background: '#fce7f3',
+                                                padding: '0.5rem',
+                                                borderRadius: '6px',
+                                                textAlign: 'center'
+                                            }}>
+                                                <div style={{ fontWeight: '500', color: '#9d174d' }}>
+                                                    🔴 อาทิตย์
+                                                </div>
+                                                <div style={{ color: '#be185d' }}>
+                                                    สูงสุด {week.sunday.max_people} คน
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
                         <div className="empty-state">
-                            <p className="empty-text">ยังไม่มีข้อมูล</p>
+                            <p className="empty-text">ยังไม่มีข้อมูลสรุปรายสัปดาห์</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
+                                ข้อมูลจะแสดงเมื่อมีการบันทึกในวันเสาร์-อาทิตย์
+                            </p>
                         </div>
                     )}
                 </section>
             )}
 
+            {/* ==================== TAB: ประวัติย้อนหลัง ==================== */}
             {activeTab === 'history' && !loading && (
                 <section className="section">
                     <div className="section-header">
                         <h3 className="section-title">ประวัติวันที่เปิดตลาด</h3>
                         <span className="section-badge">{historyData.length} วัน</span>
                     </div>
+
+                    <p style={{ 
+                        fontSize: '0.875rem', 
+                        color: 'var(--text-muted)', 
+                        marginBottom: '1rem' 
+                    }}>
+                        แสดงเฉพาะวันเสาร์และวันอาทิตย์ที่ตลาดเปิดทำการ
+                    </p>
 
                     {historyData.length > 0 ? (
                         <div className="history-list">
@@ -302,8 +466,9 @@ export default function ReportsPage() {
                                         {formatDateShort(day.date)}
                                         <span style={{ 
                                             fontSize: '0.75rem', 
-                                            color: 'var(--text-light)',
-                                            display: 'block'
+                                            color: getDayName(day.date) === 'เสาร์' ? '#b45309' : '#be185d',
+                                            display: 'block',
+                                            fontWeight: '500'
                                         }}>
                                             {getDayName(day.date)}
                                         </span>
@@ -324,11 +489,12 @@ export default function ReportsPage() {
                 </section>
             )}
 
+            {/* Note Box */}
             <div className="note-box">
-                <p className="note-title">เกี่ยวกับข้อมูล</p>
+                <p className="note-title">📌 เกี่ยวกับข้อมูล</p>
                 <p className="note-text">
                     ตลาดกาดกองต้าเปิดทำการเฉพาะ <strong>วันเสาร์และวันอาทิตย์</strong> เวลา 16.00 - 22.00 น. 
-                    ข้อมูลถูกบันทึกโดยระบบอัตโนมัติ
+                    ข้อมูลถูกบันทึกโดยระบบ AI อัตโนมัติ
                 </p>
             </div>
 
