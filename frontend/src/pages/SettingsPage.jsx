@@ -1,6 +1,7 @@
 /* =====================================================
-   Settings Page - หน้าตั้งค่าบัญชีผู้ใช้งาน
-   รองรับ LINE Login v2.1 (OAuth 2.0)
+   หน้าตั้งค่าบัญชีผู้ใช้งาน
+   Human-centered Design: แสดงข้อมูลชัดเจน เข้าใจง่าย
+   LINE Login Persistent: login ครั้งเดียว จำได้ถาวร
    ===================================================== */
 
 import { useState } from 'react';
@@ -17,6 +18,7 @@ export default function SettingsPage() {
         loading,
         isProcessingCallback 
     } = useAuth();
+    
     const [selectedRole, setSelectedRole] = useState(user?.role || 'tourist');
     const [officerToken, setOfficerToken] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
@@ -24,7 +26,7 @@ export default function SettingsPage() {
     const [localError, setLocalError] = useState('');
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-    // แสดง Loading ขณะประมวลผล callback จาก LINE
+    // Loading State
     if (loading || isProcessingCallback) {
         return (
             <div className="loading-container">
@@ -57,7 +59,6 @@ export default function SettingsPage() {
             return;
         }
 
-        // ตรวจสอบ Token สำหรับเจ้าหน้าที่
         if (selectedRole === ROLES.OFFICER && !officerToken.trim()) {
             setLocalError('กรุณากรอกรหัสยืนยันตัวตนสำหรับเจ้าหน้าที่');
             return;
@@ -167,7 +168,6 @@ export default function SettingsPage() {
                             </div>
                             <p className="role-option-desc">{roleData.description}</p>
                             
-                            {/* แจ้งเตือนสำหรับ Role เจ้าหน้าที่ */}
                             {roleKey === 'officer' && (
                                 <p className="role-option-note">
                                     ต้องมีรหัสยืนยันจากผู้ดูแลระบบ
@@ -205,7 +205,7 @@ export default function SettingsPage() {
                     </div>
                 )}
 
-                {/* แสดง Error */}
+                {/* Error Message */}
                 {(localError || error) && (
                     <div className="settings-message error">
                         <span className="message-icon">!</span>
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                     </div>
                 )}
 
-                {/* แสดง Success */}
+                {/* Success Message */}
                 {successMessage && (
                     <div className="settings-message success">
                         <span className="message-icon">✓</span>
@@ -233,7 +233,7 @@ export default function SettingsPage() {
                 )}
             </section>
 
-            {/* ข้อมูลความเป็นส่วนตัว (PDPA) */}
+            {/* ข้อมูลความเป็นส่วนตัว */}
             <section className="settings-section privacy-section">
                 <h2 className="section-heading">ข้อมูลความเป็นส่วนตัว</h2>
                 <div className="privacy-card">

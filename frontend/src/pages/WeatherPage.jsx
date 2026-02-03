@@ -1,14 +1,36 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp-production.up.railway.app';
 
+// กำหนดสถานะ PM2.5 ตามค่ามาตรฐาน
 function getPM25Status(pm25) {
-    if (pm25 <= 25) return { key: 'good', label: 'ดีมาก', color: '#10b981' };
-    if (pm25 <= 50) return { key: 'moderate', label: 'ปานกลาง', color: '#f59e0b' };
-    if (pm25 <= 100) return { key: 'unhealthy', label: 'มีผลต่อสุขภาพ', color: '#f97316' };
-    return { key: 'hazardous', label: 'อันตราย', color: '#ef4444' };
+    if (pm25 <= 25) return { 
+        key: 'good', 
+        label: 'ดีมาก', 
+        color: '#059669',
+        advice: 'คุณภาพอากาศดี เหมาะสำหรับกิจกรรมกลางแจ้ง'
+    };
+    if (pm25 <= 50) return { 
+        key: 'moderate', 
+        label: 'ปานกลาง', 
+        color: '#d97706',
+        advice: 'คุณภาพอากาศพอใช้ ผู้ที่แพ้ง่ายควรระวัง'
+    };
+    if (pm25 <= 100) return { 
+        key: 'unhealthy', 
+        label: 'มีผลต่อสุขภาพ', 
+        color: '#ea580c',
+        advice: 'ควรลดกิจกรรมกลางแจ้ง สวมหน้ากากอนามัย'
+    };
+    return { 
+        key: 'hazardous', 
+        label: 'อันตราย', 
+        color: '#dc2626',
+        advice: 'หลีกเลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากาก N95'
+    };
 }
 
+// แปลงเวลาเป็นรูปแบบไทย
 function formatTime(isoString) {
     if (!isoString) return '-';
     return new Date(isoString).toLocaleTimeString('th-TH', { 
@@ -25,17 +47,18 @@ export default function WeatherPage() {
 
     useEffect(() => {
         fetchWeather();
-        const interval = setInterval(fetchWeather, 5 * 60 * 1000); // อัปเดตทุก 5 นาที
+        // อัปเดตทุก 5 นาที
+        const interval = setInterval(fetchWeather, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
     const fetchWeather = async () => {
         try {
             const response = await fetch(`${API_BASE}/api/weather`);
-            if (!response.ok) throw new Error('Failed to fetch weather');
+            if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลได้');
+            
             const data = await response.json();
             if (data.success) {
-                // Map API response to component format
                 const weatherData = data.data.weather;
                 const airQuality = data.data.air_quality;
                 
@@ -47,21 +70,26 @@ export default function WeatherPage() {
                     windSpeed: weatherData?.wind?.speed_kmh,
                     visibility: weatherData?.visibility,
                     pm25: airQuality?.components?.pm2_5?.value,
-                    timestamp: weatherData?.timestamp
+                    timestamp: weatherData?.timestamp || new Date().toISOString()
                 });
                 setError(null);
             }
         } catch (err) {
-            console.error('Weather fetch error:', err);
-            setError('ไม่สามารถโหลดข้อมูลสภาพอากาศได้');
+            console.error('[WeatherPage] Fetch error:', err);
+            setError('ไม่สามารถโหลดข้อมูลสภาพอากาศได้ กรุณาลองใหม่');
         } finally {
             setLoading(false);
         }
     };
 
+    // Loading State
     if (loading) {
         return (
             <div className="page-container">
+                <header className="page-header">
+                    <h1 className="page-title">สภาพอากาศ</h1>
+                    <p className="page-subtitle">กาดกองต้า ลำปาง</p>
+                </header>
                 <div className="loading-container">
                     <div className="loading-spinner"></div>
                     <p className="loading-text">กำลังโหลดข้อมูลสภาพอากาศ...</p>
@@ -70,9 +98,14 @@ export default function WeatherPage() {
         );
     }
 
-    if (error) {
+    // Error State
+    if (error && !weather) {
         return (
             <div className="page-container">
+                <header className="page-header">
+                    <h1 className="page-title">สภาพอากาศ</h1>
+                    <p className="page-subtitle">กาดกองต้า ลำปาง</p>
+                </header>
                 <div className="error-container">
                     <p className="error-text">{error}</p>
                     <button onClick={fetchWeather} className="retry-btn">ลองใหม่</button>
@@ -94,27 +127,29 @@ export default function WeatherPage() {
             <div className="weather-card">
                 <div className="weather-main">
                     <div className="weather-temp">
-                        <span className="temp-value">{weather?.temperature || '-'}</span>
+                        <span className="temp-value">{weather?.temperature ?? '-'}</span>
                         <span className="temp-unit">°C</span>
                     </div>
                     <div className="weather-desc">
                         <p className="weather-condition">{weather?.description || 'ไม่มีข้อมูล'}</p>
-                        <p className="weather-feels">รู้สึกเหมือน {weather?.feelsLike || '-'}°C</p>
+                        {weather?.feelsLike && (
+                            <p className="weather-feels">รู้สึกเหมือน {weather.feelsLike}°C</p>
+                        )}
                     </div>
                 </div>
 
                 <div className="weather-details">
                     <div className="weather-detail-item">
                         <span className="detail-label">ความชื้น</span>
-                        <span className="detail-value">{weather?.humidity || '-'}%</span>
+                        <span className="detail-value">{weather?.humidity ?? '-'}%</span>
                     </div>
                     <div className="weather-detail-item">
                         <span className="detail-label">ลม</span>
-                        <span className="detail-value">{weather?.windSpeed || '-'} km/h</span>
+                        <span className="detail-value">{weather?.windSpeed ?? '-'} km/h</span>
                     </div>
                     <div className="weather-detail-item">
                         <span className="detail-label">ทัศนวิสัย</span>
-                        <span className="detail-value">{weather?.visibility || '-'} km</span>
+                        <span className="detail-value">{weather?.visibility ?? '-'} km</span>
                     </div>
                 </div>
             </div>
@@ -122,22 +157,32 @@ export default function WeatherPage() {
             {/* PM2.5 Card */}
             <div className="pm25-card">
                 <h2 className="section-title">คุณภาพอากาศ PM2.5</h2>
+                
                 <div className="pm25-main">
-                    <div className="pm25-value" style={{ color: pm25Status?.color }}>
-                        {weather?.pm25 || '-'}
-                    </div>
-                    <div className="pm25-unit">μg/m³</div>
+                    <span 
+                        className="pm25-value" 
+                        style={{ color: pm25Status?.color || 'var(--text-heading)' }}
+                    >
+                        {weather?.pm25 ?? '-'}
+                    </span>
+                    <span className="pm25-unit">μg/m³</span>
                 </div>
+                
                 {pm25Status && (
-                    <div className="pm25-status" style={{ background: pm25Status.color + '20', color: pm25Status.color }}>
+                    <div 
+                        className="pm25-status" 
+                        style={{ 
+                            background: pm25Status.color + '15', 
+                            color: pm25Status.color,
+                            border: `1px solid ${pm25Status.color}30`
+                        }}
+                    >
                         {pm25Status.label}
                     </div>
                 )}
+                
                 <p className="pm25-advice">
-                    {weather?.pm25 <= 25 && 'คุณภาพอากาศดี เหมาะสำหรับกิจกรรมกลางแจ้ง'}
-                    {weather?.pm25 > 25 && weather?.pm25 <= 50 && 'คุณภาพอากาศปานกลาง ผู้ที่แพ้ง่ายควรระวัง'}
-                    {weather?.pm25 > 50 && weather?.pm25 <= 100 && 'ควรลดกิจกรรมกลางแจ้ง สวมหน้ากากอนามัย'}
-                    {weather?.pm25 > 100 && 'หลีกเลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากาก N95'}
+                    {pm25Status?.advice || 'ไม่มีข้อมูลคุณภาพอากาศ'}
                 </p>
             </div>
 
@@ -145,12 +190,13 @@ export default function WeatherPage() {
             <div className="update-info">
                 <span>อัปเดตล่าสุด:</span>
                 <span className="update-time">{formatTime(weather?.timestamp)}</span>
+                <span className="update-auto">• อัปเดตอัตโนมัติทุก 5 นาที</span>
             </div>
 
             {/* Disclaimer */}
             <div className="disclaimer">
                 <p className="disclaimer-text">
-                    ข้อมูลจาก OpenWeatherMap<br />
+                    ข้อมูลจาก OpenWeatherMap API<br />
                     ใช้เพื่อประกอบการตัดสินใจเท่านั้น
                 </p>
             </div>

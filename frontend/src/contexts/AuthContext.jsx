@@ -1,11 +1,17 @@
 /* =====================================================
    Auth Context - ระบบจัดการ Authentication สำหรับ Frontend
    รองรับ LINE Login v2.1 (OAuth 2.0 Authorization Code Flow)
+   Persistent Login: login ครั้งเดียว ไม่ต้อง login ซ้ำ
    ===================================================== */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp-production.up.railway.app';
+
+// Session Storage Keys
+const SESSION_TOKEN_KEY = 'forlp_session_token';
+const SESSION_EXPIRES_KEY = 'forlp_session_expires';
+const USER_CACHE_KEY = 'forlp_user_cache';
 
 // สร้าง Context
 const AuthContext = createContext(null);
@@ -62,6 +68,57 @@ export const ROLE_INFO = {
     }
 };
 
+// Helper: บันทึก Session ลง localStorage
+function saveSession(token, expiresAt, user) {
+    try {
+        localStorage.setItem(SESSION_TOKEN_KEY, token);
+        localStorage.setItem(SESSION_EXPIRES_KEY, expiresAt);
+        if (user) {
+            localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+        }
+    } catch (e) {
+        console.warn('[Auth] Cannot save to localStorage:', e);
+    }
+}
+
+// Helper: ลบ Session จาก localStorage
+function clearSession() {
+    try {
+        localStorage.removeItem(SESSION_TOKEN_KEY);
+        localStorage.removeItem(SESSION_EXPIRES_KEY);
+        localStorage.removeItem(USER_CACHE_KEY);
+    } catch (e) {
+        console.warn('[Auth] Cannot clear localStorage:', e);
+    }
+}
+
+// Helper: ดึง Session จาก localStorage
+function getStoredSession() {
+    try {
+        const token = localStorage.getItem(SESSION_TOKEN_KEY);
+        const expiresAt = localStorage.getItem(SESSION_EXPIRES_KEY);
+        const userCache = localStorage.getItem(USER_CACHE_KEY);
+        
+        if (!token) return null;
+        
+        // ตรวจสอบว่า session หมดอายุหรือยัง
+        if (expiresAt && new Date(expiresAt) < new Date()) {
+            console.log('[Auth] Stored session expired');
+            clearSession();
+            return null;
+        }
+        
+        return {
+            token,
+            expiresAt,
+            userCache: userCache ? JSON.parse(userCache) : null
+        };
+    } catch (e) {
+        console.warn('[Auth] Cannot read localStorage:', e);
+        return null;
+    }
+}
+
 // Auth Provider Component
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
@@ -86,7 +143,6 @@ export function AuthProvider({ children }) {
                     const errorDesc = urlParams.get('error_description') || 'ไม่สามารถเข้าสู่ระบบได้';
                     console.error('[Auth] LINE returned error:', authError, errorDesc);
                     setError(decodeURIComponent(errorDesc));
-                    // ล้าง URL
                     window.history.replaceState({}, '', window.location.pathname);
                     setLoading(false);
                     return;
@@ -97,11 +153,10 @@ export function AuthProvider({ children }) {
                     console.log('[Auth] Processing LINE callback...');
                     setIsProcessingCallback(true);
                     await processLineCallback(code, state);
-                    // ล้าง URL หลังจาก process เสร็จ
                     window.history.replaceState({}, '', window.location.pathname);
                     setIsProcessingCallback(false);
                 } else {
-                    // ไม่มี callback - ตรวจสอบ session เดิม
+                    // ไม่มี callback - ตรวจสอบ session เดิม (Persistent Login)
                     await loadUserFromSession();
                 }
             } catch (err) {
@@ -132,9 +187,14 @@ export function AuthProvider({ children }) {
             
             if (result.success) {
                 console.log('[Auth] Login successful:', result.data.user.displayName);
-                // บันทึก Session Token ใน localStorage
-                localStorage.setItem('sessionToken', result.data.session.token);
-                localStorage.setItem('sessionExpiresAt', result.data.session.expiresAt);
+                
+                // บันทึก Session แบบ Persistent
+                saveSession(
+                    result.data.session.token,
+                    result.data.session.expiresAt,
+                    result.data.user
+                );
+                
                 setUser(result.data.user);
                 setError(null);
                 return { success: true };
@@ -150,29 +210,25 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // โหลดข้อมูลผู้ใช้จาก Session
+    // โหลดข้อมูลผู้ใช้จาก Session (Persistent Login)
     const loadUserFromSession = async () => {
-        const sessionToken = localStorage.getItem('sessionToken');
-        const expiresAt = localStorage.getItem('sessionExpiresAt');
+        const stored = getStoredSession();
         
-        if (!sessionToken) {
-            console.log('[Auth] No session token found');
-            return false;
-        }
-        
-        // ตรวจสอบว่า session หมดอายุหรือยัง
-        if (expiresAt && new Date(expiresAt) < new Date()) {
-            console.log('[Auth] Session expired');
-            localStorage.removeItem('sessionToken');
-            localStorage.removeItem('sessionExpiresAt');
+        if (!stored) {
+            console.log('[Auth] No stored session found');
             return false;
         }
 
+        // แสดง cached user ก่อน (ให้ UI ตอบสนองเร็ว)
+        if (stored.userCache) {
+            setUser(stored.userCache);
+        }
+
         try {
-            console.log('[Auth] Loading user from session...');
+            console.log('[Auth] Validating session with backend...');
             const response = await fetch(`${API_BASE}/api/auth/me`, {
                 headers: {
-                    'Authorization': `Bearer ${sessionToken}`
+                    'Authorization': `Bearer ${stored.token}`
                 }
             });
 
@@ -180,18 +236,29 @@ export function AuthProvider({ children }) {
                 const result = await response.json();
                 if (result.success) {
                     console.log('[Auth] Session valid, user:', result.data.user.displayName);
+                    
+                    // อัปเดต user cache
+                    saveSession(stored.token, stored.expiresAt, result.data.user);
                     setUser(result.data.user);
                     return true;
                 }
-            } else {
-                console.log('[Auth] Session expired or invalid');
-                localStorage.removeItem('sessionToken');
-                localStorage.removeItem('sessionExpiresAt');
             }
+            
+            // Session ไม่ valid - ลบ session แต่ไม่แสดง error
+            console.log('[Auth] Session expired or invalid');
+            clearSession();
+            setUser(null);
+            return false;
+            
         } catch (err) {
             console.error('[Auth] Load user error:', err);
+            // Network error - ใช้ cached user ถ้ามี
+            if (stored.userCache) {
+                console.log('[Auth] Using cached user due to network error');
+                return true;
+            }
+            return false;
         }
-        return false;
     };
 
     // เริ่มต้น LINE Login Flow
@@ -200,13 +267,11 @@ export function AuthProvider({ children }) {
         setError(null);
         
         try {
-            // เรียก Backend เพื่อสร้าง Authorization URL
             const response = await fetch(`${API_BASE}/api/auth/line/authorize`);
             const result = await response.json();
             
             if (result.success) {
                 console.log('[Auth] Redirecting to LINE Login...');
-                // Redirect ไปหน้า LINE Login
                 window.location.href = result.data.authorizationUrl;
             } else {
                 console.error('[Auth] Failed to get auth URL:', result.error);
@@ -218,17 +283,17 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
-    // ออกจากระบบ (Revoke LINE Token)
+    // ออกจากระบบ (Revoke LINE Token + Clear Session)
     const logout = async () => {
         console.log('[Auth] Logging out...');
-        const sessionToken = localStorage.getItem('sessionToken');
+        const stored = getStoredSession();
 
         try {
-            if (sessionToken) {
+            if (stored?.token) {
                 await fetch(`${API_BASE}/api/auth/logout`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${sessionToken}`
+                        'Authorization': `Bearer ${stored.token}`
                     }
                 });
             }
@@ -236,24 +301,27 @@ export function AuthProvider({ children }) {
             console.error('[Auth] Logout error:', err);
         }
 
-        // ล้างข้อมูล Session
-        localStorage.removeItem('sessionToken');
-        localStorage.removeItem('sessionExpiresAt');
+        // ล้างข้อมูล Session ทั้งหมด
+        clearSession();
         setUser(null);
         setError(null);
     };
 
     // เปลี่ยน Role
     const updateRole = async (newRole, officerToken = null) => {
-        const sessionToken = localStorage.getItem('sessionToken');
+        const stored = getStoredSession();
         setError(null);
+
+        if (!stored?.token) {
+            return { success: false, error: 'กรุณาเข้าสู่ระบบก่อน' };
+        }
 
         try {
             const response = await fetch(`${API_BASE}/api/auth/role`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionToken}`
+                    'Authorization': `Bearer ${stored.token}`
                 },
                 body: JSON.stringify({ role: newRole, officerToken })
             });
@@ -261,6 +329,8 @@ export function AuthProvider({ children }) {
             const result = await response.json();
 
             if (result.success) {
+                // อัปเดต user และ cache
+                saveSession(stored.token, stored.expiresAt, result.data.user);
                 setUser(result.data.user);
                 return { success: true, message: result.data.message };
             } else {
@@ -278,6 +348,11 @@ export function AuthProvider({ children }) {
     const canAccessCCTV = () => user?.role === ROLES.OFFICER && user?.roleVerified;
     const canViewReports = () => user?.role !== ROLES.TOURIST;
 
+    // Refresh user data
+    const refreshUser = useCallback(async () => {
+        return loadUserFromSession();
+    }, []);
+
     const value = {
         user,
         loading,
@@ -290,7 +365,7 @@ export function AuthProvider({ children }) {
         canAccessCCTV,
         canViewReports,
         clearError: () => setError(null),
-        refreshUser: loadUserFromSession
+        refreshUser
     };
 
     return (

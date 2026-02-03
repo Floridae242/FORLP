@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp-production.up.railway.app';
 
 function isWeekend(dateStr) {
     const date = new Date(dateStr);
@@ -52,7 +52,6 @@ export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState('daily');
     const [selectedDate, setSelectedDate] = useState(getLastWeekendDate());
     
-    // State สำหรับข้อมูลจริง
     const [dailyData, setDailyData] = useState(null);
     const [historyData, setHistoryData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -60,7 +59,6 @@ export default function ReportsPage() {
 
     const isClosed = !isWeekend(selectedDate);
 
-    // ดึงข้อมูลรายวัน
     const fetchDailyData = useCallback(async (date) => {
         if (!isWeekend(date)) {
             setDailyData(null);
@@ -71,7 +69,8 @@ export default function ReportsPage() {
         setError(null);
         try {
             const response = await fetch(`${API_BASE}/api/people/daily?date=${date}`);
-            if (!response.ok) throw new Error('Failed to fetch daily data');
+            if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลได้');
+            
             const data = await response.json();
             if (data.success) {
                 setDailyData(data.data);
@@ -79,34 +78,33 @@ export default function ReportsPage() {
                 setDailyData(null);
             }
         } catch (err) {
-            console.error('Daily data fetch error:', err);
-            setError('ไม่สามารถโหลดข้อมูลได้');
+            console.error('[ReportsPage] Daily data error:', err);
+            setError('ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่');
             setDailyData(null);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    // ดึงข้อมูลประวัติย้อนหลัง
     const fetchHistoryData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${API_BASE}/api/people/history?limit=30`);
-            if (!response.ok) throw new Error('Failed to fetch history data');
+            const response = await fetch(`${API_BASE}/api/people/history?days=30`);
+            if (!response.ok) throw new Error('ไม่สามารถโหลดข้อมูลได้');
+            
             const data = await response.json();
             if (data.success) {
                 setHistoryData(data.data || []);
             }
         } catch (err) {
-            console.error('History data fetch error:', err);
-            setError('ไม่สามารถโหลดข้อมูลได้');
+            console.error('[ReportsPage] History data error:', err);
+            setError('ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่');
         } finally {
             setLoading(false);
         }
     }, []);
 
-    // โหลดข้อมูลเมื่อ tab หรือวันที่เปลี่ยน
     useEffect(() => {
         if (activeTab === 'daily') {
             fetchDailyData(selectedDate);
@@ -115,8 +113,7 @@ export default function ReportsPage() {
         }
     }, [activeTab, selectedDate, fetchDailyData, fetchHistoryData]);
 
-    // คำนวณข้อมูลสรุปรายสัปดาห์จากประวัติ
-    const weeklyData = historyData.slice(0, 8); // 8 วันล่าสุด (4 สัปดาห์)
+    const weeklyData = historyData.slice(0, 8);
     const weeklySummary = {
         total_days: weeklyData.length,
         max_people: weeklyData.length > 0 ? Math.max(...weeklyData.map(d => d.max_people || 0)) : 0,
@@ -127,7 +124,7 @@ export default function ReportsPage() {
         <div className="page-container">
             <header className="page-header">
                 <h1 className="page-title">รายงานข้อมูล</h1>
-                <p className="page-subtitle">สรุปจำนวนผู้คนในพื้นที่ถนนคนเดินกาดกองต้า (เปิดเฉพาะวันเสาร์-อาทิตย์)</p>
+                <p className="page-subtitle">สรุปจำนวนผู้คนในพื้นที่ถนนคนเดินกาดกองต้า</p>
             </header>
 
             <div className="report-tabs">
@@ -151,18 +148,16 @@ export default function ReportsPage() {
                 </button>
             </div>
 
-            {/* Loading State */}
             {loading && (
-                <div className="loading-container" style={{ padding: '2rem', textAlign: 'center' }}>
+                <div className="loading-container" style={{ minHeight: '20vh' }}>
                     <div className="loading-spinner"></div>
                     <p className="loading-text">กำลังโหลดข้อมูล...</p>
                 </div>
             )}
 
-            {/* Error State */}
             {error && !loading && (
-                <div className="error-container" style={{ padding: '1rem', textAlign: 'center', color: 'var(--status-danger)' }}>
-                    <p>{error}</p>
+                <div className="error-container">
+                    <p className="error-text">{error}</p>
                 </div>
             )}
 
@@ -188,7 +183,7 @@ export default function ReportsPage() {
 
                     {isClosed ? (
                         <div className="empty-state">
-                            <p className="empty-text" style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
+                            <p className="empty-text" style={{ marginBottom: '0.5rem' }}>
                                 ตลาดปิดทำการในวันนี้
                             </p>
                             <p style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
@@ -196,45 +191,38 @@ export default function ReportsPage() {
                             </p>
                         </div>
                     ) : dailyData ? (
-                        <>
-                            <div className="stats-grid">
-                                <div className="stat-card">
-                                    <div className="stat-value">
-                                        {dailyData.max_people || 0}
-                                        <span className="stat-unit"> คน</span>
-                                    </div>
-                                    <div className="stat-label">จำนวนสูงสุด</div>
+                        <div className="stats-grid">
+                            <div className="stat-card">
+                                <div className="stat-value">
+                                    {dailyData.max_people || 0}
+                                    <span className="stat-unit"> คน</span>
                                 </div>
-                                <div className="stat-card">
-                                    <div className="stat-value">
-                                        {Math.round(dailyData.avg_people || 0)}
-                                        <span className="stat-unit"> คน</span>
-                                    </div>
-                                    <div className="stat-label">จำนวนเฉลี่ย</div>
-                                </div>
-                                <div className="stat-card">
-                                    <div className="stat-value">
-                                        {dailyData.min_people || 0}
-                                        <span className="stat-unit"> คน</span>
-                                    </div>
-                                    <div className="stat-label">จำนวนต่ำสุด</div>
-                                </div>
-                                <div className="stat-card">
-                                    <div className="stat-value">
-                                        {dailyData.total_samples || 0}
-                                    </div>
-                                    <div className="stat-label">จำนวนครั้งที่บันทึก</div>
-                                </div>
+                                <div className="stat-label">จำนวนสูงสุด</div>
                             </div>
-                        </>
+                            <div className="stat-card">
+                                <div className="stat-value">
+                                    {Math.round(dailyData.avg_people || 0)}
+                                    <span className="stat-unit"> คน</span>
+                                </div>
+                                <div className="stat-label">จำนวนเฉลี่ย</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="stat-value">
+                                    {dailyData.min_people || 0}
+                                    <span className="stat-unit"> คน</span>
+                                </div>
+                                <div className="stat-label">จำนวนต่ำสุด</div>
+                            </div>
+                            <div className="stat-card">
+                                <div className="stat-value">
+                                    {dailyData.total_samples || 0}
+                                </div>
+                                <div className="stat-label">ครั้งที่บันทึก</div>
+                            </div>
+                        </div>
                     ) : (
                         <div className="empty-state">
-                            <p className="empty-text" style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
-                                ไม่มีข้อมูลสำหรับวันที่เลือก
-                            </p>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
-                                ยังไม่มีการบันทึกข้อมูลในวันนี้
-                            </p>
+                            <p className="empty-text">ไม่มีข้อมูลสำหรับวันที่เลือก</p>
                         </div>
                     )}
                 </section>
@@ -248,14 +236,14 @@ export default function ReportsPage() {
                                 {weeklySummary.total_days}
                                 <span className="stat-unit"> วัน</span>
                             </div>
-                            <div className="stat-label">จำนวนวันที่เปิดตลาด</div>
+                            <div className="stat-label">วันที่เปิดตลาด</div>
                         </div>
                         <div className="stat-card">
                             <div className="stat-value">
                                 {weeklySummary.max_people}
                                 <span className="stat-unit"> คน</span>
                             </div>
-                            <div className="stat-label">สูงสุดในช่วงที่ผ่านมา</div>
+                            <div className="stat-label">สูงสุดในช่วงนี้</div>
                         </div>
                         <div className="stat-card">
                             <div className="stat-value">
@@ -267,8 +255,9 @@ export default function ReportsPage() {
                     </div>
 
                     <div className="section-header" style={{ marginTop: '1.5rem' }}>
-                        <h3 className="section-title">รายละเอียดแต่ละวันที่เปิดตลาด</h3>
+                        <h3 className="section-title">รายละเอียดแต่ละวัน</h3>
                     </div>
+                    
                     {weeklyData.length > 0 ? (
                         <div className="history-list">
                             {weeklyData.map((day, i) => (
@@ -320,9 +309,9 @@ export default function ReportsPage() {
                                         </span>
                                     </div>
                                     <div className="history-stats">
-                                        สูงสุด <strong>{day.max_people || 0} คน</strong> • 
-                                        เฉลี่ย <strong>{Math.round(day.avg_people || 0)} คน</strong> • 
-                                        ต่ำสุด <strong>{day.min_people || 0} คน</strong>
+                                        สูงสุด <strong>{day.max_people || 0}</strong> • 
+                                        เฉลี่ย <strong>{Math.round(day.avg_people || 0)}</strong> • 
+                                        ต่ำสุด <strong>{day.min_people || 0}</strong> คน
                                     </div>
                                 </div>
                             ))}
@@ -339,7 +328,7 @@ export default function ReportsPage() {
                 <p className="note-title">เกี่ยวกับข้อมูล</p>
                 <p className="note-text">
                     ตลาดกาดกองต้าเปิดทำการเฉพาะ <strong>วันเสาร์และวันอาทิตย์</strong> เวลา 16.00 - 22.00 น. 
-                    ข้อมูลถูกบันทึกโดยระบบอัตโนมัติทุก 5 นาที
+                    ข้อมูลถูกบันทึกโดยระบบอัตโนมัติ
                 </p>
             </div>
 
