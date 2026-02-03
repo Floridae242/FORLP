@@ -1,8 +1,5 @@
-# =====================================================
-# Railway Configuration - AI People Counting Service
-# =====================================================
-
 [build]
+builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]

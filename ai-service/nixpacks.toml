@@ -1,0 +1,9 @@
+# Force Railway to use Dockerfile instead of Nixpacks
+[phases.build]
+cmds = []
+
+[phases.setup]
+nixPkgs = []
+
+[start]
+cmd = "python src/main.py"
