@@ -71,19 +71,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==================== Prometheus Metrics ====================
-if PROMETHEUS_AVAILABLE:
-    PEOPLE_COUNT = Gauge('people_count', 'Current people count', ['camera_id'])
-    PEOPLE_MAX = Gauge('people_max', 'Max people in window', ['camera_id'])
-    PEOPLE_AVG = Gauge('people_avg', 'Average people in window', ['camera_id'])
-    FRAMES_PROCESSED = Counter('frames_processed_total', 'Total frames processed', ['camera_id'])
-    WINDOWS_PROCESSED = Counter('windows_processed_total', 'Total playback windows processed', ['camera_id'])
-    PLAYBACK_FETCH_TIME = Histogram('playback_fetch_seconds', 'Time to fetch playback video', ['camera_id'])
-    INFERENCE_TIME = Histogram('inference_seconds', 'YOLOv8 inference time per frame', ['camera_id'])
-    ERRORS_TOTAL = Counter('errors_total', 'Total errors', ['camera_id', 'error_type'])
-    BACKEND_SEND_TIME = Histogram('backend_send_seconds', 'Time to send data to backend', ['camera_id'])
-
-
 # ==================== Data Classes ====================
 @dataclass
 class PlaybackConfig:
