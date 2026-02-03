@@ -35,11 +35,33 @@ import requests
 from ultralytics import YOLO
 
 # Prometheus metrics (optional)
+PROMETHEUS_AVAILABLE = False
+PEOPLE_COUNT = None
+PEOPLE_MAX = None
+PEOPLE_AVG = None
+FRAMES_PROCESSED = None
+WINDOWS_PROCESSED = None
+PLAYBACK_FETCH_TIME = None
+INFERENCE_TIME = None
+ERRORS_TOTAL = None
+BACKEND_SEND_TIME = None
+start_http_server = None
+
 try:
-    from prometheus_client import start_http_server, Counter, Gauge, Histogram, Summary
+    from prometheus_client import start_http_server as _start_http_server, Counter, Gauge, Histogram
     PROMETHEUS_AVAILABLE = True
+    start_http_server = _start_http_server
+    PEOPLE_COUNT = Gauge('people_count', 'Current people count', ['camera_id'])
+    PEOPLE_MAX = Gauge('people_max', 'Max people in window', ['camera_id'])
+    PEOPLE_AVG = Gauge('people_avg', 'Average people in window', ['camera_id'])
+    FRAMES_PROCESSED = Counter('frames_processed_total', 'Total frames processed', ['camera_id'])
+    WINDOWS_PROCESSED = Counter('windows_processed_total', 'Total playback windows processed', ['camera_id'])
+    PLAYBACK_FETCH_TIME = Histogram('playback_fetch_seconds', 'Time to fetch playback video', ['camera_id'])
+    INFERENCE_TIME = Histogram('inference_seconds', 'YOLOv8 inference time per frame', ['camera_id'])
+    ERRORS_TOTAL = Counter('errors_total', 'Total errors', ['camera_id', 'error_type'])
+    BACKEND_SEND_TIME = Histogram('backend_send_seconds', 'Time to send data to backend', ['camera_id'])
 except ImportError:
-    PROMETHEUS_AVAILABLE = False
+    pass
 
 # ==================== Logging Setup ====================
 logging.basicConfig(
@@ -299,7 +321,7 @@ class PlaybackFetcher:
         return f"{self.base_url}/api/frame.jpeg?src={encoded_rtsp}"
     
     def fetch_single_snapshot(self, camera: CameraConfig, use_playback: bool = False, 
-                               start_time: datetime = None, end_time: datetime = None) -> Optional[np.ndarray]:
+                               start_time: Optional[datetime] = None, end_time: Optional[datetime] = None) -> Optional[np.ndarray]:
         """
         ดึง snapshot 1 frame จาก go2rtc
         """
@@ -573,7 +595,7 @@ class PeopleDetector:
             logger.error(f"❌ Failed to load YOLOv8 model: {e}")
             raise
     
-    def detect(self, frame: np.ndarray, confidence: float = None) -> int:
+    def detect(self, frame: np.ndarray, confidence: Optional[float] = None) -> int:
         """
         ตรวจจับคนใน frame
         
@@ -733,7 +755,7 @@ class BackendSender:
                 ERRORS_TOTAL.labels(camera_id=result.camera_id, error_type='backend_error').inc()
             return False
     
-    def send_simple(self, camera_id: str, count: int, timestamp: str = None) -> bool:
+    def send_simple(self, camera_id: str, count: int, timestamp: Optional[str] = None) -> bool:
         """
         ส่งค่า count แบบง่าย (สำหรับ backward compatibility)
         """

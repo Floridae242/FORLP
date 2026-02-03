@@ -7,6 +7,7 @@ import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from datetime import datetime
+from typing import Optional
 
 # Global status
 service_status = {
@@ -38,7 +39,7 @@ class HealthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Suppress logs
 
-def start_health_server(port=None):
+def start_health_server(port: Optional[int] = None):
     """Start health check server in background thread"""
     # ใช้ PORT จาก Railway environment variable (default 8080)
     if port is None:
@@ -50,7 +51,7 @@ def start_health_server(port=None):
     print(f"🏥 Health server running on port {port}")
     return server
 
-def update_status(status: str = None, cameras: int = None, processed: int = None):
+def update_status(status: Optional[str] = None, cameras: Optional[int] = None, processed: Optional[int] = None):
     """Update service status"""
     if status:
         service_status["status"] = status
