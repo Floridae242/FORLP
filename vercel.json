@@ -7,6 +7,7 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "env": {
-    "VITE_API_URL": "https://forlp-production.up.railway.app"
+    "VITE_API_URL": "https://forlp-production.up.railway.app",
+    "VITE_LIFF_ID": "2009030800-nCeLN6tC"
   }
 }

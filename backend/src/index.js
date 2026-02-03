@@ -22,7 +22,19 @@ import {
 const app = express();
 
 // ==================== Middleware ====================
-app.use(cors());
+// CORS Configuration สำหรับ Vercel Frontend
+const corsOptions = {
+    origin: [
+        'https://forlp-bams.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 if (config.nodeEnv === 'development') {

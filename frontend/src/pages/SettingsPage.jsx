@@ -7,12 +7,22 @@ import { useState } from 'react';
 import { useAuth, ROLE_INFO, ROLES } from '../contexts/AuthContext';
 
 export default function SettingsPage() {
-    const { user, isAuthenticated, logout, updateRole, error, clearError } = useAuth();
+    const { user, isAuthenticated, logout, updateRole, error, clearError, loading } = useAuth();
     const [selectedRole, setSelectedRole] = useState(user?.role || 'tourist');
     const [officerToken, setOfficerToken] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [localError, setLocalError] = useState('');
+
+    // แสดง Loading
+    if (loading) {
+        return (
+            <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p className="loading-text">กำลังโหลด...</p>
+            </div>
+        );
+    }
 
     // ถ้ายังไม่ได้เข้าสู่ระบบ แสดงหน้า Login
     if (!isAuthenticated) {
@@ -236,12 +246,10 @@ export default function SettingsPage() {
 
 // Component สำหรับแสดงเมื่อยังไม่ได้เข้าสู่ระบบ
 function LoginPrompt() {
+    const { login, error, isLiffConfigured } = useAuth();
+
     const handleLineLogin = () => {
-        // สำหรับ Demo - จะต้องเชื่อมต่อกับ LINE Login SDK จริง
-        alert('กรุณาใช้ LINE Login\n\nสำหรับการทดสอบ ระบบจะจำลองการเข้าสู่ระบบ');
-        
-        // TODO: Implement LINE Login SDK
-        // liff.login();
+        login();
     };
 
     return (
@@ -257,8 +265,26 @@ function LoginPrompt() {
                     <p className="login-description">
                         เข้าสู่ระบบด้วยบัญชี LINE เพื่อใช้งานระบบและตั้งค่าบทบาทผู้ใช้งาน
                     </p>
+
+                    {error && (
+                        <div className="settings-error" style={{ marginBottom: '1rem' }}>
+                            <span className="error-icon">!</span>
+                            <p>{error}</p>
+                        </div>
+                    )}
+
+                    {!isLiffConfigured && (
+                        <div className="settings-error" style={{ marginBottom: '1rem' }}>
+                            <span className="error-icon">!</span>
+                            <p>ระบบยังไม่ได้ตั้งค่า LINE Login กรุณาติดต่อผู้ดูแลระบบ</p>
+                        </div>
+                    )}
                     
-                    <button className="line-login-btn" onClick={handleLineLogin}>
+                    <button 
+                        className="line-login-btn" 
+                        onClick={handleLineLogin}
+                        disabled={!isLiffConfigured}
+                    >
                         <span className="line-icon">
                             <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
                                 <path d="M12 2C6.48 2 2 5.82 2 10.5c0 2.74 1.78 5.15 4.44 6.58-.17.57-.46 1.53-.53 1.76-.09.3.11.59.44.44.23-.1 2.67-1.57 3.75-2.2.62.09 1.26.13 1.9.13 5.52 0 10-3.82 10-8.5S17.52 2 12 2z"/>

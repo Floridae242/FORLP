@@ -28,7 +28,7 @@ export const config = {
     pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 60000, 
 
     // ==================== Daily Report Settings ====================
-    dailyReportHour: parseInt(process.env.DAILY_REPORT_HOUR) || 23, 
+    dailyReportHour: parseInt(process.env.DAILY_REPORT_HOUR) || 18, 
     dailyReportMinute: parseInt(process.env.DAILY_REPORT_MINUTE) || 0,
 
     // ==================== Zone Configuration ====================
@@ -57,13 +57,13 @@ export function validateConfig() {
     
     if (warnings.length > 0) {
         console.warn('');
-        console.warn('⚠️  Configuration warnings:');
+        console.warn('Configuration warnings:');
         warnings.forEach(w => console.warn(`   - ${w}`));
         console.warn('');
     }
     
     if (errors.length > 0) {
-        console.error('❌ Configuration errors:');
+        console.error('Configuration errors:');
         errors.forEach(e => console.error(`   - ${e}`));
         throw new Error('Invalid configuration');
     }
