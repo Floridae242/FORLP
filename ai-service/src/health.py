@@ -38,8 +38,12 @@ class HealthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Suppress logs
 
-def start_health_server(port=8081):
+def start_health_server(port=None):
     """Start health check server in background thread"""
+    # ใช้ PORT จาก Railway environment variable (default 8080)
+    if port is None:
+        port = int(os.environ.get('PORT', 8080))
+    
     server = HTTPServer(('0.0.0.0', port), HealthHandler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
