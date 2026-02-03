@@ -281,10 +281,275 @@ app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) =
         success: true,
         data: {
             cameras: [
-                { id: 'cam-1', name: 'กล้องทางเข้าหลัก', location: 'โซน A', status: 'online' },
-                { id: 'cam-2', name: 'กล้องลานกลาง', location: 'โซน B', status: 'online' },
-                { id: 'cam-3', name: 'กล้องโซนอาหาร', location: 'โซน C', status: 'online' }
+                { id: 'cam-1', name: 'กล้อง A', location: 'โซน A', status: 'online' },
+                { id: 'cam-2', name: 'กล้อง B', location: 'โซน B', status: 'online' },
+                { id: 'cam-3', name: 'กล้อง C', location: 'โซน C', status: 'online' }
             ]
+        }
+    });
+});
+
+// ==================== CAMERA API FOR AI SERVICE ====================
+
+// กำหนดข้อมูลกล้อง
+const CAMERAS = [
+    { 
+        id: 1, 
+        name: 'ทางเข้าหลัก', 
+        zone: 'โซน A',
+        channel: '301',
+        status: 'online',
+        rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/301',
+        webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F301'
+    },
+    { 
+        id: 2, 
+        name: 'บริเวณกลาง', 
+        zone: 'โซน B',
+        channel: '201',
+        status: 'online',
+        rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201',
+        webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F201'
+    },
+    { 
+        id: 3, 
+        name: 'ทางออก', 
+        zone: 'โซน C',
+        channel: '501',
+        status: 'online',
+        rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/501',
+        webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F501'
+    }
+];
+
+// API Key สำหรับ AI Service (ควรเก็บใน Environment Variable)
+const AI_API_KEY = process.env.AI_API_KEY || 'kadkongta-ai-secret-2024';
+
+// Middleware ตรวจสอบ API Key สำหรับ AI Service
+const aiAuthMiddleware = (req, res, next) => {
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    
+    if (!apiKey || apiKey !== AI_API_KEY) {
+        return res.status(401).json({
+            success: false,
+            error: 'Invalid or missing API key'
+        });
+    }
+    next();
+};
+
+// GET /api/ai/cameras - ดึงรายการกล้องทั้งหมดสำหรับ AI Service
+app.get('/api/ai/cameras', aiAuthMiddleware, (req, res) => {
+    // ส่งข้อมูลกล้องพร้อม RTSP URL
+    res.json({
+        success: true,
+        data: {
+            cameras: CAMERAS.map(cam => ({
+                id: cam.id,
+                name: cam.name,
+                zone: cam.zone,
+                channel: cam.channel,
+                status: cam.status,
+                rtsp_url: cam.rtsp_url
+            })),
+            total: CAMERAS.length
+        }
+    });
+});
+
+// GET /api/ai/cameras/:id - ดึงข้อมูลกล้องเฉพาะตัว
+app.get('/api/ai/cameras/:id', aiAuthMiddleware, (req, res) => {
+    const cameraId = parseInt(req.params.id);
+    const camera = CAMERAS.find(c => c.id === cameraId);
+    
+    if (!camera) {
+        return res.status(404).json({
+            success: false,
+            error: 'Camera not found'
+        });
+    }
+    
+    res.json({
+        success: true,
+        data: {
+            id: camera.id,
+            name: camera.name,
+            zone: camera.zone,
+            channel: camera.channel,
+            status: camera.status,
+            rtsp_url: camera.rtsp_url
+        }
+    });
+});
+
+// GET /api/ai/cameras/:id/stream-url - ดึง Stream URL สำหรับกล้องเฉพาะตัว
+app.get('/api/ai/cameras/:id/stream-url', aiAuthMiddleware, (req, res) => {
+    const cameraId = parseInt(req.params.id);
+    const camera = CAMERAS.find(c => c.id === cameraId);
+    
+    if (!camera) {
+        return res.status(404).json({
+            success: false,
+            error: 'Camera not found'
+        });
+    }
+    
+    res.json({
+        success: true,
+        data: {
+            camera_id: camera.id,
+            camera_name: camera.name,
+            rtsp_url: camera.rtsp_url,
+            protocol: 'rtsp',
+            resolution: '1920x1080',
+            fps: 25
+        }
+    });
+});
+
+// POST /api/ai/people-count - รับข้อมูลจำนวนคนจาก AI Service (รองรับทั้ง Realtime และ Playback Mode)
+app.post('/api/ai/people-count', aiAuthMiddleware, (req, res) => {
+    const { 
+        camera_id, 
+        count,           // Realtime mode
+        timestamp, 
+        confidence, 
+        detections,
+        // Playback mode fields
+        window_start,
+        window_end,
+        max_people,
+        avg_people,
+        min_people,
+        frames_processed,
+        sampling_fps,
+        source_type
+    } = req.body;
+    
+    // ตรวจสอบว่าเป็น Playback Mode หรือ Realtime Mode
+    const isPlaybackMode = source_type === 'playback' || (max_people !== undefined && window_start);
+    
+    if (isPlaybackMode) {
+        // === PLAYBACK MODE ===
+        // รับข้อมูลจากการวิเคราะห์วิดีโอย้อนหลัง
+        
+        if (typeof max_people !== 'number' || max_people < 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid max_people value for playback mode'
+            });
+        }
+        
+        // บันทึก max_people เป็น count หลัก (เพื่อใช้ใน dashboard)
+        const result = peopleCountService.ingestPeopleCount(max_people, timestamp || new Date().toISOString());
+        
+        // Log สำหรับ debug
+        console.log(`[AI Playback] Camera ${camera_id || 'unknown'}:`);
+        console.log(`   Window: ${window_start} → ${window_end}`);
+        console.log(`   Max: ${max_people} | Avg: ${avg_people?.toFixed(1) || 'N/A'} | Min: ${min_people || 'N/A'}`);
+        console.log(`   Frames: ${frames_processed || 'N/A'} @ ${sampling_fps || 1} fps`);
+        
+        res.json({
+            success: true,
+            data: {
+                received: true,
+                mode: 'playback',
+                camera_id: camera_id,
+                window_start: window_start,
+                window_end: window_end,
+                max_people: max_people,
+                avg_people: avg_people,
+                min_people: min_people,
+                frames_processed: frames_processed,
+                timestamp: result.timestamp
+            }
+        });
+        
+    } else {
+        // === REALTIME MODE ===
+        // รับข้อมูลแบบเดิม (single count per request)
+        
+        if (typeof count !== 'number' || count < 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid count value'
+            });
+        }
+        
+        // บันทึกข้อมูล
+        const result = peopleCountService.ingestPeopleCount(count, timestamp);
+        
+        // Log สำหรับ debug
+        console.log(`[AI Realtime] Camera ${camera_id || 'unknown'}: ${count} people (confidence: ${confidence || 'N/A'})`);
+        
+        res.json({
+            success: true,
+            data: {
+                received: true,
+                mode: 'realtime',
+                camera_id: camera_id,
+                count: count,
+                timestamp: result.timestamp
+            }
+        });
+    }
+});
+
+// POST /api/ai/people-count/batch - รับข้อมูลจำนวนคนจากหลายกล้องพร้อมกัน
+app.post('/api/ai/people-count/batch', aiAuthMiddleware, (req, res) => {
+    const { counts } = req.body;
+    
+    if (!Array.isArray(counts)) {
+        return res.status(400).json({
+            success: false,
+            error: 'counts must be an array'
+        });
+    }
+    
+    let totalCount = 0;
+    const results = [];
+    
+    for (const item of counts) {
+        const { camera_id, count, timestamp, confidence } = item;
+        
+        if (typeof count === 'number' && count >= 0) {
+            totalCount += count;
+            results.push({
+                camera_id,
+                count,
+                status: 'received'
+            });
+            console.log(`[AI Batch] Camera ${camera_id}: ${count} people`);
+        }
+    }
+    
+    // บันทึกจำนวนรวม
+    const result = peopleCountService.ingestPeopleCount(totalCount, new Date().toISOString());
+    
+    res.json({
+        success: true,
+        data: {
+            total_count: totalCount,
+            cameras_processed: results.length,
+            results: results,
+            timestamp: result.timestamp
+        }
+    });
+});
+
+// GET /api/ai/config - ดึง Configuration สำหรับ AI Service
+app.get('/api/ai/config', aiAuthMiddleware, (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            ingest_endpoint: '/api/ai/people-count',
+            batch_endpoint: '/api/ai/people-count/batch',
+            cameras_endpoint: '/api/ai/cameras',
+            polling_interval_seconds: 5,
+            model_recommended: 'yolov8n',
+            detection_class: 0,  // person class in COCO
+            confidence_threshold: 0.5,
+            nms_threshold: 0.4
         }
     });
 });

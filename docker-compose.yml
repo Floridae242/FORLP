@@ -1,76 +1,158 @@
+# =====================================================
+# Kad Kong Ta - Docker Compose
+# AI People Counting + Backend + Frontend
+# =====================================================
+
 version: '3.8'
 
 services:
   # =====================================================
-  # AI Service - YOLOv8 People Counter
+  # AI Service - YOLOv8 People Counter (CPU)
   # =====================================================
   ai-service:
     build:
       context: ./ai-service
       dockerfile: Dockerfile
-    container_name: kadkongta-ai
-    ports:
-      - "8000:8000"
-    environment:
-      - CAMERA_A_RTSP=rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/301
-      - CAMERA_B_RTSP=
-      - CAMERA_C_RTSP=
-      - YOLO_MODEL=yolov8n.pt
-      - CONFIDENCE_THRESHOLD=0.5
-      - AI_API_PORT=8000
-      - CAPTURE_INTERVAL=5
-    volumes:
-      - ./ai-service:/app
-      - ai-models:/root/.cache/ultralytics
+    container_name: kadkongta-ai-service
     restart: unless-stopped
+    ports:
+      - "8080:8080"  # Prometheus metrics
+      - "8081:8081"  # Health & API
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - BACKEND_ENDPOINT=https://forlp-production.up.railway.app/api/ai/people-count
+      - BACKEND_API_KEY=kadkongta-ai-secret-2024
+      - DEVICE=cpu
+    volumes:
+      - ./ai-service/config.yaml:/app/config.yaml:ro
+      - ai-models:/root/.cache/ultralytics
+    networks:
+      - kadkongta-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 4G
 
   # =====================================================
-  # Backend - Node.js API
+  # AI Service - GPU Version (ใช้ --profile gpu)
+  # =====================================================
+  ai-service-gpu:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.gpu
+    container_name: kadkongta-ai-service-gpu
+    restart: unless-stopped
+    profiles:
+      - gpu
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - BACKEND_ENDPOINT=https://forlp-production.up.railway.app/api/ai/people-count
+      - BACKEND_API_KEY=kadkongta-ai-secret-2024
+      - DEVICE=cuda
+    volumes:
+      - ./ai-service/config.yaml:/app/config.yaml:ro
+      - ai-models:/root/.cache/ultralytics
+    networks:
+      - kadkongta-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # =====================================================
+  # Backend - Node.js API (for local dev)
   # =====================================================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: kadkongta-backend
+    restart: unless-stopped
+    profiles:
+      - full
     ports:
       - "3001:3001"
     environment:
       - NODE_ENV=development
       - PORT=3001
-      - MOCK_MODE=false
-      - DB_PATH=./data/kadkongta.db
-      - AI_SERVICE_URL=http://ai-service:8000
+      - AI_SERVICE_URL=http://ai-service:8081
     volumes:
-      - ./backend:/app
-      - /app/node_modules
-      - backend-data:/app/data
+      - ./backend/data:/app/data
+    networks:
+      - kadkongta-network
     depends_on:
       - ai-service
-    restart: unless-stopped
 
   # =====================================================
-  # Frontend - React/Vite
+  # Frontend - React/Vite (for local dev)
   # =====================================================
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: kadkongta-frontend
+    restart: unless-stopped
+    profiles:
+      - full
     ports:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://localhost:3001
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    networks:
+      - kadkongta-network
     depends_on:
       - backend
+
+  # =====================================================
+  # Prometheus (for monitoring)
+  # =====================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kadkongta-prometheus
     restart: unless-stopped
+    profiles:
+      - monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - kadkongta-network
+
+  # =====================================================
+  # Grafana (for dashboards)
+  # =====================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kadkongta-grafana
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - kadkongta-network
+
+networks:
+  kadkongta-network:
+    driver: bridge
 
 volumes:
-  backend-data:
   ai-models:
+  grafana-data:

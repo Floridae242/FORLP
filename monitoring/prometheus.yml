@@ -1,0 +1,18 @@
+# Prometheus Configuration for Kad Kong Ta
+# =====================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # AI Service metrics
+  - job_name: 'ai-service'
+    static_configs:
+      - targets: ['ai-service:8080']
+    metrics_path: /metrics
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,179 @@
+# =====================================================
+# AI People Counting Service - Configuration
+# =====================================================
+
+service:
+  # YOLOv8 Model (yolov8n.pt = เล็ก/เร็ว, yolov8s.pt = กลาง, yolov8m.pt = ใหญ่/แม่น)
+  model: "yolov8n.pt"
+  
+  # Device: "cuda" สำหรับ GPU, "cpu" สำหรับ CPU
+  device: "cpu"
+  
+  # Confidence threshold (0.0 - 1.0)
+  confidence: 0.4
+  
+  # เปิดใช้ Tracker เพื่อลด flicker
+  tracker: true
+  
+  # Frame rate ที่จะประมวลผล (fps)
+  default_sampling_fps: 1.0
+  
+  # ส่งข้อมูลไป Backend ทุกกี่วินาที
+  send_interval_s: 5
+  
+  # Smoothing window size
+  smoothing_window: 5
+  
+  # Backend API
+  backend_endpoint: "https://forlp-production.up.railway.app/api/ai/people-count"
+  backend_api_key: "kadkongta-ai-secret-2024"
+  
+  # Prometheus metrics port
+  metrics_port: 8080
+
+# =====================================================
+# Playback Mode Configuration (ใหม่!)
+# วิเคราะห์วิดีโอย้อนหลังแทน Realtime
+# =====================================================
+playback:
+  # เปิดใช้ Playback Mode
+  enabled: true
+  
+  # go2rtc Server URL สำหรับ Playback API
+  go2rtc_base_url: "https://iocpiramid.com:8085"
+  
+  # ความยาว window ที่จะวิเคราะห์ (นาที)
+  # ลดเป็น 1 นาที สำหรับทดสอบ (production ใช้ 5)
+  window_duration_minutes: 1
+  
+  # ดึงย้อนหลังจากปัจจุบันกี่นาที (delay)
+  delay_minutes: 1
+  
+  # ทำซ้ำทุกกี่นาที
+  interval_minutes: 2
+  
+  # Sample กี่ frame ต่อวินาที (ลดภาระ inference)
+  sampling_fps: 0.5
+  
+  # Timeout สำหรับการดึงวิดีโอ (วินาที)
+  timeout_seconds: 60
+  
+  # ตรวจสอบ SSL certificate หรือไม่
+  verify_ssl: false
+
+# =====================================================
+# go2rtc Server Configuration
+# =====================================================
+go2rtc:
+  # เปิดใช้ go2rtc mode (ดึงภาพจาก go2rtc แทน RTSP โดยตรง)
+  enabled: false
+  
+  # go2rtc Server URL
+  server_url: "https://iocpiramid.com:8085"
+  
+  # ใช้ snapshot API แทน RTSP stream (แนะนำสำหรับ remote server)
+  # หมายเหตุ: go2rtc server ยังไม่มี ffmpeg ติดตั้ง จึงใช้ RTSP โดยตรงแทน
+  use_snapshot: false
+  
+  # Timeout สำหรับ HTTP requests (วินาที)
+  timeout: 10
+  
+  # ตรวจสอบ SSL certificate หรือไม่
+  verify_ssl: false
+  
+  # ดึงรายการ streams จาก go2rtc อัตโนมัติ
+  auto_discover: true
+
+# =====================================================
+# Hikvision Direct API Configuration
+# =====================================================
+hikvision:
+  # เปิดใช้ Hikvision HTTP Snapshot mode (ดึงภาพจากกล้องโดยตรง)
+  enabled: true
+  
+  # Timeout สำหรับ HTTP requests (วินาที)
+  timeout: 10
+  
+  # ตรวจสอบ SSL certificate หรือไม่
+  verify_ssl: false
+
+# =====================================================
+# Camera Streams
+# =====================================================
+# Mode 1: ใช้ go2rtc stream names (เมื่อ go2rtc.enabled = true)
+# Mode 2: ใช้ Hikvision HTTP Snapshot (เมื่อ hikvision.enabled = true)
+# Mode 3: ใช้ RTSP URL โดยตรง (default)
+# =====================================================
+streams:
+  # go2rtc stream name
+  - stream_id: "camera-1"
+    go2rtc_stream: "test1"
+    rtsp: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.4:554/Streaming/Channels/201"
+    # Hikvision HTTP Snapshot URL
+    snapshot_url: "http://10.0.10.4/ISAPI/Streaming/channels/201/picture"
+    snapshot_auth:
+      username: "admin"
+      password: "P1r@m1dnvrLpg"
+    sampling_fps: 1.0
+    tracker: true
+    send_interval_s: 5
+    confidence: 0.4
+
+  # กล้องใหม่ - 10.0.10.3 Channel 2
+  - stream_id: "camera-2"
+    go2rtc_stream: ""
+    rtsp: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201"
+    # Hikvision HTTP Snapshot URL
+    snapshot_url: "http://10.0.10.3/ISAPI/Streaming/channels/201/picture"
+    snapshot_auth:
+      username: "admin"
+      password: "P1r@m1dnvrLpg"
+    sampling_fps: 1.0
+    tracker: true
+    send_interval_s: 5
+    confidence: 0.4
+
+# =====================================================
+# Camera Configuration สำหรับ Playback Mode
+# =====================================================
+cameras:
+  # กล้อง 1 - 10.0.10.3 Channel 2 (กาดกองต้า Main)
+  - camera_id: "CCTV-201"
+    # ใช้ RTSP URL ที่ register ไว้ใน go2rtc แล้ว
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201"
+    rtsp_ip: "10.0.10.3"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "201"
+    confidence: 0.4
+    enabled: true
+
+  # กล้อง 2 - 10.0.10.3 Channel 11 (อีกตัว)
+  - camera_id: "CCTV-1101"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/1101"
+    rtsp_ip: "10.0.10.3"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "1101"
+    confidence: 0.4
+    enabled: true
+
+  # กล้อง 2 - 10.0.10.4
+  - camera_id: "CCTV-202"
+    rtsp_ip: "10.0.10.4"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "201"
+    confidence: 0.4
+    enabled: true
+
+# =====================================================
+# Location (พิกัด GPS)
+# =====================================================
+location:
+  name: "Lampang Smart City - กาดกองต้า"
+  latitude: 18.288884
+  longitude: 99.489194
