@@ -298,7 +298,7 @@ function checkAndTriggerAlerts(smoothedCount, status) {
     // Critical Alert (>= 600)
     if (smoothedCount >= ALERT_THRESHOLDS.CROWD_CRITICAL) {
         if (shouldSendAlert('crowd_critical')) {
-            console.log(`[PeopleCount] 🚨 CRITICAL ALERT: ${smoothedCount} people`);
+            console.log(`[PeopleCount]  CRITICAL ALERT: ${smoothedCount} people`);
             markAlertSent('crowd_critical');
             
             if (alertCallbacks.onCrowdCritical) {
@@ -316,7 +316,7 @@ function checkAndTriggerAlerts(smoothedCount, status) {
     // Warning Alert (>= 300)
     if (smoothedCount >= ALERT_THRESHOLDS.CROWD_WARNING) {
         if (shouldSendAlert('crowd_warning')) {
-            console.log(`[PeopleCount] ⚠️ CROWD WARNING: ${smoothedCount} people`);
+            console.log(`[PeopleCount]  CROWD WARNING: ${smoothedCount} people`);
             markAlertSent('crowd_warning');
             
             if (alertCallbacks.onCrowdWarning) {

@@ -241,8 +241,8 @@ export async function checkRainForecast(minutesAhead = RAIN_FORECAST_MINUTES) {
  * สร้างข้อความแจ้งเตือนฝน
  */
 export function createRainWarningMessage(rainData) {
-    const message = `🌧️ แจ้งเตือนสภาพอากาศ (คาดการณ์)
-━━━━━━━━━━━━━━━
+    const message = ` แจ้งเตือนสภาพอากาศ (คาดการณ์)
+
 คาดการณ์ฝนตกภายใน ~${rainData.minutes_until} นาที ที่กาดกองต้า
 โอกาสฝนตก: ${Math.round(rainData.probability * 100)}%
 สภาพอากาศ: ${rainData.description}
@@ -264,7 +264,7 @@ export function createCrowdWarningMessage(crowdData) {
     const time = formatThaiTime(crowdData.timestamp);
     
     const message = `📢 แจ้งเตือนความหนาแน่น — กาดกองต้า
-━━━━━━━━━━━━━━━
+
 สถานะ: ${crowdData.status_label} (ประมาณ ${crowdData.count.toLocaleString()} คน)
 อัปเดตล่าสุด: ${time} น.
 
@@ -284,12 +284,12 @@ export function createCrowdWarningMessage(crowdData) {
 export function createCrowdCriticalMessage(crowdData) {
     const time = formatThaiTime(crowdData.timestamp);
     
-    const message = `🚨 ด่วน! พื้นที่หนาแน่นมาก — กาดกองต้า
-━━━━━━━━━━━━━━━
+    const message = ` ด่วน! พื้นที่หนาแน่นมาก — กาดกองต้า
+
 สถานะ: ${crowdData.status_label} (ประมาณ ${crowdData.count.toLocaleString()} คน)
 อัปเดตล่าสุด: ${time} น.
 
-⚠️ คำแนะนำเร่งด่วน:
+ คำแนะนำเร่งด่วน:
 • แจ้งเจ้าหน้าที่ทันที
 • พิจารณาจำกัดการเข้า-ออก
 • เปิดช่องทางฉุกเฉิน
@@ -306,20 +306,20 @@ export function createCrowdCriticalMessage(crowdData) {
 export function createDailyReportMessage(reportData) {
     const dateStr = formatThaiDate(reportData.date);
     
-    const message = `📊 [สรุปประจำวัน] กาดกองต้า — ${dateStr}
-━━━━━━━━━━━━━━━
-👥 จำนวนคนสูงสุด: ${(reportData.max_people || 0).toLocaleString()} คน
-👥 จำนวนคนเฉลี่ย: ${Math.round(reportData.avg_people || 0).toLocaleString()} คน
-📊 จำนวนตัวอย่าง: ${(reportData.total_samples || 0).toLocaleString()} ครั้ง
+    const message = ` [สรุปประจำวัน] กาดกองต้า — ${dateStr}
+
+ จำนวนคนสูงสุด: ${(reportData.max_people || 0).toLocaleString()} คน
+ จำนวนคนเฉลี่ย: ${Math.round(reportData.avg_people || 0).toLocaleString()} คน
+ จำนวนตัวอย่าง: ${(reportData.total_samples || 0).toLocaleString()} ครั้ง
 
 🌦 สภาพอากาศ: ${reportData.weather_summary || 'ไม่มีข้อมูล'}
 🌡 อุณหภูมิ: ${reportData.temperature ? `${reportData.temperature}°C` : 'ไม่มีข้อมูล'}
 🌫 PM2.5: ${reportData.pm25 ? `${reportData.pm25} μg/m³ (${reportData.pm25_status})` : 'ไม่มีข้อมูล'}
 
 📝 หมายเหตุ: ${reportData.notes || 'ไม่มีเหตุการณ์ฉุกเฉิน'}
-━━━━━━━━━━━━━━━
+
 (ข้อมูลจากระบบอัตโนมัติ)
-🐓 Kad Kong Ta Smart Insight`;
+ Kad Kong Ta Smart Insight`;
 
     return message;
 }
@@ -367,7 +367,7 @@ export async function sendRainWarning(rainData) {
     
     if (result.success) {
         markAlertSent('rain_warning');
-        console.log('[EarlyWarning] ✅ Rain warning sent');
+        console.log('[EarlyWarning]  Rain warning sent');
     }
     
     return result;
@@ -387,7 +387,7 @@ export async function sendCrowdWarning(crowdData) {
     
     if (result.success) {
         markAlertSent('crowd_warning');
-        console.log('[EarlyWarning] ✅ Crowd warning sent');
+        console.log('[EarlyWarning]  Crowd warning sent');
     }
     
     return result;
@@ -407,7 +407,7 @@ export async function sendCrowdCritical(crowdData) {
     
     if (result.success) {
         markAlertSent('crowd_critical');
-        console.log('[EarlyWarning] ✅ Crowd critical alert sent');
+        console.log('[EarlyWarning]  Crowd critical alert sent');
     }
     
     return result;
@@ -421,7 +421,7 @@ export async function sendDailyReport(reportData) {
     const result = await sendLineMessage(message);
     
     if (result.success) {
-        console.log('[EarlyWarning] ✅ Daily report sent');
+        console.log('[EarlyWarning]  Daily report sent');
     }
     
     return result;

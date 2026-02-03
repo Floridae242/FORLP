@@ -59,7 +59,7 @@ function Navigation() {
                                 {user?.pictureUrl ? (
                                     <img src={user.pictureUrl} alt="" className="nav-avatar" />
                                 ) : (
-                                    '👤'
+                                    ''
                                 )}
                             </span>
                         ) : (

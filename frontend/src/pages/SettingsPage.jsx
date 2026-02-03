@@ -239,7 +239,6 @@ export default function SettingsPage() {
                 <div className="privacy-card">
                     <ul className="privacy-list">
                         <li>
-                            <span className="privacy-icon">🔒</span>
                             <p>ระบบใช้ข้อมูลจาก LINE เพื่อยืนยันตัวตนเท่านั้น</p>
                         </li>
                         <li>

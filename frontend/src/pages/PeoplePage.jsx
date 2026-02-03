@@ -250,6 +250,14 @@ export default function PeoplePage() {
         return styles.sourceAI;
     };
 
+    const getSourceLabel = () => {
+        if (source === 'stale') return 'ข้อมูลเก่า';
+        if (source === 'mock') return 'ทดสอบ';
+        if (source === 'playback') return 'AI';
+        if (source === 'near-realtime') return 'Live';
+        return 'AI';
+    };
+
     if (loading && !currentData) {
         return (
             <div className="page-container">
@@ -258,7 +266,7 @@ export default function PeoplePage() {
                     <p className="page-subtitle">ถนนคนเดินกาดกองต้า เทศบาลนครลำปาง</p>
                 </header>
                 <div style={styles.loadingState}>
-                    <span>⏳ กำลังโหลดข้อมูล...</span>
+                    <span>กำลังโหลดข้อมูล...</span>
                 </div>
             </div>
         );
@@ -272,10 +280,10 @@ export default function PeoplePage() {
                     <p className="page-subtitle">ถนนคนเดินกาดกองต้า เทศบาลนครลำปาง</p>
                 </header>
                 <div style={styles.errorState}>
-                    <span>❌ ไม่สามารถโหลดข้อมูลได้</span>
+                    <span>ไม่สามารถโหลดข้อมูลได้</span>
                     <p style={{ fontSize: '0.875rem', margin: '0.5rem 0' }}>{error}</p>
                     <button style={styles.retryButton} onClick={fetchData}>
-                        🔄 ลองใหม่
+                        ลองใหม่
                     </button>
                 </div>
             </div>
@@ -291,7 +299,6 @@ export default function PeoplePage() {
 
             {isStale && (
                 <div style={styles.stalenessWarning}>
-                    <span>⚠️</span>
                     <span>ข้อมูลล่าสุด: {formatTime(timestamp)} — อาจล้าหลัง ({formatStaleness(sourceLatency)})</span>
                 </div>
             )}
@@ -341,7 +348,7 @@ export default function PeoplePage() {
 
                 <div style={styles.adviceBox}>
                     <p style={styles.adviceTitle}>
-                        <span>💡</span> คำแนะนำสำหรับเจ้าหน้าที่
+                        คำแนะนำสำหรับเจ้าหน้าที่
                     </p>
                     <p style={styles.adviceText}>{status.advice}</p>
                 </div>

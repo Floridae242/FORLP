@@ -397,7 +397,7 @@ export default function CameraPage() {
                     {/* Playback Status */}
                     {playbackUrl && (
                         <div style={styles.playbackStatus}>
-                            <span>✓</span>
+                            <span></span>
                             <span>กำลังเล่น: {formatThaiDate(playbackDate)} เวลา {formatPlaybackTime()}</span>
                         </div>
                     )}
@@ -461,7 +461,7 @@ export default function CameraPage() {
 
                 {/* Fullscreen Button */}
                 <button onClick={toggleFullscreen} className="camera-fullscreen-btn">
-                    {isFullscreen ? '✕ ออกจากเต็มจอ' : '⛶ ดูเต็มจอ'}
+                    {isFullscreen ? 'ออกจากเต็มจอ' : 'ดูเต็มจอ'}
                 </button>
             </div>
 

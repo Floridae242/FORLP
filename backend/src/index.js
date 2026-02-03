@@ -936,14 +936,14 @@ app.get('/api/system/status', (req, res) => {
 // GET /api/test/line - ทดสอบส่งข้อความ LINE
 app.get('/api/test/line', async (req, res) => {
     try {
-        const testMessage = `🧪 ทดสอบระบบแจ้งเตือน LINE
+        const testMessage = `ทดสอบระบบแจ้งเตือน LINE
 
-━━━━━━━━━━━━━━━
-✅ ระบบ LINE OA เชื่อมต่อสำเร็จ
+
+ระบบ LINE OA เชื่อมต่อสำเร็จ
 📅 ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
 🔧 Version 4.0 - Real-time Alerts
-━━━━━━━━━━━━━━━
-🐓 Kad Kong Ta Smart Insight`;
+
+Kad Kong Ta Smart Insight`;
 
         const result = await dailyReportService.sendLineMessage(testMessage);
         
@@ -1091,11 +1091,11 @@ async function checkAndSendDailyReport() {
     
     // Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตาม PROMPT)
     if (isWeekend && hour === 23 && minute === 0 && sentToday.dailyReport !== today) {
-        console.log('[LINE Scheduler] 📊 Sending Daily Report (Weekend 23:00)...');
+        console.log('[LINE Scheduler] Sending Daily Report (Weekend 23:00)...');
         try {
             const result = await earlyWarningService.processDailyReport(today);
             sentToday.dailyReport = today;
-            console.log('[LINE Scheduler] Daily Report result:', result.success ? '✅ Sent' : '❌ Failed');
+            console.log('[LINE Scheduler] Daily Report result:', result.success ? 'Sent' : 'Failed');
         } catch (error) {
             console.error('[LINE Scheduler] Daily Report error:', error.message);
         }
@@ -1141,47 +1141,47 @@ function setupAlertCallbacks() {
 // ==================== Start Server ====================
 async function start() {
     console.log('');
-    console.log('🏮 Kad Kong Ta - AI People Counter v4.0');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('✨ Features: Real-time Alerts, Rain Forecast, Crowd Warning');
+    console.log('Kad Kong Ta - AI People Counter v4.0');
+    console.log('');
+    console.log('Features: Real-time Alerts, Rain Forecast, Crowd Warning');
     console.log('');
     
     try {
-        console.log('📋 Validating configuration...');
+        console.log('Validating configuration...');
         validateConfig();
 
-        console.log('💾 Initializing database...');
+        console.log('Initializing database...');
         await initDatabase();
 
-        console.log('🔗 Setting up LINE sender...');
+        console.log('Setting up LINE sender...');
         setupLineSender();
         
-        console.log('🔔 Setting up alert callbacks...');
+        console.log('Setting up alert callbacks...');
         setupAlertCallbacks();
 
-        console.log('🌧️ Starting rain check scheduler (every 10 min)...');
+        console.log('Starting rain check scheduler (every 10 min)...');
         startRainCheckScheduler();
         
-        console.log('📱 Starting LINE notification scheduler...');
+        console.log('Starting LINE notification scheduler...');
         startLineScheduler();
 
         app.listen(config.port, () => {
             console.log('');
             console.log(`🚀 Server: http://localhost:${config.port}`);
             console.log('');
-            console.log('📡 API Endpoints:');
+            console.log('API Endpoints:');
             console.log('   GET  /api/people/current      - จำนวนคนปัจจุบัน (real-time)');
             console.log('   GET  /api/people/daily        - สรุปรายวัน');
             console.log('   POST /api/people/ingest       - รับข้อมูลจาก AI Service');
             console.log('   GET  /api/people/crowd-level  - ระดับความแออัด');
             console.log('   GET  /api/warnings/rain-check - ตรวจสอบพยากรณ์ฝน');
             console.log('');
-            console.log('⏰ Scheduled Tasks:');
-            console.log('   🌧️ Rain Check      - ทุก 10 นาที');
-            console.log('   📢 Crowd Alerts    - Real-time (>= 300 warning, >= 600 critical)');
-            console.log('   📊 Daily Report    - เสาร์-อาทิตย์ 23:00 (Asia/Bangkok)');
+            console.log('Scheduled Tasks:');
+            console.log('   Rain Check      - ทุก 10 นาที');
+            console.log('   Crowd Alerts    - Real-time (>= 300 warning, >= 600 critical)');
+            console.log('   Daily Report    - เสาร์-อาทิตย์ 23:00 (Asia/Bangkok)');
             console.log('');
-            console.log('🧪 Test Endpoints:');
+            console.log('Test Endpoints:');
             console.log('   GET /api/test/rain-warning    - ทดสอบแจ้งเตือนฝน');
             console.log('   GET /api/test/crowd-warning   - ทดสอบแจ้งเตือนความแออัด');
             console.log('   GET /api/test/crowd-critical  - ทดสอบแจ้งเตือนฉุกเฉิน');
@@ -1189,7 +1189,7 @@ async function start() {
             console.log('');
         });
     } catch (error) {
-        console.error('❌ Failed to start:', error);
+        console.error('Failed to start:', error);
         process.exit(1);
     }
 }
