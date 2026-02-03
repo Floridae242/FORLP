@@ -1,6 +1,7 @@
 /* =====================================================
    Auth Context - ระบบจัดการ Authentication สำหรับ Frontend
    รองรับ LINE Login และ Role-based Access Control
+   - Auto Login: เมื่อเข้าหน้าจะ Login ด้วย LINE อัตโนมัติ
    ===================================================== */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -70,7 +71,7 @@ export function AuthProvider({ children }) {
     const [error, setError] = useState(null);
     const [liffReady, setLiffReady] = useState(false);
 
-    // Initialize LIFF และตรวจสอบ Login Status
+    // Initialize LIFF และ Auto Login
     useEffect(() => {
         async function initAuth() {
             try {
@@ -82,14 +83,22 @@ export function AuthProvider({ children }) {
                     
                     // 2. ถ้า Login ด้วย LINE อยู่แล้ว ให้ดึงข้อมูลและ Login กับ Backend
                     if (liffService.isLoggedIn()) {
+                        console.log('[Auth] Already logged in with LINE, syncing with backend...');
                         await loginWithLine();
                     } else {
-                        // 3. ถ้ายังไม่ได้ Login LINE ให้ตรวจสอบ Session เดิม
-                        await loadUserFromSession();
+                        // 3. ตรวจสอบ Session เดิมก่อน
+                        const hasSession = await loadUserFromSession();
+                        
+                        // 4. ถ้าไม่มี Session → Auto Login ด้วย LINE เลย!
+                        if (!hasSession) {
+                            console.log('[Auth] No session found, auto redirecting to LINE Login...');
+                            liffService.login();
+                            return; // หยุดตรงนี้เพราะจะ redirect ไป LINE
+                        }
                     }
                 } else {
                     // LIFF ไม่ได้ Configure - ใช้ Session อย่างเดียว
-                    console.warn('[Auth] LIFF not configured, using session only');
+                    console.warn('[Auth] LIFF not configured:', liffResult.error);
                     await loadUserFromSession();
                 }
             } catch (err) {
@@ -110,9 +119,11 @@ export function AuthProvider({ children }) {
             
             if (!accessToken) {
                 console.error('[Auth] No LINE access token');
+                setError('ไม่พบ Access Token');
                 return { success: false, error: 'ไม่พบ Access Token' };
             }
 
+            console.log('[Auth] Sending LINE token to backend...');
             const response = await fetch(`${API_BASE}/api/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -124,15 +135,18 @@ export function AuthProvider({ children }) {
             const result = await response.json();
 
             if (result.success) {
+                console.log('[Auth] Login successful:', result.data.user.displayName);
                 localStorage.setItem('sessionToken', result.data.session.token);
                 localStorage.setItem('sessionExpiresAt', result.data.session.expiresAt);
                 setUser(result.data.user);
                 return { success: true };
             } else {
+                console.error('[Auth] Login failed:', result.error);
                 setError(result.error);
                 return { success: false, error: result.error };
             }
         } catch (err) {
+            console.error('[Auth] Login error:', err);
             const errorMsg = 'ไม่สามารถเชื่อมต่อระบบได้';
             setError(errorMsg);
             return { success: false, error: errorMsg };
@@ -144,7 +158,7 @@ export function AuthProvider({ children }) {
         const sessionToken = localStorage.getItem('sessionToken');
         
         if (!sessionToken) {
-            return;
+            return false;
         }
 
         try {
@@ -158,23 +172,23 @@ export function AuthProvider({ children }) {
                 const result = await response.json();
                 if (result.success) {
                     setUser(result.data.user);
+                    return true;
                 }
             } else {
-                // Session หมดอายุ
                 localStorage.removeItem('sessionToken');
                 localStorage.removeItem('sessionExpiresAt');
             }
         } catch (err) {
             console.error('[Auth] Load user error:', err);
         }
+        return false;
     };
 
-    // เข้าสู่ระบบด้วย LINE
+    // เข้าสู่ระบบด้วย LINE (Manual)
     const login = useCallback(() => {
         setError(null);
         
         if (liffReady && liffService.isConfigured()) {
-            // ใช้ LINE LIFF Login
             liffService.login();
         } else {
             setError('ระบบ LINE Login ยังไม่พร้อมใช้งาน');
@@ -186,7 +200,6 @@ export function AuthProvider({ children }) {
         const sessionToken = localStorage.getItem('sessionToken');
 
         try {
-            // Logout จาก Backend
             await fetch(`${API_BASE}/api/auth/logout`, {
                 method: 'POST',
                 headers: {
@@ -197,12 +210,11 @@ export function AuthProvider({ children }) {
             console.error('[Auth] Logout error:', err);
         }
 
-        // Clear local storage
         localStorage.removeItem('sessionToken');
         localStorage.removeItem('sessionExpiresAt');
         setUser(null);
 
-        // Logout จาก LINE LIFF
+        // Logout จาก LINE LIFF ด้วย
         if (liffReady && liffService.isLoggedIn()) {
             liffService.logout();
         }
