@@ -386,7 +386,7 @@ export default function WeatherPage() {
             <div className="note-box">
                 <p className="note-title">เกี่ยวกับมาตรฐาน PM2.5</p>
                 <p className="note-text">
-                    <strong>มาตรฐานไทย:</strong> ค่าเฉลี่ย 24 ชม. ไม่เกิน 37.5 μg/m³ (เริ่มใช้ 1 มิ.ย. 2566)<br/>
+                    <strong>มาตรฐานไทย:</strong> ค่าเฉลี่ย 24 ชม. ไม่เกิน 37.5 μg/m³<br/>
                     <strong>มาตรฐาน WHO:</strong> ค่าเฉลี่ย 24 ชม. ไม่เกิน 15 μg/m³<br/>
                     กลุ่มเสี่ยง: เด็ก, ผู้สูงอายุ, สตรีมีครรภ์, ผู้ป่วยโรคหัวใจ/ปอด/ภูมิแพ้
                 </p>
