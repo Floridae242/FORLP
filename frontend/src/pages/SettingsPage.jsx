@@ -1,6 +1,5 @@
 /* =====================================================
    Settings Page - หน้าตั้งค่าบัญชีผู้ใช้งาน
-   ออกแบบตามหลัก Human-centered design
    รองรับ LINE Login v2.1 (OAuth 2.0)
    ===================================================== */
 
@@ -117,7 +116,6 @@ export default function SettingsPage() {
                         </div>
                     </div>
                     <div className="account-role-badge" data-role={user.role}>
-                        <span className="role-icon">{currentRoleInfo.icon}</span>
                         <span className="role-label">{currentRoleInfo.label}</span>
                         {user.roleVerified && user.role === 'officer' && (
                             <span className="verified-badge">ยืนยันแล้ว</span>
@@ -159,7 +157,6 @@ export default function SettingsPage() {
                             onClick={() => handleRoleChange(roleKey)}
                         >
                             <div className="role-option-header">
-                                <span className="role-option-icon">{roleData.icon}</span>
                                 <span className="role-option-label">{roleData.label}</span>
                                 {user.role === roleKey && (
                                     <span className="current-badge">ปัจจุบัน</span>
@@ -246,15 +243,12 @@ export default function SettingsPage() {
                             <p>ระบบใช้ข้อมูลจาก LINE เพื่อยืนยันตัวตนเท่านั้น</p>
                         </li>
                         <li>
-                            <span className="privacy-icon">📋</span>
                             <p>ไม่จัดเก็บข้อมูลส่วนบุคคลเกินความจำเป็น</p>
                         </li>
                         <li>
-                            <span className="privacy-icon">🎥</span>
                             <p>การเข้าถึงกล้องวงจรปิดจำกัดเฉพาะเจ้าหน้าที่ที่ได้รับอนุญาต</p>
                         </li>
                         <li>
-                            <span className="privacy-icon">📊</span>
                             <p>ข้อมูลใช้เพื่อการบริหารจัดการพื้นที่สาธารณะของเทศบาล</p>
                         </li>
                     </ul>
@@ -318,10 +312,8 @@ function LoginPrompt() {
         setIsLoggingIn(true);
         clearError();
         await login();
-        // ไม่ต้อง setIsLoggingIn(false) เพราะจะ redirect ไป LINE
     };
 
-    // แสดง Loading ขณะประมวลผล
     if (loading || isProcessingCallback) {
         return (
             <div className="loading-container">
@@ -336,24 +328,18 @@ function LoginPrompt() {
     return (
         <div className="login-prompt-page">
             <div className="login-prompt-container">
-                {/* Logo และหัวข้อ */}
                 <div className="login-header">
-                    <div className="login-logo">
-                        <span className="logo-icon">🏮</span>
-                    </div>
                     <h1 className="login-title">ระบบข้อมูลถนนคนเดิน</h1>
                     <h2 className="login-title-sub">กาดกองต้า</h2>
                     <p className="login-org">เทศบาลนครลำปาง</p>
                 </div>
                 
-                {/* การ์ดเข้าสู่ระบบ */}
                 <div className="login-card">
                     <h3 className="login-card-title">เข้าสู่ระบบ</h3>
                     <p className="login-description">
                         เข้าสู่ระบบด้วยบัญชี LINE เพื่อใช้งานและตั้งค่าบทบาทผู้ใช้
                     </p>
 
-                    {/* แสดง Error */}
                     {error && (
                         <div className="settings-message error" style={{ marginBottom: '1rem' }}>
                             <span className="message-icon">!</span>
@@ -361,7 +347,6 @@ function LoginPrompt() {
                         </div>
                     )}
                     
-                    {/* ปุ่ม LINE Login ตาม LINE Design Guidelines */}
                     <button 
                         className="line-login-btn" 
                         onClick={handleLineLogin}
@@ -383,13 +368,11 @@ function LoginPrompt() {
                     </p>
                 </div>
                 
-                {/* ข้อมูลบทบาท */}
                 <div className="login-roles-info">
                     <h4>บทบาทผู้ใช้งานในระบบ</h4>
                     <div className="roles-preview">
                         {Object.entries(ROLE_INFO).map(([key, role]) => (
                             <div key={key} className="role-preview-item">
-                                <span className="role-preview-icon">{role.icon}</span>
                                 <span className="role-preview-label">{role.label}</span>
                             </div>
                         ))}
@@ -399,7 +382,6 @@ function LoginPrompt() {
                     </p>
                 </div>
                 
-                {/* Footer */}
                 <div className="login-footer">
                     <p>ข้อมูลของคุณจะถูกใช้ตามนโยบายความเป็นส่วนตัว</p>
                     <p>ของเทศบาลนครลำปาง</p>
