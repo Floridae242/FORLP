@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getCurrentPeopleCount, getDailySummary, isDataStale } from '../services/api.jsx';
 
-// กำหนดสถานะความหนาแน่นตามจำนวนคน
+// กำหนดสถานะความหนาแน่นตามจำนวนคน.
 function getStatus(count) {
     if (count >= 600) return { 
         key: 'crowded', 
