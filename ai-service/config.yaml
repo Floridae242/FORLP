@@ -138,6 +138,7 @@ streams:
 # =====================================================
 cameras:
   # กล้อง 1 - 10.0.10.3 Channel 2 (กาดกองต้า Main)
+  # ⚠️ ปิดชั่วคราว - Railway เข้าถึง internal IP ไม่ได้โดยตรง
   - camera_id: "CCTV-201"
     # ใช้ RTSP URL ที่ register ไว้ใน go2rtc แล้ว
     rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201"
@@ -147,9 +148,9 @@ cameras:
     rtsp_password: "P1r@m1dnvrLpg"
     track_id: "201"
     confidence: 0.4
-    enabled: true
+    enabled: false  # ปิดชั่วคราว
 
-  # กล้อง 2 - 10.0.10.3 Channel 11 (อีกตัว)
+  # กล้อง 2 - 10.0.10.3 Channel 11 (ทำงานได้ผ่าน go2rtc)
   - camera_id: "CCTV-1101"
     rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/1101"
     rtsp_ip: "10.0.10.3"
@@ -158,9 +159,10 @@ cameras:
     rtsp_password: "P1r@m1dnvrLpg"
     track_id: "1101"
     confidence: 0.4
-    enabled: true
+    enabled: true  # ✅ ทำงานได้
 
-  # กล้อง 2 - 10.0.10.4
+  # กล้อง 3 - 10.0.10.4
+  # ⚠️ ปิดชั่วคราว - Railway เข้าถึง internal IP ไม่ได้โดยตรง
   - camera_id: "CCTV-202"
     rtsp_ip: "10.0.10.4"
     rtsp_port: 554
@@ -168,7 +170,7 @@ cameras:
     rtsp_password: "P1r@m1dnvrLpg"
     track_id: "201"
     confidence: 0.4
-    enabled: true
+    enabled: false  # ปิดชั่วคราว
 
 # =====================================================
 # Location (พิกัด GPS)
