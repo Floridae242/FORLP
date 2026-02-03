@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import PeoplePage from './pages/PeoplePage';
 import ReportsPage from './pages/ReportsPage';
@@ -59,7 +59,7 @@ function Navigation() {
                                 {user?.pictureUrl ? (
                                     <img src={user.pictureUrl} alt="" className="nav-avatar" />
                                 ) : (
-                                    '🚶‍♂️'
+                                    '👤'
                                 )}
                             </span>
                         ) : (
@@ -95,6 +95,7 @@ function ProtectedCCTVRoute() {
         return (
             <div className="access-denied-page">
                 <div className="access-denied-content">
+                    <span className="access-denied-icon">🔒</span>
                     <h2>ไม่มีสิทธิ์เข้าถึง</h2>
                     <p>การเข้าถึงกล้องวงจรปิดจำกัดเฉพาะเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้น</p>
                     <p className="access-denied-hint">
@@ -111,6 +112,12 @@ function ProtectedCCTVRoute() {
     return <CameraPage />;
 }
 
+// Auth Callback Handler - สำหรับรับ callback จาก LINE Login
+function AuthCallbackHandler() {
+    // Callback จะถูก process ใน AuthContext แล้ว redirect กลับไปหน้า settings
+    return <Navigate to="/settings" replace />;
+}
+
 function AppContent() {
     return (
         <div className="app-container">
@@ -123,6 +130,8 @@ function AppContent() {
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/weather" element={<WeatherPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    {/* LINE Login Callback Route */}
+                    <Route path="/auth/callback" element={<AuthCallbackHandler />} />
                 </Routes>
             </main>
 

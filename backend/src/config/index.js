@@ -13,9 +13,29 @@ export const config = {
     defaultLat: parseFloat(process.env.DEFAULT_LAT) || 18.2816,
     defaultLon: parseFloat(process.env.DEFAULT_LON) || 99.5082,
 
-    // ==================== LINE OA Integration ====================
+    // ==================== LINE OA Integration (Messaging API) ====================
     lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
     lineChannelSecret: process.env.LINE_CHANNEL_SECRET || '',
+
+    // ==================== LINE Login (OAuth 2.0 v2.1) ====================
+    lineLoginChannelId: process.env.LINE_LOGIN_CHANNEL_ID || '',
+    lineLoginChannelSecret: process.env.LINE_LOGIN_CHANNEL_SECRET || '',
+    // Production: https://forlp-bams.vercel.app/settings
+    // Development: http://localhost:5173/settings
+    lineLoginCallbackUrl: process.env.LINE_LOGIN_CALLBACK_URL || 
+        (process.env.NODE_ENV === 'production' 
+            ? 'https://forlp-bams.vercel.app/settings'
+            : 'http://localhost:5173/settings'),
+
+    // ==================== Frontend URL ====================
+    frontendUrl: process.env.FRONTEND_URL || 
+        (process.env.NODE_ENV === 'production'
+            ? 'https://forlp-bams.vercel.app'
+            : 'http://localhost:5173'),
+
+    // ==================== Session Settings ====================
+    sessionSecret: process.env.SESSION_SECRET || 'kadkongta-secret-key-2024',
+    sessionMaxAge: parseInt(process.env.SESSION_MAX_AGE) || 7 * 24 * 60 * 60 * 1000, // 7 วัน
 
     // ==================== OpenWeatherMap API ====================
     openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
@@ -43,6 +63,15 @@ export function validateConfig() {
     // Required for LINE Daily Report
     if (!config.lineChannelAccessToken) {
         warnings.push('LINE_CHANNEL_ACCESS_TOKEN not set - Daily Report จะไม่ถูกส่งไป LINE');
+    }
+    
+    // Required for LINE Login
+    if (!config.lineLoginChannelId) {
+        warnings.push('LINE_LOGIN_CHANNEL_ID not set - LINE Login จะไม่สามารถใช้งานได้');
+    }
+    
+    if (!config.lineLoginChannelSecret) {
+        warnings.push('LINE_LOGIN_CHANNEL_SECRET not set - LINE Login จะไม่สามารถใช้งานได้');
     }
     
     // Required for Weather & PM2.5

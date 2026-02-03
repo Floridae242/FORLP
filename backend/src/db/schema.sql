@@ -87,6 +87,21 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_line_id ON users(line_user_id);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
+-- User LINE Tokens Table (เก็บ LINE Access/Refresh Tokens ฝั่ง Backend)
+-- ตาม LINE Login v2.1 Security Best Practices
+CREATE TABLE IF NOT EXISTS user_line_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER UNIQUE NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  access_token_expires_at TEXT NOT NULL,
+  refresh_token_expires_at TEXT,
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_line_tokens_user ON user_line_tokens(user_id);
+
 -- Officer Tokens Table (Token สำหรับยืนยันสิทธิ์เจ้าหน้าที่)
 CREATE TABLE IF NOT EXISTS officer_tokens (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

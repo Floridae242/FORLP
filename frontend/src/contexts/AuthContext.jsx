@@ -1,12 +1,11 @@
 /* =====================================================
    Auth Context - ระบบจัดการ Authentication สำหรับ Frontend
-   รองรับ LINE Login และ Role-based Access Control
+   รองรับ LINE Login v2.1 (OAuth 2.0 Authorization Code Flow)
    ===================================================== */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import liffService from '../services/liffService';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // สร้าง Context
 const AuthContext = createContext(null);
@@ -23,6 +22,7 @@ export const ROLE_INFO = {
     vendor: {
         label: 'ร้านค้า',
         description: 'ผู้ประกอบการร้านค้าในพื้นที่กาดกองต้า',
+        icon: '🏪',
         permissions: [
             { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
             { text: 'ดูข้อมูลสภาพอากาศและ PM2.5', allowed: true },
@@ -33,6 +33,7 @@ export const ROLE_INFO = {
     resident: {
         label: 'ประชาชนในพื้นที่',
         description: 'ผู้อยู่อาศัยในพื้นที่ใกล้เคียงกาดกองต้า',
+        icon: '🏠',
         permissions: [
             { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
             { text: 'ดูข้อมูลสภาพอากาศและ PM2.5', allowed: true },
@@ -43,6 +44,7 @@ export const ROLE_INFO = {
     tourist: {
         label: 'นักท่องเที่ยว',
         description: 'ผู้มาเยี่ยมชมถนนคนเดินกาดกองต้า',
+        icon: '🎒',
         permissions: [
             { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
             { text: 'ดูข้อมูลสภาพอากาศและ PM2.5', allowed: true },
@@ -53,6 +55,7 @@ export const ROLE_INFO = {
     officer: {
         label: 'เจ้าหน้าที่',
         description: 'เจ้าหน้าที่เทศบาลนครลำปาง',
+        icon: '👔',
         requiresToken: true,
         permissions: [
             { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
@@ -68,40 +71,46 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [liffReady, setLiffReady] = useState(false);
+    const [isProcessingCallback, setIsProcessingCallback] = useState(false);
 
-    // Initialize LIFF
+    // Initialize Auth - ตรวจสอบ Session หรือ Callback จาก LINE
     useEffect(() => {
         async function initAuth() {
             try {
                 console.log('[Auth] Starting initialization...');
-                console.log('[Auth] API_BASE:', API_BASE);
-                console.log('[Auth] LIFF_ID:', liffService.getLiffId());
                 
-                // 1. Initialize LIFF
-                const liffResult = await liffService.initializeLiff();
-                console.log('[Auth] LIFF init result:', liffResult);
+                // ตรวจสอบว่ามี callback จาก LINE หรือไม่
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const state = urlParams.get('state');
+                const authError = urlParams.get('error');
                 
-                if (liffResult.success) {
-                    setLiffReady(true);
-                    
-                    // 2. ถ้า Login ด้วย LINE อยู่แล้ว
-                    if (liffService.isLoggedIn()) {
-                        console.log('[Auth] User is logged in with LINE');
-                        await loginWithLine();
-                    } else {
-                        console.log('[Auth] User is NOT logged in with LINE');
-                        // ตรวจสอบ Session เดิม
-                        await loadUserFromSession();
-                    }
+                if (authError) {
+                    // LINE ส่ง error กลับมา
+                    const errorDesc = urlParams.get('error_description') || 'ไม่สามารถเข้าสู่ระบบได้';
+                    console.error('[Auth] LINE returned error:', authError, errorDesc);
+                    setError(decodeURIComponent(errorDesc));
+                    // ล้าง URL
+                    window.history.replaceState({}, '', window.location.pathname);
+                    setLoading(false);
+                    return;
+                }
+                
+                if (code && state) {
+                    // มี callback จาก LINE - ดำเนินการ exchange token
+                    console.log('[Auth] Processing LINE callback...');
+                    setIsProcessingCallback(true);
+                    await processLineCallback(code, state);
+                    // ล้าง URL หลังจาก process เสร็จ
+                    window.history.replaceState({}, '', window.location.pathname);
+                    setIsProcessingCallback(false);
                 } else {
-                    console.error('[Auth] LIFF init failed:', liffResult.error);
-                    setError('ไม่สามารถเชื่อมต่อ LINE ได้: ' + liffResult.error);
+                    // ไม่มี callback - ตรวจสอบ session เดิม
                     await loadUserFromSession();
                 }
             } catch (err) {
                 console.error('[Auth] Init error:', err);
-                setError('เกิดข้อผิดพลาด: ' + err.message);
+                setError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
             } finally {
                 setLoading(false);
             }
@@ -110,46 +119,37 @@ export function AuthProvider({ children }) {
         initAuth();
     }, []);
 
-    // Login กับ Backend โดยใช้ LINE Access Token
-    const loginWithLine = async () => {
+    // Process LINE Callback - แลก Authorization Code เป็น Session
+    const processLineCallback = async (code, state) => {
         try {
-            const accessToken = liffService.getAccessToken();
-            console.log('[Auth] Access Token:', accessToken ? 'exists' : 'null');
+            console.log('[Auth] Exchanging code for session...');
             
-            if (!accessToken) {
-                console.error('[Auth] No LINE access token');
-                setError('ไม่พบ Access Token จาก LINE');
-                return { success: false, error: 'ไม่พบ Access Token' };
-            }
-
-            console.log('[Auth] Calling backend login API...');
-            const response = await fetch(`${API_BASE}/api/auth/login`, {
+            const response = await fetch(`${API_BASE}/api/auth/line/callback`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ lineAccessToken: accessToken })
+                body: JSON.stringify({ code, state })
             });
 
-            console.log('[Auth] Backend response status:', response.status);
             const result = await response.json();
-            console.log('[Auth] Backend response:', result);
-
+            
             if (result.success) {
                 console.log('[Auth] Login successful:', result.data.user.displayName);
+                // บันทึก Session Token ใน localStorage
                 localStorage.setItem('sessionToken', result.data.session.token);
                 localStorage.setItem('sessionExpiresAt', result.data.session.expiresAt);
                 setUser(result.data.user);
                 setError(null);
                 return { success: true };
             } else {
-                console.error('[Auth] Login failed:', result.error);
-                setError(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+                console.error('[Auth] Callback failed:', result.error);
+                setError(result.error || 'ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่');
                 return { success: false, error: result.error };
             }
         } catch (err) {
-            console.error('[Auth] Login error:', err);
-            setError('ไม่สามารถเชื่อมต่อ Backend ได้: ' + err.message);
+            console.error('[Auth] Callback error:', err);
+            setError('ไม่สามารถเชื่อมต่อกับระบบได้ กรุณาลองใหม่อีกครั้ง');
             return { success: false, error: err.message };
         }
     };
@@ -157,9 +157,18 @@ export function AuthProvider({ children }) {
     // โหลดข้อมูลผู้ใช้จาก Session
     const loadUserFromSession = async () => {
         const sessionToken = localStorage.getItem('sessionToken');
+        const expiresAt = localStorage.getItem('sessionExpiresAt');
         
         if (!sessionToken) {
             console.log('[Auth] No session token found');
+            return false;
+        }
+        
+        // ตรวจสอบว่า session หมดอายุหรือยัง
+        if (expiresAt && new Date(expiresAt) < new Date()) {
+            console.log('[Auth] Session expired');
+            localStorage.removeItem('sessionToken');
+            localStorage.removeItem('sessionExpiresAt');
             return false;
         }
 
@@ -189,25 +198,31 @@ export function AuthProvider({ children }) {
         return false;
     };
 
-    // เข้าสู่ระบบด้วย LINE
-    const login = useCallback(() => {
-        console.log('[Auth] Manual login triggered');
-        console.log('[Auth] liffReady:', liffReady);
-        console.log('[Auth] isConfigured:', liffService.isConfigured());
-        
+    // เริ่มต้น LINE Login Flow
+    const login = useCallback(async () => {
+        console.log('[Auth] Starting LINE Login flow...');
         setError(null);
         
-        if (liffReady && liffService.isConfigured()) {
-            console.log('[Auth] Redirecting to LINE Login...');
-            liffService.login();
-        } else {
-            const errMsg = 'ระบบ LINE Login ยังไม่พร้อมใช้งาน กรุณารอสักครู่';
-            console.error('[Auth]', errMsg);
-            setError(errMsg);
+        try {
+            // เรียก Backend เพื่อสร้าง Authorization URL
+            const response = await fetch(`${API_BASE}/api/auth/line/authorize`);
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('[Auth] Redirecting to LINE Login...');
+                // Redirect ไปหน้า LINE Login
+                window.location.href = result.data.authorizationUrl;
+            } else {
+                console.error('[Auth] Failed to get auth URL:', result.error);
+                setError(result.error || 'ไม่สามารถเริ่มต้นการเข้าสู่ระบบได้');
+            }
+        } catch (err) {
+            console.error('[Auth] Login error:', err);
+            setError('ไม่สามารถเชื่อมต่อกับระบบได้ กรุณาลองใหม่อีกครั้ง');
         }
-    }, [liffReady]);
+    }, []);
 
-    // ออกจากระบบ
+    // ออกจากระบบ (Revoke LINE Token)
     const logout = async () => {
         console.log('[Auth] Logging out...');
         const sessionToken = localStorage.getItem('sessionToken');
@@ -225,13 +240,11 @@ export function AuthProvider({ children }) {
             console.error('[Auth] Logout error:', err);
         }
 
+        // ล้างข้อมูล Session
         localStorage.removeItem('sessionToken');
         localStorage.removeItem('sessionExpiresAt');
         setUser(null);
-
-        if (liffReady && liffService.isLoggedIn()) {
-            liffService.logout();
-        }
+        setError(null);
     };
 
     // เปลี่ยน Role
@@ -259,12 +272,13 @@ export function AuthProvider({ children }) {
                 return { success: false, error: result.error };
             }
         } catch (err) {
-            const errorMsg = 'ไม่สามารถเปลี่ยนบทบาทได้';
+            const errorMsg = 'ไม่สามารถเปลี่ยนบทบาทได้ กรุณาลองใหม่';
             setError(errorMsg);
             return { success: false, error: errorMsg };
         }
     };
 
+    // ตรวจสอบสิทธิ์
     const canAccessCCTV = () => user?.role === ROLES.OFFICER && user?.roleVerified;
     const canViewReports = () => user?.role !== ROLES.TOURIST;
 
@@ -273,14 +287,14 @@ export function AuthProvider({ children }) {
         loading,
         error,
         isAuthenticated: !!user,
-        liffReady,
-        isLiffConfigured: liffService.isConfigured(),
+        isProcessingCallback,
         login,
         logout,
         updateRole,
         canAccessCCTV,
         canViewReports,
-        clearError: () => setError(null)
+        clearError: () => setError(null),
+        refreshUser: loadUserFromSession
     };
 
     return (

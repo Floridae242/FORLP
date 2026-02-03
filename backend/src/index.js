@@ -16,7 +16,20 @@ import {
     ROLES, 
     ROLE_PERMISSIONS,
     authMiddleware,
-    officerOnlyMiddleware 
+    officerOnlyMiddleware,
+    generateStateToken,
+    generateNonce,
+    getLineAuthorizationUrl,
+    exchangeCodeForToken,
+    verifyIdToken,
+    saveAuthState,
+    getAndRemoveAuthState,
+    upsertUser,
+    createSession,
+    getUserById,
+    logoutUser,
+    updateUserRole,
+    canAccessCCTV
 } from './services/authService.js';
 
 const app = express();
@@ -27,7 +40,8 @@ const corsOptions = {
     origin: [
         'https://forlp-bams.vercel.app',
         'http://localhost:5173',
-        'http://localhost:3000'
+        'http://localhost:3000',
+        config.frontendUrl
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -51,6 +65,227 @@ app.get('/health', (req, res) => {
         version: '3.0.0',
         system: 'Kad Kong Ta - AI People Counter',
         timestamp: new Date().toISOString() 
+    });
+});
+
+// ==================== LINE LOGIN v2.1 OAUTH 2.0 APIs ====================
+
+// GET /api/auth/line/authorize - เริ่มต้น LINE Login Flow
+app.get('/api/auth/line/authorize', (req, res) => {
+    try {
+        // สร้าง state และ nonce สำหรับป้องกัน CSRF และ Replay Attack
+        const state = generateStateToken();
+        const nonce = generateNonce();
+        
+        // บันทึก state และ nonce ไว้ตรวจสอบภายหลัง
+        saveAuthState(state, nonce);
+        
+        // สร้าง LINE Authorization URL
+        const authUrl = getLineAuthorizationUrl(state, nonce);
+        
+        res.json({
+            success: true,
+            data: {
+                authorizationUrl: authUrl,
+                state: state
+            }
+        });
+    } catch (error) {
+        console.error('[Auth] Authorization URL error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'ไม่สามารถเริ่มต้นการเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง' 
+        });
+    }
+});
+
+// POST /api/auth/line/callback - รับ Authorization Code จาก LINE
+app.post('/api/auth/line/callback', async (req, res) => {
+    try {
+        const { code, state } = req.body;
+        
+        if (!code || !state) {
+            return res.status(400).json({
+                success: false,
+                error: 'ข้อมูลไม่ครบถ้วน กรุณาลองเข้าสู่ระบบใหม่'
+            });
+        }
+        
+        // ตรวจสอบ state เพื่อป้องกัน CSRF
+        const authState = getAndRemoveAuthState(state);
+        if (!authState) {
+            return res.status(400).json({
+                success: false,
+                error: 'การเชื่อมต่อหมดอายุ กรุณาลองเข้าสู่ระบบใหม่'
+            });
+        }
+        
+        // แลก Authorization Code เป็น Access Token
+        const tokenResult = await exchangeCodeForToken(code);
+        if (!tokenResult.success) {
+            return res.status(400).json({
+                success: false,
+                error: tokenResult.error || 'ไม่สามารถเชื่อมต่อกับ LINE ได้'
+            });
+        }
+        
+        // Verify ID Token และดึงข้อมูลผู้ใช้
+        const idTokenResult = await verifyIdToken(tokenResult.data.idToken, authState.nonce);
+        if (!idTokenResult.success) {
+            return res.status(400).json({
+                success: false,
+                error: idTokenResult.error || 'ไม่สามารถยืนยันตัวตนได้'
+            });
+        }
+        
+        const lineUser = idTokenResult.data;
+        
+        // สร้างหรืออัปเดตผู้ใช้ในระบบ พร้อมบันทึก LINE Tokens
+        const user = upsertUser(
+            lineUser.userId,
+            lineUser.displayName,
+            lineUser.pictureUrl,
+            {
+                accessToken: tokenResult.data.accessToken,
+                refreshToken: tokenResult.data.refreshToken,
+                expiresIn: tokenResult.data.expiresIn
+            }
+        );
+        
+        // สร้าง Session Token สำหรับ Frontend
+        const session = createSession(user.id);
+        
+        // ดึงข้อมูลผู้ใช้แบบเต็ม
+        const fullUser = getUserById(user.id);
+        
+        console.log(`[Auth] LINE Login success: ${lineUser.displayName} (${lineUser.userId})`);
+        
+        res.json({
+            success: true,
+            data: {
+                user: fullUser,
+                session: {
+                    token: session.sessionToken,
+                    expiresAt: session.expiresAt
+                }
+            }
+        });
+    } catch (error) {
+        console.error('[Auth] LINE callback error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง' 
+        });
+    }
+});
+
+// GET /api/auth/roles - ดึงรายการ Role และสิทธิ์ทั้งหมด
+app.get('/api/auth/roles', (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            roles: ROLE_PERMISSIONS
+        }
+    });
+});
+
+// POST /api/auth/logout - ออกจากระบบ (Revoke LINE Token)
+app.post('/api/auth/logout', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const sessionToken = authHeader.substring(7);
+            // ลบ session และ revoke LINE token
+            await logoutUser(sessionToken);
+        }
+
+        res.json({
+            success: true,
+            message: 'ออกจากระบบสำเร็จ'
+        });
+    } catch (error) {
+        console.error('[Auth] Logout error:', error);
+        res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการออกจากระบบ' });
+    }
+});
+
+// GET /api/auth/me - ดึงข้อมูลผู้ใช้ปัจจุบัน
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            user: req.user
+        }
+    });
+});
+
+// PUT /api/auth/role - เปลี่ยน Role ของผู้ใช้
+app.put('/api/auth/role', authMiddleware, (req, res) => {
+    try {
+        const { role, officerToken } = req.body;
+
+        if (!role) {
+            return res.status(400).json({
+                success: false,
+                error: 'กรุณาเลือกบทบาทที่ต้องการ'
+            });
+        }
+
+        const result = updateUserRole(req.user.id, role, officerToken);
+
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                error: result.error
+            });
+        }
+
+        // ดึงข้อมูลผู้ใช้ใหม่
+        const updatedUser = getUserById(req.user.id);
+
+        res.json({
+            success: true,
+            data: {
+                user: updatedUser,
+                message: `เปลี่ยนบทบาทเป็น "${ROLE_PERMISSIONS[role].label}" สำเร็จ`
+            }
+        });
+    } catch (error) {
+        console.error('[Auth] Role update error:', error);
+        res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการเปลี่ยนบทบาท' });
+    }
+});
+
+// GET /api/auth/check-cctv - ตรวจสอบสิทธิ์เข้าถึง CCTV
+app.get('/api/auth/check-cctv', authMiddleware, (req, res) => {
+    const hasAccess = canAccessCCTV(req.user);
+
+    res.json({
+        success: true,
+        data: {
+            canAccess: hasAccess,
+            reason: hasAccess 
+                ? 'คุณมีสิทธิ์เข้าถึงกล้องวงจรปิด' 
+                : 'เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้นที่สามารถเข้าถึงกล้องวงจรปิด'
+        }
+    });
+});
+
+// ==================== PROTECTED CCTV API ====================
+
+// GET /api/cctv/streams - ดึงรายการกล้อง (เจ้าหน้าที่เท่านั้น)
+app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) => {
+    // สำหรับ demo - ส่งรายการกล้องจำลอง
+    res.json({
+        success: true,
+        data: {
+            cameras: [
+                { id: 'cam-1', name: 'กล้องทางเข้าหลัก', location: 'โซน A', status: 'online' },
+                { id: 'cam-2', name: 'กล้องลานกลาง', location: 'โซน B', status: 'online' },
+                { id: 'cam-3', name: 'กล้องโซนอาหาร', location: 'โซน C', status: 'online' }
+            ]
+        }
     });
 });
 
@@ -322,169 +557,9 @@ app.get('/api/system/status', (req, res) => {
             timestamp: new Date().toISOString(),
             config: {
                 lineConfigured: !!config.lineChannelAccessToken,
+                lineLoginConfigured: !!config.lineLoginChannelId && !!config.lineLoginChannelSecret,
                 weatherConfigured: !!config.openWeatherApiKey
             }
-        }
-    });
-});
-
-// ==================== AUTH APIs ====================
-
-// GET /api/auth/roles - ดึงรายการ Role และสิทธิ์ทั้งหมด
-app.get('/api/auth/roles', (req, res) => {
-    res.json({
-        success: true,
-        data: {
-            roles: ROLE_PERMISSIONS
-        }
-    });
-});
-
-// POST /api/auth/login - เข้าสู่ระบบด้วย LINE Access Token
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { lineAccessToken } = req.body;
-
-        if (!lineAccessToken) {
-            return res.status(400).json({
-                success: false,
-                error: 'กรุณาระบุ LINE Access Token'
-            });
-        }
-
-        // ตรวจสอบ LINE Token และดึงข้อมูลผู้ใช้
-        const lineResult = await authService.verifyLineToken(lineAccessToken);
-
-        if (!lineResult.success) {
-            return res.status(401).json({
-                success: false,
-                error: 'LINE Access Token ไม่ถูกต้อง'
-            });
-        }
-
-        // สร้างหรืออัปเดตผู้ใช้
-        const user = authService.upsertUser(
-            lineResult.data.userId,
-            lineResult.data.displayName,
-            lineResult.data.pictureUrl
-        );
-
-        // สร้าง Session
-        const session = authService.createSession(user.id);
-
-        // ดึงข้อมูลผู้ใช้แบบเต็ม
-        const fullUser = authService.getUserById(user.id);
-
-        res.json({
-            success: true,
-            data: {
-                user: fullUser,
-                session: {
-                    token: session.sessionToken,
-                    expiresAt: session.expiresAt
-                }
-            }
-        });
-    } catch (error) {
-        console.error('[Auth] Login error:', error);
-        res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' });
-    }
-});
-
-// POST /api/auth/logout - ออกจากระบบ
-app.post('/api/auth/logout', (req, res) => {
-    try {
-        const authHeader = req.headers.authorization;
-        
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const sessionToken = authHeader.substring(7);
-            authService.deleteSession(sessionToken);
-        }
-
-        res.json({
-            success: true,
-            message: 'ออกจากระบบสำเร็จ'
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// GET /api/auth/me - ดึงข้อมูลผู้ใช้ปัจจุบัน
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-    res.json({
-        success: true,
-        data: {
-            user: req.user
-        }
-    });
-});
-
-// PUT /api/auth/role - เปลี่ยน Role ของผู้ใช้
-app.put('/api/auth/role', authMiddleware, (req, res) => {
-    try {
-        const { role, officerToken } = req.body;
-
-        if (!role) {
-            return res.status(400).json({
-                success: false,
-                error: 'กรุณาระบุ Role'
-            });
-        }
-
-        const result = authService.updateUserRole(req.user.id, role, officerToken);
-
-        if (!result.success) {
-            return res.status(400).json({
-                success: false,
-                error: result.error
-            });
-        }
-
-        // ดึงข้อมูลผู้ใช้ใหม่
-        const updatedUser = authService.getUserById(req.user.id);
-
-        res.json({
-            success: true,
-            data: {
-                user: updatedUser,
-                message: `เปลี่ยนบทบาทเป็น "${ROLE_PERMISSIONS[role].label}" สำเร็จ`
-            }
-        });
-    } catch (error) {
-        console.error('[Auth] Role update error:', error);
-        res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการเปลี่ยน Role' });
-    }
-});
-
-// GET /api/auth/check-cctv - ตรวจสอบสิทธิ์เข้าถึง CCTV
-app.get('/api/auth/check-cctv', authMiddleware, (req, res) => {
-    const canAccess = authService.canAccessCCTV(req.user);
-
-    res.json({
-        success: true,
-        data: {
-            canAccess: canAccess,
-            reason: canAccess 
-                ? 'คุณมีสิทธิ์เข้าถึงกล้องวงจรปิด' 
-                : 'เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้นที่สามารถเข้าถึงกล้องวงจรปิด'
-        }
-    });
-});
-
-// ==================== PROTECTED CCTV API ====================
-
-// GET /api/cctv/streams - ดึงรายการกล้อง (เจ้าหน้าที่เท่านั้น)
-app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) => {
-    // สำหรับ demo - ส่งรายการกล้องจำลอง
-    res.json({
-        success: true,
-        data: {
-            cameras: [
-                { id: 'cam-1', name: 'กล้องทางเข้าหลัก', location: 'โซน A', status: 'online' },
-                { id: 'cam-2', name: 'กล้องลานกลาง', location: 'โซน B', status: 'online' },
-                { id: 'cam-3', name: 'กล้องโซนอาหาร', location: 'โซน C', status: 'online' }
-            ]
         }
     });
 });
@@ -674,10 +749,11 @@ async function start() {
             console.log(`🚀 Server: http://localhost:${config.port}`);
             console.log('');
             console.log('📡 API Endpoints:');
-            console.log(`   GET  /api/people/current  - จำนวนคนปัจจุบัน`);
-            console.log(`   POST /api/people/ingest   - รับข้อมูลจาก AI`);
-            console.log(`   GET  /api/reports/daily   - รายงานรายวัน`);
-            console.log(`   GET  /api/reports/weekly  - รายงานรายสัปดาห์`);
+            console.log(`   GET  /api/auth/line/authorize  - เริ่มต้น LINE Login`);
+            console.log(`   POST /api/auth/line/callback   - รับ callback จาก LINE`);
+            console.log(`   GET  /api/auth/me              - ข้อมูลผู้ใช้ปัจจุบัน`);
+            console.log(`   GET  /api/people/current       - จำนวนคนปัจจุบัน`);
+            console.log(`   GET  /api/reports/daily        - รายงานรายวัน`);
             console.log('');
             console.log('📱 LINE Notifications:');
             console.log('   ⚠️  Early Warning  - เสาร์-อาทิตย์ 14:00');

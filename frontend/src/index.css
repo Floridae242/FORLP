@@ -1313,7 +1313,7 @@ a:focus-visible {
     display: flex;
     align-items: flex-start;
     gap: var(--space-sm);
-    margin-bottom: var(--space-md);
+    margin-bottom: var (--space-md);
     padding: var(--space-sm) var(--space-md);
     background: rgba(192, 86, 33, 0.1);
     border-radius: var(--border-radius);
@@ -1744,5 +1744,402 @@ a:focus-visible {
 
     .login-card {
         padding: var(--space-lg);
+    }
+}
+
+/* =====================================================
+   ENHANCED SETTINGS PAGE STYLES (LINE Login v2.1)
+   ===================================================== */
+
+/* Account LINE Status */
+.account-line-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+    color: var(--status-safe);
+    margin-top: 4px;
+}
+
+.line-connected-icon {
+    font-size: 0.625rem;
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Current Role Badge */
+.current-badge {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--status-info);
+    background: var(--status-info-bg);
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: auto;
+}
+
+.role-option.current {
+    background: rgba(43, 108, 176, 0.05);
+}
+
+/* Officer Notice */
+.officer-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--status-info-bg);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-lg);
+}
+
+.notice-icon {
+    font-size: 1.25rem;
+    color: var(--status-info);
+    flex-shrink: 0;
+}
+
+.notice-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--status-info);
+    margin-bottom: 4px;
+}
+
+.notice-text {
+    font-size: 0.875rem;
+    color: var(--text-body);
+    line-height: 1.5;
+}
+
+/* Role Option Note */
+.role-option-note {
+    font-size: 0.75rem;
+    color: var(--status-info);
+    font-style: italic;
+    margin-top: var(--space-sm);
+}
+
+/* Settings Message (unified error/success) */
+.settings-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-md);
+}
+
+.settings-message.error {
+    background: var(--status-alert-bg);
+    border: 1px solid rgba(197, 48, 48, 0.2);
+}
+
+.settings-message.error .message-icon {
+    width: 20px;
+    height: 20px;
+    background: var(--status-alert);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.settings-message.error p {
+    font-size: 0.9375rem;
+    color: var(--status-alert);
+}
+
+.settings-message.success {
+    background: var(--status-safe-bg);
+    border: 1px solid rgba(47, 133, 90, 0.2);
+}
+
+.settings-message.success .message-icon {
+    width: 20px;
+    height: 20px;
+    background: var(--status-safe);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.settings-message.success p {
+    font-size: 0.9375rem;
+    color: var(--status-safe);
+}
+
+/* Logout Hint */
+.logout-hint {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: var(--space-sm);
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--space-lg);
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    padding: var(--space-xl);
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin-bottom: var(--space-sm);
+}
+
+.modal-text {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-xl);
+    line-height: 1.6;
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.modal-btn {
+    flex: 1;
+    font-family: var(--font-main);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    padding: 12px 20px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.modal-btn.cancel {
+    background: var(--bg-muted);
+    border: 1px solid var(--border-color);
+    color: var(--text-body);
+}
+
+.modal-btn.cancel:hover {
+    background: var(--border-color);
+}
+
+.modal-btn.confirm {
+    background: var(--status-alert);
+    border: none;
+    color: white;
+}
+
+.modal-btn.confirm:hover {
+    background: #b91c1c;
+}
+
+/* Enhanced Login Page */
+.login-header {
+    margin-bottom: var(--space-xl);
+}
+
+.login-title-sub {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: var(--space-sm);
+}
+
+.login-org {
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.login-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin-bottom: var(--space-sm);
+}
+
+/* LINE Login Button (ตาม LINE Design Guidelines) */
+.line-login-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    font-weight: 500;
+    color: white;
+    background: #06c755;
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 14px 24px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.line-login-btn:hover:not(:disabled) {
+    background: #05b04c;
+}
+
+.line-login-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.line-login-btn:active:not(:disabled) {
+    background: #049a40;
+}
+
+.line-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.line-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.line-btn-text {
+    font-weight: 500;
+}
+
+/* Roles Preview (Login Page) */
+.login-roles-info {
+    margin-top: var(--space-xl);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius-lg);
+    padding: var(--space-lg);
+}
+
+.login-roles-info h4 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: white;
+    margin-bottom: var(--space-md);
+}
+
+.roles-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    justify-content: center;
+    margin-bottom: var(--space-md);
+}
+
+.role-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 12px;
+    border-radius: var(--border-radius);
+}
+
+.role-preview-icon {
+    font-size: 1rem;
+}
+
+.role-preview-label {
+    font-size: 0.8125rem;
+    color: white;
+}
+
+.roles-hint {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+}
+
+/* Privacy Section Enhanced */
+.privacy-section .privacy-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+.privacy-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+}
+
+.privacy-list li::before {
+    display: none;
+}
+
+.privacy-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+/* Callback Processing State */
+.processing-callback {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-lg);
+}
+
+.processing-callback .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+}
+
+.processing-callback .loading-text {
+    font-size: 1rem;
+    color: var(--text-body);
+}
+
+/* Mobile Responsive Enhancements */
+@media (max-width: 640px) {
+    .modal-content {
+        margin: var(--space-md);
+        padding: var(--space-lg);
+    }
+
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .modal-btn {
+        width: 100%;
+    }
+
+    .login-roles-info {
+        padding: var(--space-md);
+    }
+
+    .roles-preview {
+        gap: 6px;
+    }
+
+    .role-preview-item {
+        padding: 4px 10px;
     }
 }
