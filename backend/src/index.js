@@ -1,6 +1,7 @@
 // =====================================================
 // Kad Kong Ta Smart Insight - Main Server
 // Single Zone People Counting + AI Integration
+// Version 4.0 - Real AI Data + Real-time Alerts
 // =====================================================
 
 import express from 'express';
@@ -62,8 +63,9 @@ if (config.nodeEnv === 'development') {
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
-        version: '3.0.0',
+        version: '4.0.0',
         system: 'Kad Kong Ta - AI People Counter',
+        features: ['real-time-alerts', 'rain-forecast', 'crowd-warning'],
         timestamp: new Date().toISOString() 
     });
 });
@@ -554,57 +556,102 @@ app.get('/api/ai/config', aiAuthMiddleware, (req, res) => {
     });
 });
 
-// ==================== PEOPLE COUNT APIs ====================
+// ==================== PEOPLE COUNT APIs (Updated per PROMPT) ====================
 
-// GET /api/people/current - จำนวนคนปัจจุบัน (Real-time)
+// GET /api/people/current - จำนวนคนปัจจุบัน (Real-time from AI)
 app.get('/api/people/current', (req, res) => {
     const data = peopleCountService.getCurrentCount();
     
-    // ถ้ายังไม่มีข้อมูล ให้ generate mock
-    if (data.count === 0 && !data.timestamp) {
-        const mock = peopleCountService.generateMockCount();
-        return res.json({
-            success: true,
-            data: mock,
-            source: 'mock'
-        });
-    }
-    
     res.json({
         success: true,
-        data: data
+        data: {
+            count: data.count,
+            smoothed_count: data.smoothed_count,
+            status: data.status,
+            status_label: data.status_label,
+            timestamp: data.timestamp,
+            source: data.source,
+            source_latency_s: data.source_latency_s,
+            is_stale: data.is_stale,
+            camera_count: data.camera_count
+        }
     });
 });
 
-// POST /api/people/ingest - รับข้อมูลจาก AI Service
-app.post('/api/people/ingest', (req, res) => {
-    const { count, timestamp } = req.body;
-    
-    if (typeof count !== 'number' || count < 0) {
-        return res.status(400).json({
-            success: false,
-            error: 'Invalid count value'
-        });
-    }
-    
-    const result = peopleCountService.ingestPeopleCount(count, timestamp);
-    
-    console.log(`[Ingest] People count: ${count}`);
-    
-    res.json({
-        success: true,
-        data: result
-    });
-});
-
-// GET /api/people/summary - สรุปรายวัน
-app.get('/api/people/summary', (req, res) => {
+// GET /api/people/daily - สรุปรายวัน (ตาม PROMPT)
+app.get('/api/people/daily', (req, res) => {
     const { date } = req.query;
     const summary = peopleCountService.getDailySummary(date);
     
     res.json({
         success: true,
         data: summary
+    });
+});
+
+// POST /api/people/ingest - รับข้อมูลจาก AI Service (ตาม PROMPT spec)
+app.post('/api/people/ingest', (req, res) => {
+    const {
+        stream_id,
+        timestamp,
+        people_count,
+        smoothed_count,
+        max_count,
+        avg_count,
+        frames_processed,
+        source_type,
+        confidence
+    } = req.body;
+    
+    // Validate required fields
+    if (typeof people_count !== 'number' || people_count < 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid people_count value'
+        });
+    }
+    
+    // Ingest data
+    const result = peopleCountService.ingestPeopleCount({
+        stream_id: stream_id || 'unknown',
+        timestamp: timestamp || new Date().toISOString(),
+        people_count,
+        smoothed_count,
+        max_count,
+        avg_count,
+        frames_processed,
+        source_type: source_type || 'playback',
+        confidence
+    });
+    
+    // Trigger crowd check after ingest (real-time alerts)
+    earlyWarningService.processCrowdCheck().catch(err => {
+        console.error('[Ingest] Crowd check error:', err.message);
+    });
+    
+    res.json({
+        success: true,
+        data: result.data
+    });
+});
+
+// GET /api/people/stats - สถิติล่าสุด (สำหรับ Dashboard)
+app.get('/api/people/stats', (req, res) => {
+    const stats = peopleCountService.getLatestStats();
+    
+    res.json({
+        success: true,
+        data: stats
+    });
+});
+
+// GET /api/people/cameras - ข้อมูลทุกกล้อง
+app.get('/api/people/cameras', (req, res) => {
+    const cameras = peopleCountService.getAllCamerasData();
+    
+    res.json({
+        success: true,
+        data: cameras
     });
 });
 
@@ -628,6 +675,16 @@ app.get('/api/people/hourly', (req, res) => {
     res.json({
         success: true,
         data: hourly
+    });
+});
+
+// GET /api/people/crowd-level - ระดับความแออัดปัจจุบัน
+app.get('/api/people/crowd-level', (req, res) => {
+    const crowdLevel = peopleCountService.checkCrowdLevel();
+    
+    res.json({
+        success: true,
+        data: crowdLevel
     });
 });
 
@@ -811,6 +868,51 @@ app.get('/api/weather', async (req, res) => {
     }
 });
 
+// ==================== EARLY WARNING APIs ====================
+
+// GET /api/warnings/rain-check - ตรวจสอบพยากรณ์ฝน
+app.get('/api/warnings/rain-check', async (req, res) => {
+    try {
+        const result = await earlyWarningService.checkRainForecast();
+        
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/warnings/forecast - ดูพยากรณ์อากาศรายชั่วโมง
+app.get('/api/warnings/forecast', async (req, res) => {
+    try {
+        const forecast = await earlyWarningService.getHourlyForecast();
+        
+        res.json({
+            success: true,
+            data: forecast
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/warnings/test - ทดสอบส่ง warning (สำหรับ debug)
+app.post('/api/warnings/test', async (req, res) => {
+    try {
+        const { type } = req.body; // 'rain', 'crowd', 'critical', 'daily'
+        const result = await earlyWarningService.testSendWarning(type || 'rain');
+        
+        res.json({
+            success: result.success,
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // ==================== SYSTEM API ====================
 
 app.get('/api/system/status', (req, res) => {
@@ -829,7 +931,7 @@ app.get('/api/system/status', (req, res) => {
     });
 });
 
-// ==================== TEST APIs ====================
+// ==================== TEST APIs (Updated) ====================
 
 // GET /api/test/line - ทดสอบส่งข้อความ LINE
 app.get('/api/test/line', async (req, res) => {
@@ -839,6 +941,7 @@ app.get('/api/test/line', async (req, res) => {
 ━━━━━━━━━━━━━━━
 ✅ ระบบ LINE OA เชื่อมต่อสำเร็จ
 📅 ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+🔧 Version 4.0 - Real-time Alerts
 ━━━━━━━━━━━━━━━
 🐓 Kad Kong Ta Smart Insight`;
 
@@ -854,15 +957,44 @@ app.get('/api/test/line', async (req, res) => {
     }
 });
 
-// GET /api/test/early-warning - ทดสอบระบบ Early Warning
-app.get('/api/test/early-warning', async (req, res) => {
+// GET /api/test/rain-warning - ทดสอบส่ง Rain Warning
+app.get('/api/test/rain-warning', async (req, res) => {
     try {
-        const result = await earlyWarningService.testSendWarning();
+        const result = await earlyWarningService.testSendWarning('rain');
         
         res.json({
             success: result.success,
-            sent: result.sent,
-            message: result.sent ? 'ส่ง Early Warning สำเร็จ' : 'ไม่มีความเสี่ยง หรือส่งไม่สำเร็จ',
+            message: result.success ? 'ส่ง Rain Warning สำเร็จ' : 'ส่งไม่สำเร็จ',
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/test/crowd-warning - ทดสอบส่ง Crowd Warning
+app.get('/api/test/crowd-warning', async (req, res) => {
+    try {
+        const result = await earlyWarningService.testSendWarning('crowd');
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 'ส่ง Crowd Warning สำเร็จ' : 'ส่งไม่สำเร็จ',
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/test/crowd-critical - ทดสอบส่ง Crowd Critical Alert
+app.get('/api/test/crowd-critical', async (req, res) => {
+    try {
+        const result = await earlyWarningService.testSendWarning('critical');
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 'ส่ง Critical Alert สำเร็จ' : 'ส่งไม่สำเร็จ',
             data: result
         });
     } catch (error) {
@@ -873,8 +1005,7 @@ app.get('/api/test/early-warning', async (req, res) => {
 // GET /api/test/daily-report - ทดสอบส่ง Daily Report
 app.get('/api/test/daily-report', async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const result = await dailyReportService.processAndSendDailyReport(today);
+        const result = await earlyWarningService.testSendWarning('daily');
         
         res.json({
             success: result.success,
@@ -905,96 +1036,115 @@ app.use((req, res) => {
     res.status(404).json({ success: false, error: 'Endpoint not found' });
 });
 
-// ==================== Polling Service ====================
-let pollingInterval = null;
-
-function startPolling() {
-    const interval = 5 * 60 * 1000; // 5 นาที
-    
-    console.log(`[Polling] Starting with interval ${interval / 1000}s`);
-    
-    // Poll ครั้งแรก
-    pollData();
-    
-    // ตั้ง interval
-    pollingInterval = setInterval(pollData, interval);
-}
-
-async function pollData() {
-    // ลองดึงจาก AI Service ก่อน
-    const result = await peopleCountService.fetchFromAI();
-    
-    if (!result.success) {
-        // ถ้าไม่ได้ ใช้ mock
-        peopleCountService.generateMockCount();
-        console.log('[Polling] Using mock data');
-    } else {
-        console.log('[Polling] Got data from AI');
-    }
-}
-
-// ==================== LINE Notification Scheduler ====================
-let lineSchedulerInterval = null;
+// ==================== SCHEDULERS (Updated per PROMPT) ====================
 
 /**
- * ตรวจสอบและส่ง LINE Notification ตามกำหนดเวลา
- * - Early Warning: ทุกวันเสาร์-อาทิตย์ เวลา 14:00
- * - Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตลาดเปิดเฉพาะ ส.-อา.)
+ * Rain Check Scheduler - ตรวจสอบพยากรณ์ฝนทุก 10 นาที
  */
-function startLineScheduler() {
-    console.log('[LINE Scheduler] Starting...');
+let rainCheckInterval = null;
+
+function startRainCheckScheduler() {
+    const interval = 10 * 60 * 1000; // 10 นาที
     
-    // ตรวจสอบทุก 1 นาที
-    lineSchedulerInterval = setInterval(checkAndSendNotifications, 60 * 1000);
+    console.log('[Rain Check] Starting scheduler (every 10 minutes)');
     
-    // ตรวจสอบครั้งแรกทันที
-    checkAndSendNotifications();
+    // ตรวจสอบครั้งแรกหลัง 1 นาที (รอ server พร้อม)
+    setTimeout(() => {
+        earlyWarningService.processRainCheck();
+    }, 60 * 1000);
+    
+    // ตั้ง interval
+    rainCheckInterval = setInterval(() => {
+        earlyWarningService.processRainCheck();
+    }, interval);
 }
+
+/**
+ * LINE Notification Scheduler
+ * - Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (Asia/Bangkok)
+ */
+let lineSchedulerInterval = null;
 
 // เก็บสถานะว่าส่งไปแล้วหรือยังในแต่ละวัน
 const sentToday = {
-    earlyWarning: null,  // เก็บวันที่ที่ส่งล่าสุด
     dailyReport: null
 };
 
-async function checkAndSendNotifications() {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const dayOfWeek = now.getDay(); // 0 = อาทิตย์, 6 = เสาร์
+function startLineScheduler() {
+    console.log('[LINE Scheduler] Starting (Daily Report: Sat-Sun 23:00)');
+    
+    // ตรวจสอบทุก 1 นาที
+    lineSchedulerInterval = setInterval(checkAndSendDailyReport, 60 * 1000);
+    
+    // ตรวจสอบครั้งแรกทันที
+    checkAndSendDailyReport();
+}
+
+async function checkAndSendDailyReport() {
+    // ใช้เวลา Asia/Bangkok
+    const nowBangkok = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+    const today = nowBangkok.toISOString().split('T')[0];
+    const hour = nowBangkok.getHours();
+    const minute = nowBangkok.getMinutes();
+    const dayOfWeek = nowBangkok.getDay(); // 0 = อาทิตย์, 6 = เสาร์
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
-    // Early Warning: วันเสาร์-อาทิตย์ เวลา 14:00
-    if (isWeekend && hour === 14 && minute === 0 && sentToday.earlyWarning !== today) {
-        console.log('[LINE Scheduler] Sending Early Warning...');
-        try {
-            const result = await earlyWarningService.processEarlyWarning();
-            sentToday.earlyWarning = today;
-            console.log('[LINE Scheduler] Early Warning result:', result);
-        } catch (error) {
-            console.error('[LINE Scheduler] Early Warning error:', error.message);
-        }
-    }
-    
-    // Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตลาดเปิดเฉพาะ ส.-อา.)
+    // Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตาม PROMPT)
     if (isWeekend && hour === 23 && minute === 0 && sentToday.dailyReport !== today) {
-        console.log('[LINE Scheduler] Sending Daily Report...');
+        console.log('[LINE Scheduler] 📊 Sending Daily Report (Weekend 23:00)...');
         try {
-            const result = await dailyReportService.processAndSendDailyReport(today);
+            const result = await earlyWarningService.processDailyReport(today);
             sentToday.dailyReport = today;
-            console.log('[LINE Scheduler] Daily Report result:', result);
+            console.log('[LINE Scheduler] Daily Report result:', result.success ? '✅ Sent' : '❌ Failed');
         } catch (error) {
             console.error('[LINE Scheduler] Daily Report error:', error.message);
         }
     }
 }
 
+/**
+ * Setup LINE Message Sender for Early Warning Service
+ */
+function setupLineSender() {
+    // ใช้ dailyReportService.sendLineMessage เป็น sender
+    earlyWarningService.setLineMessageSender(async (message) => {
+        try {
+            const result = await dailyReportService.sendLineMessage(message);
+            return result;
+        } catch (error) {
+            console.error('[LINE Sender] Error:', error.message);
+            return { success: false, error: error.message };
+        }
+    });
+    
+    console.log('[LINE Sender] Connected to Early Warning Service');
+}
+
+/**
+ * Setup Alert Callbacks for People Count Service
+ */
+function setupAlertCallbacks() {
+    peopleCountService.setAlertCallbacks({
+        onCrowdWarning: async (data) => {
+            console.log('[Alert Callback] Crowd Warning triggered');
+            await earlyWarningService.sendCrowdWarning(data);
+        },
+        onCrowdCritical: async (data) => {
+            console.log('[Alert Callback] Crowd Critical triggered');
+            await earlyWarningService.sendCrowdCritical(data);
+        }
+    });
+    
+    console.log('[Alert Callbacks] Connected to People Count Service');
+}
+
 // ==================== Start Server ====================
 async function start() {
     console.log('');
-    console.log('🏮 Kad Kong Ta - AI People Counter v3.0');
+    console.log('🏮 Kad Kong Ta - AI People Counter v4.0');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✨ Features: Real-time Alerts, Rain Forecast, Crowd Warning');
+    console.log('');
     
     try {
         console.log('📋 Validating configuration...');
@@ -1003,8 +1153,14 @@ async function start() {
         console.log('💾 Initializing database...');
         await initDatabase();
 
-        console.log('🔄 Starting polling service...');
-        startPolling();
+        console.log('🔗 Setting up LINE sender...');
+        setupLineSender();
+        
+        console.log('🔔 Setting up alert callbacks...');
+        setupAlertCallbacks();
+
+        console.log('🌧️ Starting rain check scheduler (every 10 min)...');
+        startRainCheckScheduler();
         
         console.log('📱 Starting LINE notification scheduler...');
         startLineScheduler();
@@ -1014,15 +1170,22 @@ async function start() {
             console.log(`🚀 Server: http://localhost:${config.port}`);
             console.log('');
             console.log('📡 API Endpoints:');
-            console.log(`   GET  /api/auth/line/authorize  - เริ่มต้น LINE Login`);
-            console.log(`   POST /api/auth/line/callback   - รับ callback จาก LINE`);
-            console.log(`   GET  /api/auth/me              - ข้อมูลผู้ใช้ปัจจุบัน`);
-            console.log(`   GET  /api/people/current       - จำนวนคนปัจจุบัน`);
-            console.log(`   GET  /api/reports/daily        - รายงานรายวัน`);
+            console.log('   GET  /api/people/current      - จำนวนคนปัจจุบัน (real-time)');
+            console.log('   GET  /api/people/daily        - สรุปรายวัน');
+            console.log('   POST /api/people/ingest       - รับข้อมูลจาก AI Service');
+            console.log('   GET  /api/people/crowd-level  - ระดับความแออัด');
+            console.log('   GET  /api/warnings/rain-check - ตรวจสอบพยากรณ์ฝน');
             console.log('');
-            console.log('📱 LINE Notifications:');
-            console.log('   ⚠️  Early Warning  - เสาร์-อาทิตย์ 14:00');
-            console.log('   📊 Daily Report   - ทุกวัน 23:00');
+            console.log('⏰ Scheduled Tasks:');
+            console.log('   🌧️ Rain Check      - ทุก 10 นาที');
+            console.log('   📢 Crowd Alerts    - Real-time (>= 300 warning, >= 600 critical)');
+            console.log('   📊 Daily Report    - เสาร์-อาทิตย์ 23:00 (Asia/Bangkok)');
+            console.log('');
+            console.log('🧪 Test Endpoints:');
+            console.log('   GET /api/test/rain-warning    - ทดสอบแจ้งเตือนฝน');
+            console.log('   GET /api/test/crowd-warning   - ทดสอบแจ้งเตือนความแออัด');
+            console.log('   GET /api/test/crowd-critical  - ทดสอบแจ้งเตือนฉุกเฉิน');
+            console.log('   GET /api/test/daily-report    - ทดสอบส่งรายงานประจำวัน');
             console.log('');
         });
     } catch (error) {

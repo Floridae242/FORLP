@@ -173,3 +173,56 @@ INSERT OR IGNORE INTO officer_tokens (token, description, expires_at) VALUES
     ('OFFICER-2024-LAMPANG-039', 'Token สำหรับเจ้าหน้าที่เทศบาลนครลำปาง ชุดที่ 39', NULL),
     ('OFFICER-2024-LAMPANG-040', 'Token สำหรับเจ้าหน้าที่เทศบาลนครลำปาง ชุดที่ 40', NULL);
 
+-- =====================================================
+-- AI PEOPLE COUNTING (ข้อมูลจาก AI Service)
+-- =====================================================
+
+-- AI People Counts (บันทึกข้อมูลจากแต่ละกล้อง)
+CREATE TABLE IF NOT EXISTS ai_people_counts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  camera_id TEXT NOT NULL,
+  max_people INTEGER DEFAULT 0,
+  avg_people REAL DEFAULT 0,
+  min_people INTEGER DEFAULT 0,
+  frames_processed INTEGER DEFAULT 0,
+  window_start TEXT,
+  window_end TEXT,
+  source_type TEXT DEFAULT 'playback',  -- playback / realtime
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_counts_camera ON ai_people_counts(camera_id);
+CREATE INDEX IF NOT EXISTS idx_ai_counts_date ON ai_people_counts(DATE(recorded_at));
+CREATE INDEX IF NOT EXISTS idx_ai_counts_window ON ai_people_counts(window_start, window_end);
+
+-- AI Camera Status (สถานะกล้องแต่ละตัว)
+CREATE TABLE IF NOT EXISTS ai_camera_status (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  camera_id TEXT UNIQUE NOT NULL,
+  camera_name TEXT,
+  last_count INTEGER DEFAULT 0,
+  last_max_people INTEGER DEFAULT 0,
+  last_avg_people REAL DEFAULT 0,
+  status TEXT DEFAULT 'unknown',  -- online / offline / error
+  last_seen_at TEXT,
+  error_message TEXT,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_camera_status_id ON ai_camera_status(camera_id);
+
+-- Crowd Alerts (แจ้งเตือนความแออัด)
+CREATE TABLE IF NOT EXISTS crowd_alerts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  alert_level TEXT NOT NULL,  -- warning / critical
+  people_count INTEGER NOT NULL,
+  threshold INTEGER NOT NULL,
+  message TEXT,
+  is_sent_line INTEGER DEFAULT 0,
+  sent_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_crowd_alerts_date ON crowd_alerts(DATE(created_at));
+CREATE INDEX IF NOT EXISTS idx_crowd_alerts_level ON crowd_alerts(alert_level);
+

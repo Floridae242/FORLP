@@ -1,43 +1,130 @@
+// filepath: /Users/floridae/Desktop/FORLP/backend/src/services/earlyWarningService.js
 /* =====================================================
    Early Warning Service - ระบบแจ้งเตือนล่วงหน้า
-   ส่งแจ้งเตือนทุกวันเสาร์-อาทิตย์ เวลา 14:00
-   เมื่อมีความเสี่ยงฝนตกในช่วงเวลาตลาด (14:00 - 22:00)
+   
+   ตาม PROMPT:
+   1. Rain Forecast: ส่งแจ้งเตือนเมื่อพยากรณ์ฝนภายใน 60 นาที
+   2. Crowd Warning: ส่งทันทีเมื่อคน >= 300 (warning) หรือ >= 600 (critical)
+   3. Daily Report: ส่งทุกเสาร์-อาทิตย์ 23:00 น. (Asia/Bangkok)
    ===================================================== */
 
-import { config } from '../config/index.js';
-import { dailyReportService } from './dailyReportService.js';
+import { peopleCountService } from './peopleCountService.js';
 
-// พิกัดลำปาง
+// =====================================================
+// CONFIGURATION
+// =====================================================
+
+// พิกัดกาดกองต้า ลำปาง
 const LAMPANG_LAT = 18.2888;
 const LAMPANG_LON = 99.4907;
 
-// ช่วงเวลาตลาด
+// ช่วงเวลาตลาด (สำหรับ context)
 const MARKET_START_HOUR = 14;
 const MARKET_END_HOUR = 22;
+
+// Rain forecast settings
+const RAIN_FORECAST_MINUTES = 60;        // พยากรณ์ล่วงหน้า 60 นาที
+const RAIN_PROBABILITY_THRESHOLD = 0.5;  // 50% probability
+const RAIN_CHECK_INTERVAL_MS = 10 * 60 * 1000; // ตรวจสอบทุก 10 นาที
+
+// Alert cooldown (ป้องกันส่งซ้ำ)
+const ALERT_COOLDOWN = {
+    rain_warning: 60 * 60 * 1000,      // 1 ชั่วโมง
+    crowd_warning: 10 * 60 * 1000,     // 10 นาที
+    crowd_critical: 5 * 60 * 1000      // 5 นาที (ส่งบ่อยกว่าเพราะ critical)
+};
+
+// LINE OA Configuration (จะถูก inject จาก index.js)
+let lineMessageSender = null;
+
+// Alert tracking
+const lastAlerts = {
+    rain_warning: null,
+    crowd_warning: null,
+    crowd_critical: null
+};
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
 
 /**
  * ตรวจสอบว่าเป็นวันเสาร์-อาทิตย์หรือไม่
  */
 export function isWeekend(date = new Date()) {
     const day = date.getDay();
-    return day === 0 || day === 6; // 0 = อาทิตย์, 6 = เสาร์
+    return day === 0 || day === 6;
 }
 
 /**
- * ดึงข้อมูลพยากรณ์อากาศรายชั่วโมงจาก Open-Meteo
+ * แปลงเวลาเป็น Asia/Bangkok
+ */
+function toBangkokTime(date = new Date()) {
+    return new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+}
+
+/**
+ * Format เวลาเป็นภาษาไทย
+ */
+function formatThaiTime(date) {
+    return new Date(date).toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Bangkok'
+    });
+}
+
+/**
+ * Format วันที่เป็นภาษาไทย
+ */
+function formatThaiDate(date) {
+    return new Date(date).toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Bangkok'
+    });
+}
+
+/**
+ * ตรวจสอบว่าควรส่ง alert หรือไม่ (cooldown)
+ */
+function shouldSendAlert(alertType) {
+    const lastSent = lastAlerts[alertType];
+    if (!lastSent) return true;
+    
+    const cooldown = ALERT_COOLDOWN[alertType] || 10 * 60 * 1000;
+    const elapsed = Date.now() - lastSent;
+    return elapsed >= cooldown;
+}
+
+/**
+ * บันทึกเวลาที่ส่ง alert
+ */
+function markAlertSent(alertType) {
+    lastAlerts[alertType] = Date.now();
+}
+
+// =====================================================
+// WEATHER FORECAST
+// =====================================================
+
+/**
+ * ดึงพยากรณ์อากาศรายชั่วโมงจาก Open-Meteo (ฟรี, ไม่ต้อง API key)
  */
 export async function getHourlyForecast() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAMPANG_LAT}&longitude=${LAMPANG_LON}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code&timezone=Asia/Bangkok&forecast_days=1`;
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(10000)
+        });
         
         if (!response.ok) {
             throw new Error(`Open-Meteo API error: ${response.status}`);
         }
         
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('[EarlyWarning] Forecast fetch error:', error.message);
         throw error;
@@ -72,220 +159,498 @@ function getWeatherDescription(code) {
 }
 
 /**
- * วิเคราะห์ความเสี่ยงฝนตกในช่วงเวลาตลาด (14:00 - 22:00)
+ * ตรวจสอบว่า weather code เป็นฝนหรือไม่
  */
-export async function analyzeMarketHoursRisk() {
+function isRainyWeatherCode(code) {
+    const rainyCodes = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99];
+    return rainyCodes.includes(code);
+}
+
+/**
+ * วิเคราะห์ว่าจะมีฝนภายใน X นาทีหรือไม่
+ */
+export async function checkRainForecast(minutesAhead = RAIN_FORECAST_MINUTES) {
     try {
         const forecast = await getHourlyForecast();
         const hourly = forecast.hourly;
         
         if (!hourly || !hourly.time) {
-            throw new Error('Invalid forecast data');
+            return { hasRain: false, error: 'Invalid forecast data' };
         }
         
-        // หาข้อมูลในช่วงเวลาตลาด (14:00 - 22:00)
-        const marketHoursData = [];
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const checkUntil = new Date(now.getTime() + minutesAhead * 60 * 1000);
+        
+        // หาข้อมูลในช่วงเวลาที่ต้องการ
+        const upcomingRain = [];
         
         for (let i = 0; i < hourly.time.length; i++) {
-            const time = hourly.time[i];
-            const hour = new Date(time).getHours();
-            const date = time.split('T')[0];
+            const forecastTime = new Date(hourly.time[i]);
             
-            // เฉพาะวันนี้และช่วงเวลาตลาด
-            if (date === today && hour >= MARKET_START_HOUR && hour <= MARKET_END_HOUR) {
-                marketHoursData.push({
-                    time: time,
-                    hour: hour,
-                    temperature: hourly.temperature_2m[i],
-                    humidity: hourly.relative_humidity_2m[i],
-                    precipitationProbability: hourly.precipitation_probability[i],
-                    precipitation: hourly.precipitation[i],
-                    weatherCode: hourly.weather_code[i],
-                    weatherDescription: getWeatherDescription(hourly.weather_code[i])
+            // ข้ามถ้าเป็นอดีต
+            if (forecastTime < now) continue;
+            
+            // หยุดถ้าเกินช่วงเวลาที่ต้องการ
+            if (forecastTime > checkUntil) break;
+            
+            const precipProb = hourly.precipitation_probability[i] / 100; // แปลงเป็น 0-1
+            const weatherCode = hourly.weather_code[i];
+            const isRainy = isRainyWeatherCode(weatherCode) || precipProb >= RAIN_PROBABILITY_THRESHOLD;
+            
+            if (isRainy) {
+                const minutesUntil = Math.round((forecastTime - now) / (60 * 1000));
+                upcomingRain.push({
+                    time: hourly.time[i],
+                    minutes_until: minutesUntil,
+                    probability: precipProb,
+                    weather_code: weatherCode,
+                    description: getWeatherDescription(weatherCode)
                 });
             }
         }
         
-        if (marketHoursData.length === 0) {
+        if (upcomingRain.length === 0) {
             return {
-                hasRisk: false,
-                reason: 'No market hours data available'
+                hasRain: false,
+                message: 'ไม่พบความเสี่ยงฝนตกใน 1 ชั่วโมงข้างหน้า'
             };
         }
         
-        // หาชั่วโมงที่มีโอกาสฝนตกสูงสุด
-        const maxRainProbability = Math.max(...marketHoursData.map(h => h.precipitationProbability));
-        const avgRainProbability = Math.round(
-            marketHoursData.reduce((sum, h) => sum + h.precipitationProbability, 0) / marketHoursData.length
-        );
-        
-        // หาชั่วโมงที่มีความเสี่ยงสูง (โอกาสฝน > 40%)
-        const riskyHours = marketHoursData.filter(h => h.precipitationProbability >= 40);
-        
-        // หาอุณหภูมิเฉลี่ย
-        const avgTemperature = Math.round(
-            marketHoursData.reduce((sum, h) => sum + h.temperature, 0) / marketHoursData.length
-        );
-        
-        // พิจารณาว่ามีความเสี่ยงหรือไม่ (โอกาสฝน > 40% อย่างน้อย 1 ชั่วโมง)
-        const hasRainRisk = maxRainProbability >= 40;
+        // หาฝนที่จะมาเร็วที่สุด
+        const soonestRain = upcomingRain[0];
         
         return {
-            hasRisk: hasRainRisk,
-            maxRainProbability,
-            avgRainProbability,
-            avgTemperature,
-            riskyHours,
-            allHours: marketHoursData,
-            assessedAt: new Date().toISOString()
+            hasRain: true,
+            minutes_until: soonestRain.minutes_until,
+            probability: soonestRain.probability,
+            description: soonestRain.description,
+            all_forecasts: upcomingRain,
+            message: `คาดการณ์ฝนตกภายใน ~${soonestRain.minutes_until} นาที`
         };
     } catch (error) {
-        console.error('[EarlyWarning] Analysis error:', error.message);
-        return {
-            hasRisk: false,
-            error: error.message,
-            assessedAt: new Date().toISOString()
-        };
+        console.error('[EarlyWarning] Rain check error:', error.message);
+        return { hasRain: false, error: error.message };
     }
 }
 
+// =====================================================
+// LINE MESSAGE TEMPLATES (ตาม PROMPT)
+// =====================================================
+
 /**
- * สร้างข้อความแจ้งเตือน
+ * สร้างข้อความแจ้งเตือนฝน
  */
-export function createWarningMessage(riskData) {
-    if (!riskData.hasRisk) return null;
-    
-    // สร้างรายละเอียดชั่วโมงที่มีความเสี่ยง
-    let riskyHoursDetail = '';
-    if (riskData.riskyHours && riskData.riskyHours.length > 0) {
-        riskyHoursDetail = riskData.riskyHours
-            .map(h => `  • ${h.hour}.00 น. - โอกาสฝน ${h.precipitationProbability}% (${h.weatherDescription})`)
-            .join('\n');
-    }
-    
-    const message = `📢 แจ้งเตือนสภาพอากาศ (เบื้องต้น)
+export function createRainWarningMessage(rainData) {
+    const message = `🌧️ แจ้งเตือนสภาพอากาศ (คาดการณ์)
 ━━━━━━━━━━━━━━━
+คาดการณ์ฝนตกภายใน ~${rainData.minutes_until} นาที ที่กาดกองต้า
+โอกาสฝนตก: ${Math.round(rainData.probability * 100)}%
+สภาพอากาศ: ${rainData.description}
 
-จากการประเมินข้อมูลพยากรณ์อากาศ
-วันนี้มีความเสี่ยงฝนตกในพื้นที่กาดกองต้า (โอกาส ${riskData.maxRainProbability}%)
+💡 คำแนะนำ:
+• เตรียมร่ม/พิจารณาย้ายกิจกรรม
+• แจ้งร้านค้าให้เตรียมพร้อม
+• ระวังพื้นลื่น
 
-🌡 อุณหภูมิเฉลี่ย: ${riskData.avgTemperature}°C
-🌧 โอกาสฝนเฉลี่ย: ${riskData.avgRainProbability}%
-
-⏰ ช่วงเวลาที่ควรระวัง:
-${riskyHoursDetail}
-
-💡 ขอแนะนำให้ผู้ใช้งานพื้นที่
-เตรียมอุปกรณ์กันฝน และใช้ความระมัดระวังในการเดินพื้นที่
-
-━━━━━━━━━━━━━━━
-ข้อมูลนี้เป็นการประเมินจากระบบอัตโนมัติ
-ใช้เพื่อการเตรียมความพร้อมเบื้องต้น
-🐓 Kad Kong Ta Smart Insight`;
+(ข้อมูลจากระบบอัตโนมัติ)`;
 
     return message;
 }
 
 /**
- * ส่งแจ้งเตือนไป LINE OA
+ * สร้างข้อความแจ้งเตือนความแออัด (Warning: 300-599)
  */
-export async function sendWarning(riskData) {
-    const message = createWarningMessage(riskData);
+export function createCrowdWarningMessage(crowdData) {
+    const time = formatThaiTime(crowdData.timestamp);
     
-    if (!message) {
-        console.log('[EarlyWarning] No warning needed');
-        return { success: true, sent: false, reason: 'No risk detected' };
-    }
-    
-    const result = await dailyReportService.sendLineMessage(message);
-    
-    return {
-        success: result.success,
-        sent: result.success,
-        message: message,
-        error: result.error || null
-    };
+    const message = `📢 แจ้งเตือนความหนาแน่น — กาดกองต้า
+━━━━━━━━━━━━━━━
+สถานะ: ${crowdData.status_label} (ประมาณ ${crowdData.count.toLocaleString()} คน)
+อัปเดตล่าสุด: ${time} น.
+
+💡 คำแนะนำ:
+• โปรดพิจารณาเพิ่มเจ้าหน้าที่
+• จัดช่องทางเดินให้ชัดเจน
+• เตรียมพร้อมรับมือสถานการณ์
+
+(ข้อมูลจากระบบอัตโนมัติ)`;
+
+    return message;
 }
 
 /**
- * ประมวลผลและส่งแจ้งเตือน (เรียกจาก scheduler)
- * เรียกทุกวันเสาร์-อาทิตย์ เวลา 14:00
+ * สร้างข้อความแจ้งเตือนความแออัด (Critical: >= 600)
  */
-export async function processEarlyWarning() {
-    console.log('[EarlyWarning] Processing...');
+export function createCrowdCriticalMessage(crowdData) {
+    const time = formatThaiTime(crowdData.timestamp);
     
-    // ตรวจสอบว่าเป็นวันเสาร์-อาทิตย์
-    if (!isWeekend()) {
-        console.log('[EarlyWarning] Not weekend - skipping');
-        return { success: true, skipped: true, reason: 'Not weekend' };
+    const message = `🚨 ด่วน! พื้นที่หนาแน่นมาก — กาดกองต้า
+━━━━━━━━━━━━━━━
+สถานะ: ${crowdData.status_label} (ประมาณ ${crowdData.count.toLocaleString()} คน)
+อัปเดตล่าสุด: ${time} น.
+
+⚠️ คำแนะนำเร่งด่วน:
+• แจ้งเจ้าหน้าที่ทันที
+• พิจารณาจำกัดการเข้า-ออก
+• เปิดช่องทางฉุกเฉิน
+• เตรียมทีมพยาบาล
+
+(ข้อมูลจากระบบอัตโนมัติ)`;
+
+    return message;
+}
+
+/**
+ * สร้างข้อความ Daily Report (ตาม PROMPT)
+ */
+export function createDailyReportMessage(reportData) {
+    const dateStr = formatThaiDate(reportData.date);
+    
+    const message = `📊 [สรุปประจำวัน] กาดกองต้า — ${dateStr}
+━━━━━━━━━━━━━━━
+👥 จำนวนคนสูงสุด: ${(reportData.max_people || 0).toLocaleString()} คน
+👥 จำนวนคนเฉลี่ย: ${Math.round(reportData.avg_people || 0).toLocaleString()} คน
+📊 จำนวนตัวอย่าง: ${(reportData.total_samples || 0).toLocaleString()} ครั้ง
+
+🌦 สภาพอากาศ: ${reportData.weather_summary || 'ไม่มีข้อมูล'}
+🌡 อุณหภูมิ: ${reportData.temperature ? `${reportData.temperature}°C` : 'ไม่มีข้อมูล'}
+🌫 PM2.5: ${reportData.pm25 ? `${reportData.pm25} μg/m³ (${reportData.pm25_status})` : 'ไม่มีข้อมูล'}
+
+📝 หมายเหตุ: ${reportData.notes || 'ไม่มีเหตุการณ์ฉุกเฉิน'}
+━━━━━━━━━━━━━━━
+(ข้อมูลจากระบบอัตโนมัติ)
+🐓 Kad Kong Ta Smart Insight`;
+
+    return message;
+}
+
+// =====================================================
+// ALERT SENDING FUNCTIONS
+// =====================================================
+
+/**
+ * ตั้งค่า LINE message sender
+ */
+export function setLineMessageSender(sender) {
+    lineMessageSender = sender;
+}
+
+/**
+ * ส่งข้อความไป LINE OA
+ */
+async function sendLineMessage(message) {
+    if (!lineMessageSender) {
+        console.warn('[EarlyWarning] LINE sender not configured');
+        return { success: false, error: 'LINE sender not configured' };
     }
     
-    // วิเคราะห์ความเสี่ยงในช่วงเวลาตลาด
-    const riskData = await analyzeMarketHoursRisk();
-    
-    if (!riskData.hasRisk) {
-        console.log('[EarlyWarning] No rain risk detected');
-        return { success: true, sent: false, reason: 'No risk', data: riskData };
+    try {
+        const result = await lineMessageSender(message);
+        return result;
+    } catch (error) {
+        console.error('[EarlyWarning] LINE send error:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * ส่งแจ้งเตือนฝน
+ */
+export async function sendRainWarning(rainData) {
+    if (!shouldSendAlert('rain_warning')) {
+        console.log('[EarlyWarning] Rain warning on cooldown');
+        return { success: false, reason: 'cooldown' };
     }
     
-    console.log(`[EarlyWarning] Rain risk detected: ${riskData.maxRainProbability}%`);
+    const message = createRainWarningMessage(rainData);
+    const result = await sendLineMessage(message);
     
-    // ส่งแจ้งเตือน
-    const result = await sendWarning(riskData);
-    
-    console.log(`[EarlyWarning] Result: ${result.sent ? 'Sent' : 'Not sent'}`);
+    if (result.success) {
+        markAlertSent('rain_warning');
+        console.log('[EarlyWarning] ✅ Rain warning sent');
+    }
     
     return result;
 }
 
 /**
- * ทดสอบส่งแจ้งเตือน (bypass weekend check)
+ * ส่งแจ้งเตือนความแออัด (Warning)
  */
-export async function testSendWarning() {
-    console.log('[EarlyWarning] Test mode - analyzing forecast...');
-    
-    const riskData = await analyzeMarketHoursRisk();
-    
-    console.log('[EarlyWarning] Risk data:', JSON.stringify(riskData, null, 2));
-    
-    // ถ้าไม่มีความเสี่ยง ให้ mock data สำหรับทดสอบ
-    if (!riskData.hasRisk) {
-        console.log('[EarlyWarning] No risk - using mock data for test');
-        riskData.hasRisk = true;
-        riskData.maxRainProbability = 65;
-        riskData.avgRainProbability = 45;
-        riskData.avgTemperature = 28;
-        riskData.riskyHours = [
-            { hour: 17, precipitationProbability: 55, weatherDescription: 'ฝนตกเป็นระยะเบา' },
-            { hour: 18, precipitationProbability: 65, weatherDescription: 'ฝนปานกลาง' },
-            { hour: 19, precipitationProbability: 50, weatherDescription: 'ฝนตกเป็นระยะเบา' }
-        ];
+export async function sendCrowdWarning(crowdData) {
+    if (!shouldSendAlert('crowd_warning')) {
+        console.log('[EarlyWarning] Crowd warning on cooldown');
+        return { success: false, reason: 'cooldown' };
     }
     
-    return await sendWarning(riskData);
+    const message = createCrowdWarningMessage(crowdData);
+    const result = await sendLineMessage(message);
+    
+    if (result.success) {
+        markAlertSent('crowd_warning');
+        console.log('[EarlyWarning] ✅ Crowd warning sent');
+    }
+    
+    return result;
 }
 
 /**
- * ดูข้อมูลพยากรณ์อากาศ (สำหรับ debug)
+ * ส่งแจ้งเตือนความแออัด (Critical)
  */
-export async function getForecastSummary() {
-    const riskData = await analyzeMarketHoursRisk();
-    return {
-        ...riskData,
-        message: createWarningMessage(riskData)
-    };
+export async function sendCrowdCritical(crowdData) {
+    if (!shouldSendAlert('crowd_critical')) {
+        console.log('[EarlyWarning] Crowd critical on cooldown');
+        return { success: false, reason: 'cooldown' };
+    }
+    
+    const message = createCrowdCriticalMessage(crowdData);
+    const result = await sendLineMessage(message);
+    
+    if (result.success) {
+        markAlertSent('crowd_critical');
+        console.log('[EarlyWarning] ✅ Crowd critical alert sent');
+    }
+    
+    return result;
 }
 
+/**
+ * ส่ง Daily Report
+ */
+export async function sendDailyReport(reportData) {
+    const message = createDailyReportMessage(reportData);
+    const result = await sendLineMessage(message);
+    
+    if (result.success) {
+        console.log('[EarlyWarning] ✅ Daily report sent');
+    }
+    
+    return result;
+}
+
+// =====================================================
+// SCHEDULED TASKS
+// =====================================================
+
+/**
+ * ตรวจสอบพยากรณ์ฝนและส่งแจ้งเตือน (เรียกทุก 10 นาที)
+ */
+export async function processRainCheck() {
+    console.log('[EarlyWarning] Checking rain forecast...');
+    
+    try {
+        const rainData = await checkRainForecast(RAIN_FORECAST_MINUTES);
+        
+        if (rainData.hasRain) {
+            console.log(`[EarlyWarning] Rain detected in ${rainData.minutes_until} minutes`);
+            return await sendRainWarning(rainData);
+        }
+        
+        console.log('[EarlyWarning] No rain risk detected');
+        return { success: true, hasRain: false };
+    } catch (error) {
+        console.error('[EarlyWarning] Rain check error:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * ตรวจสอบความแออัดและส่งแจ้งเตือน (เรียกเมื่อมี ingest)
+ */
+export async function processCrowdCheck() {
+    const crowdLevel = peopleCountService.checkCrowdLevel();
+    
+    if (crowdLevel.is_critical) {
+        return await sendCrowdCritical({
+            count: crowdLevel.count,
+            status_label: crowdLevel.label,
+            timestamp: crowdLevel.timestamp || new Date().toISOString()
+        });
+    }
+    
+    if (crowdLevel.is_warning) {
+        return await sendCrowdWarning({
+            count: crowdLevel.count,
+            status_label: crowdLevel.label,
+            timestamp: crowdLevel.timestamp || new Date().toISOString()
+        });
+    }
+    
+    return { success: true, alert_sent: false };
+}
+
+/**
+ * สร้างและส่ง Daily Report (เรียกทุกเสาร์-อาทิตย์ 23:00)
+ */
+export async function processDailyReport(date = null) {
+    const reportDate = date || new Date().toISOString().split('T')[0];
+    
+    console.log(`[EarlyWarning] Generating daily report for ${reportDate}`);
+    
+    try {
+        // ดึงสรุปจำนวนคน
+        const peopleSummary = peopleCountService.getDailySummary(reportDate);
+        
+        // ดึงข้อมูลสภาพอากาศ (ถ้ามี)
+        let weatherSummary = 'ไม่มีข้อมูล';
+        let temperature = null;
+        let pm25 = null;
+        let pm25Status = 'ไม่มีข้อมูล';
+        
+        try {
+            const forecast = await getHourlyForecast();
+            if (forecast.hourly) {
+                // หาข้อมูลเฉลี่ยของวัน
+                const temps = forecast.hourly.temperature_2m || [];
+                temperature = temps.length > 0 
+                    ? Math.round(temps.reduce((a, b) => a + b, 0) / temps.length)
+                    : null;
+                
+                // หา weather code ที่พบบ่อยที่สุด
+                const codes = forecast.hourly.weather_code || [];
+                if (codes.length > 0) {
+                    const modeCode = codes.sort((a, b) =>
+                        codes.filter(v => v === a).length - codes.filter(v => v === b).length
+                    ).pop();
+                    weatherSummary = getWeatherDescription(modeCode);
+                }
+            }
+        } catch (e) {
+            console.warn('[EarlyWarning] Weather fetch for report failed:', e.message);
+        }
+        
+        const reportData = {
+            date: reportDate,
+            max_people: peopleSummary?.max_people || 0,
+            avg_people: peopleSummary?.avg_people || 0,
+            total_samples: peopleSummary?.total_samples || 0,
+            weather_summary: weatherSummary,
+            temperature,
+            pm25,
+            pm25_status: pm25Status,
+            notes: 'ไม่มีเหตุการณ์ฉุกเฉิน'
+        };
+        
+        return await sendDailyReport(reportData);
+    } catch (error) {
+        console.error('[EarlyWarning] Daily report error:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * ทดสอบส่งแจ้งเตือน (bypass cooldown)
+ */
+export async function testSendWarning(type = 'rain') {
+    console.log(`[EarlyWarning] Test mode - sending ${type} warning`);
+    
+    // Reset cooldown สำหรับ test
+    lastAlerts[`${type}_warning`] = null;
+    
+    if (type === 'rain') {
+        const mockRainData = {
+            minutes_until: 45,
+            probability: 0.65,
+            description: 'ฝนปานกลาง'
+        };
+        return await sendRainWarning(mockRainData);
+    }
+    
+    if (type === 'crowd') {
+        const mockCrowdData = {
+            count: 350,
+            status_label: 'ค่อนข้างหนาแน่น',
+            timestamp: new Date().toISOString()
+        };
+        return await sendCrowdWarning(mockCrowdData);
+    }
+    
+    if (type === 'critical') {
+        lastAlerts.crowd_critical = null;
+        const mockCrowdData = {
+            count: 650,
+            status_label: 'หนาแน่นมาก',
+            timestamp: new Date().toISOString()
+        };
+        return await sendCrowdCritical(mockCrowdData);
+    }
+    
+    if (type === 'daily') {
+        return await processDailyReport();
+    }
+    
+    return { success: false, error: 'Unknown test type' };
+}
+
+/**
+ * ดึงสรุปพยากรณ์อากาศ (สำหรับ debug/API)
+ */
+export async function getForecastSummary() {
+    try {
+        const rainCheck = await checkRainForecast();
+        const forecast = await getHourlyForecast();
+        
+        return {
+            rain_check: rainCheck,
+            raw_forecast: forecast,
+            checked_at: new Date().toISOString()
+        };
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
+/**
+ * Reset alert cooldown (สำหรับ testing)
+ */
+export function resetAlertCooldown(alertType = null) {
+    if (alertType) {
+        lastAlerts[alertType] = null;
+    } else {
+        Object.keys(lastAlerts).forEach(key => {
+            lastAlerts[key] = null;
+        });
+    }
+}
+
+// =====================================================
+// EXPORTS
+// =====================================================
+
 export const earlyWarningService = {
+    // Configuration
+    setLineMessageSender,
+    
+    // Weather
     isWeekend,
     getHourlyForecast,
-    analyzeMarketHoursRisk,
-    createWarningMessage,
-    sendWarning,
-    processEarlyWarning,
+    checkRainForecast,
+    getForecastSummary,
+    
+    // Message Templates
+    createRainWarningMessage,
+    createCrowdWarningMessage,
+    createCrowdCriticalMessage,
+    createDailyReportMessage,
+    
+    // Alert Sending
+    sendRainWarning,
+    sendCrowdWarning,
+    sendCrowdCritical,
+    sendDailyReport,
+    
+    // Scheduled Tasks
+    processRainCheck,
+    processCrowdCheck,
+    processDailyReport,
+    
+    // Testing
     testSendWarning,
-    getForecastSummary
+    resetAlertCooldown,
+    
+    // Constants
+    RAIN_FORECAST_MINUTES,
+    RAIN_CHECK_INTERVAL_MS,
+    ALERT_COOLDOWN
 };
 
 export default earlyWarningService;
