@@ -250,14 +250,6 @@ export default function PeoplePage() {
         return styles.sourceAI;
     };
 
-    const getSourceLabel = () => {
-        if (source === 'stale') return '⚠️ ข้อมูลเก่า';
-        if (source === 'mock') return '🧪 ทดสอบ';
-        if (source === 'playback') return '📹 AI';
-        if (source === 'near-realtime') return '🔴 Live';
-        return '📡 AI';
-    };
-
     if (loading && !currentData) {
         return (
             <div className="page-container">
