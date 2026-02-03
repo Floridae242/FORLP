@@ -652,38 +652,91 @@ function getWindDirection(deg) {
 }
 
 /**
- * Get PM2.5 level (Thailand standards)
+ * Get PM2.5 level (Thailand New Standards - เริ่ม 1 มิ.ย. 2566)
+ * มาตรฐานไทยใหม่: ≤37.5 μg/m³ (เฉลี่ย 24 ชม.)
+ * มาตรฐาน WHO: ≤15 μg/m³ (เฉลี่ย 24 ชม.)
  */
 function getPM25Level(pm25) {
     if (pm25 === undefined || pm25 === null) {
         return { level: 'unknown', label: 'ไม่ทราบ', color: '#gray' };
     }
     
-    if (pm25 <= 25) return { level: 'good', label: 'ดีมาก', color: '#00e400' };
-    if (pm25 <= 37) return { level: 'moderate', label: 'ดี', color: '#92d050' };
-    if (pm25 <= 50) return { level: 'sensitive', label: 'ปานกลาง', color: '#ffff00' };
-    if (pm25 <= 90) return { level: 'unhealthy', label: 'เริ่มมีผลต่อสุขภาพ', color: '#ff7e00' };
-    if (pm25 <= 150) return { level: 'very_unhealthy', label: 'มีผลต่อสุขภาพ', color: '#ff0000' };
-    return { level: 'hazardous', label: 'อันตราย', color: '#7e0023' };
+    // ระดับ 1: ดีมาก (≤15 - ผ่านมาตรฐาน WHO)
+    if (pm25 <= 15) return { 
+        level: 'excellent', 
+        label: 'ดีมาก', 
+        color: '#059669',
+        thaiStandard: true,
+        whoStandard: true 
+    };
+    
+    // ระดับ 2: ดี (15.1-25 - ผ่านมาตรฐานไทย)
+    if (pm25 <= 25) return { 
+        level: 'good', 
+        label: 'ดี', 
+        color: '#10b981',
+        thaiStandard: true,
+        whoStandard: false 
+    };
+    
+    // ระดับ 3: ปานกลาง (25.1-37.5 - ผ่านมาตรฐานไทย)
+    if (pm25 <= 37.5) return { 
+        level: 'moderate', 
+        label: 'ปานกลาง', 
+        color: '#f59e0b',
+        thaiStandard: true,
+        whoStandard: false 
+    };
+    
+    // ระดับ 4: เริ่มมีผลต่อสุขภาพ (37.6-50 - เกินมาตรฐานไทย)
+    if (pm25 <= 50) return { 
+        level: 'unhealthy_sensitive', 
+        label: 'เริ่มมีผลต่อสุขภาพ', 
+        color: '#f97316',
+        thaiStandard: false,
+        whoStandard: false 
+    };
+    
+    // ระดับ 5: มีผลต่อสุขภาพ (50.1-90)
+    if (pm25 <= 90) return { 
+        level: 'unhealthy', 
+        label: 'มีผลต่อสุขภาพ', 
+        color: '#ef4444',
+        thaiStandard: false,
+        whoStandard: false 
+    };
+    
+    // ระดับ 6: อันตราย (>90)
+    return { 
+        level: 'hazardous', 
+        label: 'อันตราย', 
+        color: '#991b1b',
+        thaiStandard: false,
+        whoStandard: false 
+    };
 }
 
 /**
  * Get health recommendation based on PM2.5 and AQI
+ * อัปเดตตามมาตรฐานไทยใหม่ (37.5 μg/m³)
  */
 function getHealthRecommendation(pm25, aqi) {
-    if (pm25 > 100 || aqi >= 5) {
-        return 'หลีกเลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากาก N95 เมื่อออกนอกอาคาร';
+    if (pm25 > 90 || aqi >= 5) {
+        return 'งดกิจกรรมกลางแจ้งทุกชนิด สวมหน้ากาก N95 ตลอดเวลาเมื่อออกนอกอาคาร ควรอยู่ในอาคารที่มีเครื่องฟอกอากาศ';
     }
-    if (pm25 > 75 || aqi >= 4) {
-        return 'กลุ่มเสี่ยงควรหลีกเลี่ยงกิจกรรมกลางแจ้ง ควรสวมหน้ากากอนามัย';
+    if (pm25 > 50 || aqi >= 4) {
+        return 'หลีกเลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากาก N95 เมื่อจำเป็น ทุกคนอาจได้รับผลกระทบ';
     }
-    if (pm25 > 50 || aqi >= 3) {
-        return 'ผู้ที่มีโรคประจำตัวควรระวัง ควรลดกิจกรรมกลางแจ้งที่ใช้แรงมาก';
+    if (pm25 > 37.5 || aqi >= 3) {
+        return 'ควรลดกิจกรรมกลางแจ้ง สวมหน้ากากอนามัยเมื่อออกนอกอาคาร กลุ่มเสี่ยงควรหลีกเลี่ยงกิจกรรมกลางแจ้ง';
     }
     if (pm25 > 25) {
-        return 'คุณภาพอากาศพอใช้ สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ';
+        return 'คุณภาพอากาศพอใช้ กลุ่มเสี่ยง (เด็ก ผู้สูงอายุ ผู้ป่วยโรคหัวใจ/ปอด) ควรระวัง';
     }
-    return 'คุณภาพอากาศดี เหมาะสำหรับกิจกรรมกลางแจ้ง';
+    if (pm25 > 15) {
+        return 'คุณภาพอากาศดี สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ ผู้ที่มีโรคทางเดินหายใจควรสังเกตอาการ';
+    }
+    return 'คุณภาพอากาศดีมาก เหมาะสำหรับทุกกิจกรรมกลางแจ้ง';
 }
 
 export const weatherService = {
