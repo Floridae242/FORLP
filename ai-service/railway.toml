@@ -1,0 +1,22 @@
+# =====================================================
+# Railway Configuration - AI People Counting Service
+# =====================================================
+
+[build]
+# ใช้ Dockerfile
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# จำนวน replicas
+numReplicas = 1
+
+# Health check
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Resource limits (Railway Free tier)
+# Note: AI Service ต้องการ RAM มากกว่าปกติสำหรับ YOLOv8
