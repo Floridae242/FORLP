@@ -1,30 +1,12 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-function getAirQuality(pm25) {
-    if (pm25 === null || pm25 === undefined) {
-        return { level: 'unknown', label: 'ไม่มีข้อมูล', advice: '' };
-    }
-    if (pm25 <= 25) {
-        return { 
-            level: 'good', 
-            label: 'คุณภาพดี', 
-            advice: 'อากาศดี สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ'
-        };
-    }
-    if (pm25 <= 50) {
-        return { 
-            level: 'moderate', 
-            label: 'ปานกลาง', 
-            advice: 'คุณภาพอากาศพอใช้ ผู้ที่มีโรคประจำตัวควรระมัดระวัง'
-        };
-    }
-    return { 
-        level: 'unhealthy', 
-        label: 'มีผลกระทบต่อสุขภาพ', 
-        advice: 'ควรหลีกเลี่ยงกิจกรรมกลางแจ้งเป็นเวลานาน แนะนำให้สวมหน้ากากอนามัย'
-    };
+function getPM25Status(pm25) {
+    if (pm25 <= 25) return { key: 'good', label: 'ดีมาก', color: '#10b981' };
+    if (pm25 <= 50) return { key: 'moderate', label: 'ปานกลาง', color: '#f59e0b' };
+    if (pm25 <= 100) return { key: 'unhealthy', label: 'มีผลต่อสุขภาพ', color: '#f97316' };
+    return { key: 'hazardous', label: 'อันตราย', color: '#ef4444' };
 }
 
 function formatTime(isoString) {
@@ -41,34 +23,28 @@ export default function WeatherPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    useEffect(() => {
+        fetchWeather();
+        const interval = setInterval(fetchWeather, 5 * 60 * 1000); // อัปเดตทุก 5 นาที
+        return () => clearInterval(interval);
+    }, []);
+
     const fetchWeather = async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/weather/current`);
-            const result = await response.json();
-            
-            if (result.success) {
-                setWeather(result.data);
+            const response = await fetch(`${API_BASE}/api/weather`);
+            if (!response.ok) throw new Error('Failed to fetch weather');
+            const data = await response.json();
+            if (data.success) {
+                setWeather(data.data);
                 setError(null);
-            } else {
-                setError('ไม่สามารถโหลดข้อมูลได้');
             }
         } catch (err) {
             console.error('Weather fetch error:', err);
-            setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์');
+            setError('ไม่สามารถโหลดข้อมูลสภาพอากาศได้');
         } finally {
             setLoading(false);
         }
     };
-
-    useEffect(() => {
-        fetchWeather();
-        
-        // อัปเดตทุก 5 นาที
-        const interval = setInterval(fetchWeather, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const airQuality = getAirQuality(weather?.pm25);
 
     if (loading) {
         return (
@@ -81,91 +57,88 @@ export default function WeatherPage() {
         );
     }
 
+    if (error) {
+        return (
+            <div className="page-container">
+                <div className="error-container">
+                    <p className="error-text">{error}</p>
+                    <button onClick={fetchWeather} className="retry-btn">ลองใหม่</button>
+                </div>
+            </div>
+        );
+    }
+
+    const pm25Status = weather?.pm25 ? getPM25Status(weather.pm25) : null;
+
     return (
         <div className="page-container">
             <header className="page-header">
                 <h1 className="page-title">สภาพอากาศ</h1>
-                <p className="page-subtitle">ข้อมูลสภาพอากาศและคุณภาพอากาศ จังหวัดลำปาง</p>
+                <p className="page-subtitle">กาดกองต้า ลำปาง</p>
             </header>
 
-            {error && (
-                <div className="error-box">
-                    <p className="error-text">{error}</p>
-                    <button className="retry-button" onClick={fetchWeather}>
-                        ลองใหม่
-                    </button>
-                </div>
-            )}
-
-            <section className="section">
-                <div className="section-header">
-                    <h2 className="section-title">สภาพอากาศปัจจุบัน</h2>
-                </div>
-                
-                <div className="weather-card">
-                    <div className="weather-main">
-                        <div>
-                            <span className="weather-temp">
-                                {weather?.temperature ?? '-'}
-                            </span>
-                            <span className="weather-temp-unit">°C</span>
-                        </div>
-                        <div className="weather-details">
-                            <p className="weather-desc">
-                                {weather?.description || 'ไม่มีข้อมูล'}
-                            </p>
-                            <p className="weather-info">
-                                ความชื้นสัมพัทธ์ {weather?.humidity ?? '-'}% • 
-                                ความเร็วลม {weather?.wind_speed ?? '-'} กม./ชม.
-                            </p>
-                        </div>
+            {/* Weather Card */}
+            <div className="weather-card">
+                <div className="weather-main">
+                    <div className="weather-temp">
+                        <span className="temp-value">{weather?.temperature || '-'}</span>
+                        <span className="temp-unit">°C</span>
+                    </div>
+                    <div className="weather-desc">
+                        <p className="weather-condition">{weather?.description || 'ไม่มีข้อมูล'}</p>
+                        <p className="weather-feels">รู้สึกเหมือน {weather?.feelsLike || '-'}°C</p>
                     </div>
                 </div>
-            </section>
 
-            <section className="section">
-                <div className="section-header">
-                    <h2 className="section-title">คุณภาพอากาศ (PM2.5)</h2>
-                </div>
-                
-                <div className={`air-card ${airQuality.level}`}>
-                    <div className="air-header">
-                        <div>
-                            <p className="air-label">ค่าฝุ่นละอองขนาดเล็ก PM2.5</p>
-                            <p className="air-value">
-                                {weather?.pm25 ?? '-'}
-                                <span className="air-unit">μg/m³</span>
-                            </p>
-                        </div>
-                        <span className={`air-badge ${airQuality.level}`}>
-                            {airQuality.label}
-                        </span>
+                <div className="weather-details">
+                    <div className="weather-detail-item">
+                        <span className="detail-label">ความชื้น</span>
+                        <span className="detail-value">{weather?.humidity || '-'}%</span>
                     </div>
-                    
-                    {airQuality.advice && (
-                        <div className="air-advice">
-                            {airQuality.advice}
-                        </div>
-                    )}
+                    <div className="weather-detail-item">
+                        <span className="detail-label">ลม</span>
+                        <span className="detail-value">{weather?.windSpeed || '-'} km/h</span>
+                    </div>
+                    <div className="weather-detail-item">
+                        <span className="detail-label">ทัศนวิสัย</span>
+                        <span className="detail-value">{weather?.visibility || '-'} km</span>
+                    </div>
                 </div>
-            </section>
+            </div>
 
-            <div className="update-info" style={{ justifyContent: 'flex-start', borderTop: 'none', marginTop: 0 }}>
+            {/* PM2.5 Card */}
+            <div className="pm25-card">
+                <h2 className="section-title">คุณภาพอากาศ PM2.5</h2>
+                <div className="pm25-main">
+                    <div className="pm25-value" style={{ color: pm25Status?.color }}>
+                        {weather?.pm25 || '-'}
+                    </div>
+                    <div className="pm25-unit">μg/m³</div>
+                </div>
+                {pm25Status && (
+                    <div className="pm25-status" style={{ background: pm25Status.color + '20', color: pm25Status.color }}>
+                        {pm25Status.label}
+                    </div>
+                )}
+                <p className="pm25-advice">
+                    {weather?.pm25 <= 25 && 'คุณภาพอากาศดี เหมาะสำหรับกิจกรรมกลางแจ้ง'}
+                    {weather?.pm25 > 25 && weather?.pm25 <= 50 && 'คุณภาพอากาศปานกลาง ผู้ที่แพ้ง่ายควรระวัง'}
+                    {weather?.pm25 > 50 && weather?.pm25 <= 100 && 'ควรลดกิจกรรมกลางแจ้ง สวมหน้ากากอนามัย'}
+                    {weather?.pm25 > 100 && 'หลีกเลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากาก N95'}
+                </p>
+            </div>
+
+            {/* Update Info */}
+            <div className="update-info">
                 <span>อัปเดตล่าสุด:</span>
                 <span className="update-time">{formatTime(weather?.timestamp)}</span>
             </div>
 
-            <div className="note-box">
-                <p className="note-title">แหล่งข้อมูล</p>
-                <p className="note-text">
-                    ข้อมูลสภาพอากาศจาก OpenWeatherMap • 
-                    ข้อมูลคุณภาพอากาศจาก OpenWeatherMap Air Pollution API
-                </p>
-            </div>
-
+            {/* Disclaimer */}
             <div className="disclaimer">
                 <p className="disclaimer-text">
-                    ข้อมูลอัปเดตอัตโนมัติทุก 5 นาที อาจมีความคลาดเคลื่อนเล็กน้อยจากสภาพจริง
+                    ข้อมูลจาก OpenWeatherMap<br />
+                    ใช้เพื่อประกอบการตัดสินใจเท่านั้น
                 </p>
             </div>
         </div>
