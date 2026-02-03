@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 function getPM25Status(pm25) {
     if (pm25 <= 25) return { key: 'good', label: 'ดีมาก', color: '#10b981' };
@@ -35,7 +35,20 @@ export default function WeatherPage() {
             if (!response.ok) throw new Error('Failed to fetch weather');
             const data = await response.json();
             if (data.success) {
-                setWeather(data.data);
+                // Map API response to component format
+                const weatherData = data.data.weather;
+                const airQuality = data.data.air_quality;
+                
+                setWeather({
+                    temperature: weatherData?.temperature?.current,
+                    feelsLike: weatherData?.temperature?.feels_like,
+                    description: weatherData?.weather?.description,
+                    humidity: weatherData?.humidity,
+                    windSpeed: weatherData?.wind?.speed_kmh,
+                    visibility: weatherData?.visibility,
+                    pm25: airQuality?.components?.pm2_5?.value,
+                    timestamp: weatherData?.timestamp
+                });
                 setError(null);
             }
         } catch (err) {
