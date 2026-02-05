@@ -264,7 +264,7 @@ export default function ReportsPage() {
                     {weeklyData?.summary && (
                         <>
                             <div className="section-header">
-                                <h3 className="section-title">📊 สรุปภาพรวม</h3>
+                                <h3 className="section-title">สรุปภาพรวม</h3>
                                 <span className="section-badge">
                                     {weeklyData.summary.total_days} วันที่เปิดตลาด
                                 </span>
@@ -298,7 +298,7 @@ export default function ReportsPage() {
 
                     {/* Weekly Breakdown */}
                     <div className="section-header" style={{ marginTop: '1.5rem' }}>
-                        <h3 className="section-title">📅 รายละเอียดแต่ละสัปดาห์</h3>
+                        <h3 className="section-title">รายละเอียดแต่ละสัปดาห์</h3>
                     </div>
                     
                     {weeklyData?.weeks?.length > 0 ? (
@@ -334,16 +334,30 @@ export default function ReportsPage() {
                                                 ({formatWeekRange(week.start_date, week.end_date)})
                                             </span>
                                         </div>
-                                        <span style={{
-                                            background: 'var(--primary-light)',
-                                            color: 'var(--primary)',
-                                            padding: '0.25rem 0.5rem',
-                                            borderRadius: '6px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '500'
-                                        }}>
-                                            {week.days_open} วัน
-                                        </span>
+                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <span style={{
+                                                background: 'var(--primary-light)',
+                                                color: 'var(--primary)',
+                                                padding: '0.25rem 0.5rem',
+                                                borderRadius: '6px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '500'
+                                            }}>
+                                                {week.days_open} วัน
+                                            </span>
+                                            {week.market_hours && (
+                                                <span style={{
+                                                    background: '#fef3c7',
+                                                    color: '#92400e',
+                                                    padding: '0.25rem 0.5rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    {week.market_hours}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Week Stats */}
@@ -404,7 +418,7 @@ export default function ReportsPage() {
                                                 textAlign: 'center'
                                             }}>
                                                 <div style={{ fontWeight: '500', color: '#92400e' }}>
-                                                    🟡 เสาร์
+                                                    เสาร์
                                                 </div>
                                                 <div style={{ color: '#b45309' }}>
                                                     สูงสุด {week.saturday.max_people} คน
@@ -420,7 +434,7 @@ export default function ReportsPage() {
                                                 textAlign: 'center'
                                             }}>
                                                 <div style={{ fontWeight: '500', color: '#9d174d' }}>
-                                                    🔴 อาทิตย์
+                                                    อาทิตย์
                                                 </div>
                                                 <div style={{ color: '#be185d' }}>
                                                     สูงสุด {week.sunday.max_people} คน
@@ -435,7 +449,7 @@ export default function ReportsPage() {
                         <div className="empty-state">
                             <p className="empty-text">ยังไม่มีข้อมูลสรุปรายสัปดาห์</p>
                             <p style={{ fontSize: '0.875rem', color: 'var(--text-light)' }}>
-                                ข้อมูลจะแสดงเมื่อมีการบันทึกในวันเสาร์-อาทิตย์
+                                ข้อมูลจะแสดงเมื่อมีการบันทึกในวันเสาร์-อาทิตย์ ช่วงเวลา 16:00-22:00 น.
                             </p>
                         </div>
                     )}
@@ -491,7 +505,7 @@ export default function ReportsPage() {
 
             {/* Note Box */}
             <div className="note-box">
-                <p className="note-title">📌 เกี่ยวกับข้อมูล</p>
+                <p className="note-title">เกี่ยวกับข้อมูล</p>
                 <p className="note-text">
                     ตลาดกาดกองต้าเปิดทำการเฉพาะ <strong>วันเสาร์และวันอาทิตย์</strong> เวลา 16.00 - 22.00 น. 
                     ข้อมูลถูกบันทึกโดยระบบ AI อัตโนมัติ

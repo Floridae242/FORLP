@@ -427,6 +427,58 @@ export function getDailySummary(date) {
 }
 
 /**
+ * ดึงสรุปรายวัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
+ * เวลาไทย = UTC+7, ดังนั้น 16:00-22:00 ไทย = 09:00-15:00 UTC
+ */
+export function getDailySummaryMarketHours(date) {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    
+    try {
+        const db = getDb();
+        // กรองเฉพาะเวลา 16:00-22:00 เวลาไทย (09:00-15:00 UTC)
+        // strftime('%H', recorded_at) คืนค่าเป็น UTC
+        // 16:00 ไทย = 09:00 UTC, 22:00 ไทย = 15:00 UTC
+        const result = db.prepare(`
+            SELECT 
+                DATE(recorded_at) as date,
+                MAX(count) as max_people,
+                ROUND(AVG(count), 1) as avg_people,
+                MIN(count) as min_people,
+                COUNT(*) as total_samples
+            FROM people_counts
+            WHERE DATE(recorded_at) = ?
+              AND CAST(strftime('%H', recorded_at) AS INTEGER) >= 9
+              AND CAST(strftime('%H', recorded_at) AS INTEGER) < 15
+            GROUP BY DATE(recorded_at)
+        `).get(targetDate);
+        
+        if (!result) {
+            return {
+                date: targetDate,
+                max_people: 0,
+                avg_people: 0,
+                min_people: 0,
+                total_samples: 0,
+                market_hours: '16:00-22:00'
+            };
+        }
+
+        // คำนวณ status จาก max
+        const status = calculateStatus(result.max_people);
+        
+        return {
+            ...result,
+            status: status.key,
+            status_label: status.label,
+            market_hours: '16:00-22:00'
+        };
+    } catch (error) {
+        console.error('[PeopleCount] Daily summary (market hours) error:', error.message);
+        return null;
+    }
+}
+
+/**
  * ดึงข้อมูลย้อนหลังหลายวัน
  */
 export function getHistoricalData(days = 7) {
@@ -446,6 +498,34 @@ export function getHistoricalData(days = 7) {
         `).all(days);
     } catch (error) {
         console.error('[PeopleCount] Historical data error:', error.message);
+        return [];
+    }
+}
+
+/**
+ * ดึงข้อมูลย้อนหลังหลายวัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
+ * ใช้สำหรับรายงานรายสัปดาห์
+ */
+export function getHistoricalDataMarketHours(days = 7) {
+    try {
+        const db = getDb();
+        // กรองเฉพาะเวลา 16:00-22:00 เวลาไทย (09:00-15:00 UTC)
+        return db.prepare(`
+            SELECT 
+                DATE(recorded_at) as date,
+                MAX(count) as max_people,
+                ROUND(AVG(count), 1) as avg_people,
+                MIN(count) as min_people,
+                COUNT(*) as total_samples
+            FROM people_counts
+            WHERE recorded_at >= datetime('now', '-' || ? || ' days')
+              AND CAST(strftime('%H', recorded_at) AS INTEGER) >= 9
+              AND CAST(strftime('%H', recorded_at) AS INTEGER) < 15
+            GROUP BY DATE(recorded_at)
+            ORDER BY date DESC
+        `).all(days);
+    } catch (error) {
+        console.error('[PeopleCount] Historical data (market hours) error:', error.message);
         return [];
     }
 }
@@ -563,7 +643,9 @@ export const peopleCountService = {
     getCameraData,
     getRealtimeHistory,
     getDailySummary,
+    getDailySummaryMarketHours,
     getHistoricalData,
+    getHistoricalDataMarketHours,
     getHourlyData,
     checkCrowdLevel,
     getLatestStats,

@@ -766,11 +766,11 @@ app.get('/api/reports/daily', (req, res) => {
     }
 });
 
-// GET /api/reports/weekly - รายงานรายสัปดาห์ (เฉพาะวันเสาร์-อาทิตย์)
+// GET /api/reports/weekly - รายงานรายสัปดาห์ (เฉพาะวันเสาร์-อาทิตย์ ช่วงเวลา 16:00-22:00 เวลาไทย)
 app.get('/api/reports/weekly', (req, res) => {
     try {
-        // ดึงข้อมูลย้อนหลัง 30 วัน แล้ว filter เฉพาะวันเสาร์-อาทิตย์
-        const allHistory = peopleCountService.getHistoricalData(30);
+        // ดึงข้อมูลย้อนหลัง 30 วัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
+        const allHistory = peopleCountService.getHistoricalDataMarketHours(30);
         
         // Filter เฉพาะวันเสาร์ (6) และอาทิตย์ (0)
         const weekendHistory = allHistory.filter(day => {
@@ -833,6 +833,7 @@ app.get('/api/reports/weekly', (req, res) => {
                 max_people: maxPeople,
                 avg_people: avgPeople,
                 total_samples: totalSamples,
+                market_hours: '16:00-22:00',
                 saturday: week.saturday ? {
                     date: week.saturday.date,
                     max_people: week.saturday.max_people || 0,
@@ -854,7 +855,9 @@ app.get('/api/reports/weekly', (req, res) => {
             max_people_ever: weekendHistory.length > 0 ? Math.max(...weekendHistory.map(d => d.max_people || 0)) : 0,
             avg_people_overall: weekendHistory.length > 0
                 ? Math.round(weekendHistory.reduce((sum, d) => sum + (d.avg_people || 0), 0) / weekendHistory.length)
-                : 0
+                : 0,
+            market_hours: '16:00-22:00',
+            note: 'ข้อมูลนับเฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 น.)'
         };
         
         res.json({
