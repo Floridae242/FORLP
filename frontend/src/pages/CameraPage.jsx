@@ -1,19 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 
+// กล้องทั้งหมด 6 ตัว - ตลาดกาดกองต้า
 const CAMERA_STREAMS = {
-    1: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F301',
+    1: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.4%3A554%2FStreaming%2FChannels%2F201',
     2: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F201',
-    3: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F501',
+    3: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F301',
+    4: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.4%3A554%2FStreaming%2FChannels%2F401',
+    5: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F501',
+    6: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F601',
 };
 
 const CAMERA_TRACKS = {
-    1: '301',
-    2: '201',
-    3: '501',
+    1: { track: '201', ip: '10.0.10.4' },
+    2: { track: '201', ip: '10.0.10.3' },
+    3: { track: '301', ip: '10.0.10.3' },
+    4: { track: '401', ip: '10.0.10.4' },
+    5: { track: '501', ip: '10.0.10.3' },
+    6: { track: '601', ip: '10.0.10.3' },
 };
 
 const generatePlaybackUrl = (cameraId, startTime, endTime) => {
-    const trackId = CAMERA_TRACKS[cameraId];
+    const { track, ip } = CAMERA_TRACKS[cameraId];
     const formatDateTime = (date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -27,7 +34,7 @@ const generatePlaybackUrl = (cameraId, startTime, endTime) => {
     const startStr = formatDateTime(startTime);
     const endStr = formatDateTime(endTime);
     
-    return `https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2Ftracks%2F${trackId}%3Fstarttime%3D${startStr}%26endtime%3D${endStr}`;
+    return `https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%40${ip}%3A554%2FStreaming%2Ftracks%2F${track}%3Fstarttime%3D${startStr}%26endtime%3D${endStr}`;
 };
 
 // Styles object for cleaner component
@@ -160,9 +167,12 @@ const styles = {
 
 export default function CameraPage() {
     const [cameras] = useState([
-        { id: 1, name: 'ทางเข้าหลัก', zone: 'โซน A', status: 'online' },
-        { id: 2, name: 'บริเวณกลาง', zone: 'โซน B', status: 'online' },
-        { id: 3, name: 'ทางออก', zone: 'โซน C', status: 'online' },
+        { id: 1, name: 'LPG-A01-CC-01 ตลาดกาดกองต้า (PTZ)', zone: 'โซน A', status: 'online' },
+        { id: 2, name: 'LPG-A01-CC-02 ตลาดกาดกองต้า', zone: 'โซน A', status: 'online' },
+        { id: 3, name: 'LPG-B01-CC-01 ฝั่งสะพานรัษฎา', zone: 'โซน B', status: 'online' },
+        { id: 4, name: 'LPG-B01-CC-02 ฝั่งสะพานรัษฎา (PTZ)', zone: 'โซน B', status: 'online' },
+        { id: 5, name: 'LPG-B02-CC-01 ตลาดเก่า', zone: 'โซน B', status: 'online' },
+        { id: 6, name: 'LPG-B02-CC-02 ตลาดเก่า', zone: 'โซน B', status: 'online' },
     ]);
     const [selectedCamera, setSelectedCamera] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);

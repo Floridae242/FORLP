@@ -1,90 +1,42 @@
 # Kad Kong Ta Smart Insight
 
-ระบบแสดงข้อมูลถนนคนเดินกาดกองต้า เทศบาลนครลำปาง
+ระบบวิเคราะห์และบริหารจัดการพื้นที่สาธารณะด้วยข้อมูลจริง สำหรับถนนคนเดินกาดกองต้า เทศบาลนครลำปาง
 
 ---
 
-## ระบบนี้ทำอะไร
+## ภาพรวมระบบ
+
+ระบบนี้เปลี่ยนจากการ "คาดเดา" เป็นการ "ตัดสินใจด้วยข้อมูลจริง" โดยใช้ข้อมูลจาก:
+- กล้อง CCTV เดิม (ไม่ติดตั้ง hardware ใหม่)
+- AI People Counting (YOLOv8)
+- สภาพอากาศและคุณภาพอากาศ
+- การแจ้งเตือนผ่าน LINE OA
+
+---
+
+## ฟีเจอร์หลัก
 
 | ฟีเจอร์ | รายละเอียด |
 |---------|------------|
-| แสดงจำนวนคน | แสดงจำนวนผู้คนในพื้นที่แบบ Real-time |
+| AI People Counting | นับจำนวนคนอัตโนมัติด้วย YOLOv8 แบบ Real-time |
 | สภาพอากาศ | อุณหภูมิ, ความชื้น, ความเร็วลม |
 | คุณภาพอากาศ | ค่า PM2.5 พร้อมคำแนะนำ |
-| รายงานข้อมูล | สรุปรายวัน, รายสัปดาห์, ประวัติย้อนหลัง |
-| กล้องวงจรปิด | ดูภาพจากกล้อง CCTV |
-| Daily Report | ส่งรายงานประจำวันไป LINE OA |
-| Early Warning | แจ้งเตือนเมื่อมีความเสี่ยงฝนตก |
+| รายงานข้อมูล | สรุปรายวัน, รายสัปดาห์ (นับเฉพาะช่วง 16:00-22:00 น.) |
+| Daily Report | ส่งรายงานประจำวันไป LINE OA (เสาร์-อาทิตย์ 23:00 น.) |
+| Early Warning | แจ้งเตือนฝน, ความแออัด (>= 300 คน), วิกฤต (>= 600 คน) |
+| LINE Login | ระบบยืนยันตัวตนผ่าน LINE Login v2.1 |
+| Role-based Access | แบ่งสิทธิ์ตามบทบาท (ร้านค้า, ประชาชน, นักท่องเที่ยว, เจ้าหน้าที่) |
 
 ---
 
-## Daily Report (LINE OA)
+## สถานะความหนาแน่น
 
-ระบบจะส่งรายงานสรุปประจำวันไป LINE Official Account ทุกวันเสาร์-อาทิตย์ เวลา **23:00 น.**
-
-**ตัวอย่างข้อความ:**
-
-```
-รายงานกาดกองต้า ประจำวัน
-วันเสาร์ที่ 24 มกราคม 2569
-
-👥 จำนวนผู้ใช้งานพื้นที่ (สูงสุด)
-เวลา 19:00
-• 1,280 คน
-
-🌦 สภาพอากาศ: ท้องฟ้าแจ่มใส (28°C)
-
-🌫 PM2.5: 35 µg/m³ (ดี)
-
-━━━━━━━━━━━━━━━
-ข้อมูลนี้ใช้เพื่อสนับสนุนการตัดสินใจของเทศบาล
-🐓 Kad Kong Ta Smart Insight
-```
-
----
-
-## Early Warning System
-
-ระบบแจ้งเตือนล่วงหน้าทุกวันเสาร์-อาทิตย์ เวลา **14:00 น.** เมื่อตรวจพบความเสี่ยงฝนตกในช่วงเวลาตลาด
-
-### การทำงาน
-
-1. ดึงข้อมูลพยากรณ์อากาศจาก **Open-Meteo API**
-2. วิเคราะห์ช่วงเวลาตลาด (14:00 - 22:00 น.)
-3. ตรวจสอบโอกาสฝนตกในแต่ละชั่วโมง
-4. ถ้าพบโอกาสฝน ≥ 40% → สร้างข้อความแจ้งเตือนพร้อม % โอกาสฝน
-
-### เกณฑ์การแจ้งเตือน
-
-| เงื่อนไข | การแจ้งเตือน |
-|----------|--------------|
-| โอกาสฝน ≥ 40% | แจ้งเตือนผ่าน LINE OA |
-
-**ตัวอย่างข้อความแจ้งเตือน:**
-
-```
-📢 แจ้งเตือนสภาพอากาศ (เบื้องต้น)
-━━━━━━━━━━━━━━━
-
-จากการประเมินข้อมูลพยากรณ์อากาศ
-วันนี้มีความเสี่ยงฝนตกในพื้นที่กาดกองต้า (โอกาส 65%)
-
-🌡 อุณหภูมิเฉลี่ย: 28°C
-🌧 โอกาสฝนเฉลี่ย: 45%
-
-⏰ ช่วงเวลาที่ควรระวัง:
-  • 17.00 น. - โอกาสฝน 55% (ฝนตกเป็นระยะเบา)
-  • 18.00 น. - โอกาสฝน 65% (ฝนปานกลาง)
-  • 19.00 น. - โอกาสฝน 50% (ฝนตกเป็นระยะเบา)
-
-ขอแนะนำให้ผู้ใช้งานพื้นที่
-เตรียมอุปกรณ์กันฝน และใช้ความระมัดระวังในการเดินพื้นที่
-
-━━━━━━━━━━━━━━━
-ข้อมูลนี้เป็นการประเมินจากระบบอัตโนมัติ
-ใช้เพื่อการเตรียมความพร้อมเบื้องต้น
-🐓 Kad Kong Ta Smart Insight
-```
+| สถานะ | จำนวนคน | คำอธิบาย |
+|-------|---------|----------|
+| ปกติ | 0-99 | พื้นที่โล่ง |
+| ปานกลาง | 100-299 | มีคนพอสมควร |
+| ค่อนข้างหนาแน่น | 300-599 | แออัด (แจ้งเตือน) |
+| หนาแน่นมาก | 600+ | วิกฤต (แจ้งเตือนฉุกเฉิน) |
 
 ---
 
@@ -92,25 +44,111 @@
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React, Vite, TailwindCSS |
+| Frontend | React, Vite |
 | Backend | Node.js, Express |
 | Database | SQLite |
+| AI Service | Python, YOLOv8, OpenCV |
+| Authentication | LINE Login v2.1 (OAuth 2.0) |
+| Notification | LINE Messaging API |
+| Weather API | OpenWeatherMap, Open-Meteo |
+| Deployment | Railway (Backend), Vercel (Frontend) |
+
+---
+
+## Project Structure
+
+```
+FORLP/
+├── backend/                    # Backend API Server
+│   ├── src/
+│   │   ├── index.js           # Main server + API routes
+│   │   ├── config/
+│   │   │   └── index.js       # Configuration
+│   │   ├── db/
+│   │   │   ├── index.js       # Database connection
+│   │   │   └── schema.sql     # Database schema
+│   │   └── services/
+│   │       ├── authService.js         # LINE Login + Role management
+│   │       ├── peopleCountService.js  # People counting logic
+│   │       ├── weatherService.js      # Weather + PM2.5 API
+│   │       ├── earlyWarningService.js # Rain + Crowd alerts
+│   │       ├── dailyReportService.js  # LINE OA messaging
+│   │       └── pollingService.js      # Data polling
+│   └── data/
+│       └── kadkongta.db       # SQLite database
+│
+├── frontend/                   # React Frontend
+│   ├── src/
+│   │   ├── App.jsx            # Main app + routing
+│   │   ├── index.css          # Global styles
+│   │   ├── contexts/
+│   │   │   └── AuthContext.jsx    # Authentication context
+│   │   ├── pages/
+│   │   │   ├── PeoplePage.jsx     # หน้าจำนวนผู้คน
+│   │   │   ├── WeatherPage.jsx    # หน้าสภาพอากาศ
+│   │   │   ├── ReportsPage.jsx    # หน้ารายงาน
+│   │   │   ├── CameraPage.jsx     # หน้ากล้อง CCTV
+│   │   │   └── SettingsPage.jsx   # หน้าตั้งค่าบัญชี
+│   │   └── services/
+│   │       ├── api.jsx            # API client
+│   │       └── liffService.js     # LINE LIFF integration
+│   └── index.html
+│
+├── ai-service/                 # AI People Counting Service
+│   ├── src/
+│   │   ├── main.py            # Main AI processing
+│   │   └── health.py          # Health check API
+│   ├── config.yaml            # Camera + AI configuration
+│   ├── yolov8n.pt             # YOLOv8 model
+│   ├── Dockerfile             # CPU Docker image
+│   ├── Dockerfile.gpu         # GPU Docker image
+│   └── requirements.txt       # Python dependencies
+│
+├── docs/                       # Documentation
+│   ├── architecture.md
+│   ├── ENV_SETUP.md
+│   └── openapi.yaml
+│
+├── monitoring/                 # Monitoring
+│   └── prometheus.yml
+│
+├── docker-compose.yml
+├── railway.json               # Railway deployment config
+└── vercel.json                # Vercel deployment config
+```
+
+---
+
+## หน้าจอในระบบ
+
+| หน้า | Path | รายละเอียด |
+|------|------|------------|
+| ภาพรวมพื้นที่ | `/` | แสดงจำนวนผู้คนในพื้นที่แบบ Real-time |
+| กล้องวงจรปิด | `/camera` | ดูภาพจากกล้อง CCTV (เจ้าหน้าที่เท่านั้น) |
+| สภาพอากาศ | `/weather` | อุณหภูมิ, ความชื้น, PM2.5 |
+| รายงานข้อมูล | `/reports` | สรุปรายวัน/รายสัปดาห์ (เฉพาะช่วงตลาดเปิด) |
+| ตั้งค่าบัญชี | `/settings` | LINE Login, เลือกบทบาท |
 
 ---
 
 ## การติดตั้ง
 
+### Prerequisites
+
+- Node.js 18+
+- Python 3.10+ (สำหรับ AI Service)
+- Docker (optional)
+
+### Installation
+
 ```bash
 # Clone project
 git clone <repository-url>
 cd FORLP
-```
 
-| Setting | Command / Value |
-|---------|-----------------|
-| **Install Command** | `npm run install:all` |
-| **Build Command** | `cd frontend && npm install && npm run build` |
-| **Output Directory** | `frontend/dist` |
+# Install all dependencies
+npm run install:all
+```
 
 ### Development
 
@@ -123,14 +161,21 @@ npm run dev:backend    # Backend: http://localhost:3000
 npm run dev:frontend   # Frontend: http://localhost:5173
 ```
 
-### Production
+### AI Service
 
 ```bash
-# Build frontend
-npm run build:frontend
+cd ai-service
 
-# Start backend server
-npm start
+# สร้าง virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# ติดตั้ง dependencies
+pip install -r requirements.txt
+
+# แก้ไข config.yaml ตาม environment
+# รัน service
+python src/main.py
 ```
 
 ### Docker
@@ -145,56 +190,126 @@ npm run docker:down
 
 ---
 
-## Project Structure
+## Environment Variables
 
+### Backend (.env)
+
+```env
+PORT=3000
+NODE_ENV=production
+
+# LINE OA (Messaging API)
+LINE_CHANNEL_ACCESS_TOKEN=xxx
+LINE_CHANNEL_SECRET=xxx
+
+# LINE Login (OAuth 2.0)
+LINE_LOGIN_CHANNEL_ID=xxx
+LINE_LOGIN_CHANNEL_SECRET=xxx
+LINE_LOGIN_CALLBACK_URL=https://your-frontend.com/settings
+
+# Weather API
+OPENWEATHER_API_KEY=xxx
+
+# Frontend URL
+FRONTEND_URL=https://your-frontend.com
 ```
-FORLP/
-├── backend/
-│   ├── src/
-│   │   ├── index.js              # Main server
-│   │   ├── config/index.js       # Configuration
-│   │   ├── db/
-│   │   │   ├── index.js          # Database queries
-│   │   │   └── schema.sql        # Database schema
-│   │   └── services/
-│   │       ├── peopleCountService.js
-│   │       ├── weatherService.js
-│   │       ├── dailyReportService.js
-│   │       └── pollingService.js
-│   └── data/
-│       └── kadkongta.db          # SQLite database
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx               # Main app + routing
-│   │   ├── index.css             # Global styles
-│   │   └── pages/
-│   │       ├── PeoplePage.jsx    # หน้าจำนวนผู้คน
-│   │       ├── WeatherPage.jsx   # หน้าสภาพอากาศ
-│   │       ├── ReportsPage.jsx   # หน้ารายงาน
-│   │       └── CameraPage.jsx    # หน้ากล้อง CCTV
-│   └── index.html
-│
-├── docs/
-│   ├── architecture.md
-│   └── openapi.yaml
-│
-└── docker-compose.yml
+
+### AI Service (config.yaml)
+
+```yaml
+service:
+  model: "yolov8n.pt"
+  device: "cpu"
+  confidence: 0.4
+  send_interval_s: 5
+  backend_endpoint: "https://your-backend.com/api/ai/people-count"
+  backend_api_key: "your-api-key"
+
+streams:
+  - stream_id: "camera-1"
+    rtsp: "rtsp://user:pass@ip:554/path"
+    sampling_fps: 0.5
 ```
 
 ---
 
-## หน้าจอในระบบ
+## API Endpoints
 
-| หน้า | Path | รายละเอียด |
-|------|------|------------|
-| ภาพรวมพื้นที่ | `/` | แสดงจำนวนผู้คนในพื้นที่ |
-| กล้องวงจรปิด | `/camera` | ดูภาพจากกล้อง CCTV |
-| สภาพอากาศ | `/weather` | อุณหภูมิ, ความชื้น, PM2.5 |
-| รายงานข้อมูล | `/reports` | สรุปข้อมูลรายวัน/รายสัปดาห์ |
+### Public APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/people/current` | จำนวนคนปัจจุบัน |
+| GET | `/api/people/daily?date=YYYY-MM-DD` | สรุปรายวัน |
+| GET | `/api/reports/weekly` | สรุปรายสัปดาห์ (เฉพาะช่วง 16:00-22:00) |
+| GET | `/api/weather/current` | สภาพอากาศปัจจุบัน |
+| GET | `/api/people/crowd-level` | ระดับความแออัด |
+
+### Auth APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/auth/line/authorize` | เริ่ม LINE Login |
+| POST | `/api/auth/line/callback` | รับ callback จาก LINE |
+| GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน |
+| PUT | `/api/auth/role` | เปลี่ยนบทบาท |
+| POST | `/api/auth/logout` | ออกจากระบบ |
+
+### AI Service APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/ai/people-count` | รับข้อมูลจาก AI Service |
+| GET | `/api/ai/cameras` | รายการกล้อง |
+
+---
+
+## Scheduled Tasks
+
+| Task | Schedule | Description |
+|------|----------|-------------|
+| Rain Check | ทุก 10 นาที | ตรวจสอบพยากรณ์ฝน |
+| Crowd Alerts | Real-time | แจ้งเตือนเมื่อคน >= 300 หรือ >= 600 |
+| Daily Report | เสาร์-อาทิตย์ 23:00 | ส่งรายงานประจำวันไป LINE OA |
+
+---
+
+## Privacy & Security
+
+- ไม่เก็บวิดีโอหรือภาพบุคคล
+- ไม่ทำ Face Recognition
+- เก็บเฉพาะข้อมูลเชิงสถิติ (จำนวนคน, เวลา)
+- สอดคล้อง PDPA / Privacy by Design
+- กล้อง CCTV เข้าถึงได้เฉพาะเจ้าหน้าที่ที่ยืนยันตัวตนแล้ว
+
+---
+
+## Deployment
+
+### Backend (Railway)
+
+```bash
+# railway.json configured
+# Push to main branch -> auto deploy
+```
+
+### Frontend (Vercel)
+
+```bash
+# vercel.json configured
+# Push to main branch -> auto deploy
+```
+
+### AI Service (Docker)
+
+```bash
+# On-premise server with RTSP access
+docker-compose up ai-service -d
+```
 
 ---
 
 ## พัฒนาโดย
+
 DII CAMT CMU
 

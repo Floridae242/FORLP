@@ -32,7 +32,7 @@ service:
   metrics_port: 8080
 
 # =====================================================
-# Playback Mode Configuration (ใหม่!)
+# Playback Mode Configuration
 # วิเคราะห์วิดีโอย้อนหลังแทน Realtime
 # =====================================================
 playback:
@@ -43,7 +43,6 @@ playback:
   go2rtc_base_url: "https://iocpiramid.com:8085"
   
   # ความยาว window ที่จะวิเคราะห์ (นาที)
-  # ลดเป็น 1 นาที สำหรับทดสอบ (production ใช้ 5)
   window_duration_minutes: 1
   
   # ดึงย้อนหลังจากปัจจุบันกี่นาที (delay)
@@ -53,10 +52,12 @@ playback:
   interval_minutes: 2
   
   # Sample กี่ frame ต่อวินาที (ลดภาระ inference)
-  sampling_fps: 0.5
+  # ลดจาก 0.5 เป็น 0.33 เพื่อดึง ~20 frames แทน 30 (ลด timeout)
+  sampling_fps: 0.33
   
   # Timeout สำหรับการดึงวิดีโอ (วินาที)
-  timeout_seconds: 60
+  # เพิ่มจาก 60 เป็น 90 เพื่อให้มีเวลาดึง frames มากขึ้น
+  timeout_seconds: 90
   
   # ตรวจสอบ SSL certificate หรือไม่
   verify_ssl: false
@@ -65,51 +66,28 @@ playback:
 # go2rtc Server Configuration
 # =====================================================
 go2rtc:
-  # เปิดใช้ go2rtc mode (ดึงภาพจาก go2rtc แทน RTSP โดยตรง)
   enabled: false
-  
-  # go2rtc Server URL
   server_url: "https://iocpiramid.com:8085"
-  
-  # ใช้ snapshot API แทน RTSP stream (แนะนำสำหรับ remote server)
-  # หมายเหตุ: go2rtc server ยังไม่มี ffmpeg ติดตั้ง จึงใช้ RTSP โดยตรงแทน
   use_snapshot: false
-  
-  # Timeout สำหรับ HTTP requests (วินาที)
   timeout: 10
-  
-  # ตรวจสอบ SSL certificate หรือไม่
   verify_ssl: false
-  
-  # ดึงรายการ streams จาก go2rtc อัตโนมัติ
   auto_discover: true
 
 # =====================================================
 # Hikvision Direct API Configuration
 # =====================================================
 hikvision:
-  # เปิดใช้ Hikvision HTTP Snapshot mode (ดึงภาพจากกล้องโดยตรง)
   enabled: true
-  
-  # Timeout สำหรับ HTTP requests (วินาที)
   timeout: 10
-  
-  # ตรวจสอบ SSL certificate หรือไม่
   verify_ssl: false
 
 # =====================================================
 # Camera Streams
 # =====================================================
-# Mode 1: ใช้ go2rtc stream names (เมื่อ go2rtc.enabled = true)
-# Mode 2: ใช้ Hikvision HTTP Snapshot (เมื่อ hikvision.enabled = true)
-# Mode 3: ใช้ RTSP URL โดยตรง (default)
-# =====================================================
 streams:
-  # go2rtc stream name
   - stream_id: "camera-1"
     go2rtc_stream: "test1"
     rtsp: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.4:554/Streaming/Channels/201"
-    # Hikvision HTTP Snapshot URL
     snapshot_url: "http://10.0.10.4/ISAPI/Streaming/channels/201/picture"
     snapshot_auth:
       username: "admin"
@@ -119,11 +97,9 @@ streams:
     send_interval_s: 5
     confidence: 0.4
 
-  # กล้องใหม่ - 10.0.10.3 Channel 2
   - stream_id: "camera-2"
     go2rtc_stream: ""
     rtsp: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201"
-    # Hikvision HTTP Snapshot URL
     snapshot_url: "http://10.0.10.3/ISAPI/Streaming/channels/201/picture"
     snapshot_auth:
       username: "admin"
@@ -137,10 +113,21 @@ streams:
 # Camera Configuration สำหรับ Playback Mode
 # =====================================================
 cameras:
-  # กล้อง 1 - 10.0.10.3 Channel 2 (กาดกองต้า Main)
-  # ⚠️ ปิดชั่วคราว - Railway เข้าถึง internal IP ไม่ได้โดยตรง
-  - camera_id: "CCTV-201"
-    # ใช้ RTSP URL ที่ register ไว้ใน go2rtc แล้ว
+  # LPG-A01-CC-01 ตลาดกาดกองต้า (PTZ)
+  - camera_id: "LPG-A01-CC-01"
+    name: "ตลาดกาดกองต้า (PTZ)"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.4:554/Streaming/Channels/201"
+    rtsp_ip: "10.0.10.4"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "201"
+    confidence: 0.4
+    enabled: true
+
+  # LPG-A01-CC-02 ตลาดกาดกองต้า
+  - camera_id: "LPG-A01-CC-02"
+    name: "ตลาดกาดกองต้า"
     rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201"
     rtsp_ip: "10.0.10.3"
     rtsp_port: 554
@@ -148,29 +135,55 @@ cameras:
     rtsp_password: "P1r@m1dnvrLpg"
     track_id: "201"
     confidence: 0.4
-    enabled: false  # ปิดชั่วคราว
+    enabled: true
 
-  # กล้อง 2 - 10.0.10.3 Channel 11 (ทำงานได้ผ่าน go2rtc)
-  - camera_id: "CCTV-1101"
-    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/1101"
+  # LPG-B01-CC-01 ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา
+  - camera_id: "LPG-B01-CC-01"
+    name: "ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/301"
     rtsp_ip: "10.0.10.3"
     rtsp_port: 554
     rtsp_username: "admin"
     rtsp_password: "P1r@m1dnvrLpg"
-    track_id: "1101"
+    track_id: "301"
     confidence: 0.4
-    enabled: true  # ✅ ทำงานได้
+    enabled: true
 
-  # กล้อง 3 - 10.0.10.4
-  # ⚠️ ปิดชั่วคราว - Railway เข้าถึง internal IP ไม่ได้โดยตรง
-  - camera_id: "CCTV-202"
+  # LPG-B01-CC-02 ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา (PTZ)
+  - camera_id: "LPG-B01-CC-02"
+    name: "ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา (PTZ)"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.4:554/Streaming/Channels/401"
     rtsp_ip: "10.0.10.4"
     rtsp_port: 554
     rtsp_username: "admin"
     rtsp_password: "P1r@m1dnvrLpg"
-    track_id: "201"
+    track_id: "401"
     confidence: 0.4
-    enabled: false  # ปิดชั่วคราว
+    enabled: true
+
+  # LPG-B02-CC-01 ตลาดกาดกองต้า 2 ตลาดเก่า
+  - camera_id: "LPG-B02-CC-01"
+    name: "ตลาดกาดกองต้า 2 ตลาดเก่า"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/501"
+    rtsp_ip: "10.0.10.3"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "501"
+    confidence: 0.4
+    enabled: true
+
+  # LPG-B02-CC-02 ตลาดกาดกองต้า 2 ตลาดเก่า
+  - camera_id: "LPG-B02-CC-02"
+    name: "ตลาดกาดกองต้า 2 ตลาดเก่า"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/601"
+    rtsp_ip: "10.0.10.3"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "601"
+    confidence: 0.4
+    enabled: true
 
 # =====================================================
 # Location (พิกัด GPS)

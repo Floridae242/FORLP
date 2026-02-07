@@ -340,10 +340,9 @@ class PlaybackFetcher:
     
     def fetch_frames_via_snapshots(self, camera: CameraConfig, start_time: datetime, end_time: datetime) -> List[np.ndarray]:
         """
-        ดึง frames โดยใช้ go2rtc stream.mp4 API
+        ดึง frames โดยใช้ go2rtc stream.ts API
         
-        go2rtc snapshot API (/api/frame.jpeg) ไม่ทำงาน (HTTP 500)
-        แต่ stream.mp4 API ใช้ได้ - จึงใช้วิธีนี้แทน
+        หมายเหตุ: stream.mp4 ส่งภาพดำมา ต้องใช้ stream.ts แทน
         """
         frames = []
         cap = None
@@ -353,8 +352,8 @@ class PlaybackFetcher:
             rtsp_url = self.build_live_rtsp_url(camera)
             encoded_rtsp = urllib.parse.quote(rtsp_url, safe='')
             
-            # ใช้ stream.mp4 endpoint
-            stream_url = f"{self.base_url}/api/stream.mp4?src={encoded_rtsp}"
+            # ใช้ stream.ts endpoint (stream.mp4 ส่งภาพดำ)
+            stream_url = f"{self.base_url}/api/stream.ts?src={encoded_rtsp}"
             
             duration_seconds = (end_time - start_time).total_seconds()
             target_frames = int(duration_seconds * self.config.sampling_fps)
@@ -363,7 +362,7 @@ class PlaybackFetcher:
             if target_frames <= 0:
                 target_frames = 30
             
-            logger.info(f"[{camera.camera_id}] 🎬 Fetching {target_frames} frames via go2rtc stream.mp4")
+            logger.info(f"[{camera.camera_id}] 🎬 Fetching {target_frames} frames via go2rtc stream.ts")
             
             start_fetch = time.time()
             
@@ -372,12 +371,12 @@ class PlaybackFetcher:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
             
             if not cap.isOpened():
-                logger.warning(f"[{camera.camera_id}] ⚠️ Cannot open go2rtc stream.mp4")
+                logger.warning(f"[{camera.camera_id}] ⚠️ Cannot open go2rtc stream.ts")
                 return []
             
             # Get video properties
             fps = cap.get(cv2.CAP_PROP_FPS)
-            if fps <= 0 or fps > 60:
+            if fps <= 0 or fps > 100:
                 fps = 25  # Default fallback
             
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -386,11 +385,17 @@ class PlaybackFetcher:
             if width > 0 and height > 0:
                 logger.info(f"[{camera.camera_id}] 📐 Video: {width}x{height} @ {fps:.1f}fps")
             
+            # Skip first 30 frames to wait for keyframe (avoid black frames)
+            logger.info(f"[{camera.camera_id}] ⏳ Skipping initial frames (waiting for keyframe)...")
+            for _ in range(30):
+                cap.read()
+            
             # Calculate frame interval for sampling
             frame_interval = max(1, int(fps / self.config.sampling_fps))
             
             frame_count = 0
             read_count = 0
+            black_count = 0
             
             while frame_count < target_frames:
                 ret, frame = cap.read()
@@ -409,8 +414,17 @@ class PlaybackFetcher:
                 
                 # Sample frames according to interval
                 if read_count % frame_interval == 0:
-                    frames.append(frame.copy())
-                    frame_count += 1
+                    # Check if frame is not black (mean > 5)
+                    mean_val = np.mean(frame)
+                    if mean_val > 5:
+                        frames.append(frame.copy())
+                        frame_count += 1
+                    else:
+                        black_count += 1
+                        # Skip too many black frames
+                        if black_count > 20:
+                            logger.warning(f"[{camera.camera_id}] ⚠️ Too many black frames, stopping")
+                            break
                 
                 # Timeout check
                 elapsed = time.time() - start_fetch
@@ -424,9 +438,9 @@ class PlaybackFetcher:
                 PLAYBACK_FETCH_TIME.labels(camera_id=camera.camera_id).observe(fetch_time)
             
             if frames:
-                logger.info(f"[{camera.camera_id}] ✅ Captured {len(frames)} frames in {fetch_time:.1f}s")
+                logger.info(f"[{camera.camera_id}] ✅ Captured {len(frames)} frames in {fetch_time:.1f}s (skipped {black_count} black frames)")
             else:
-                logger.warning(f"[{camera.camera_id}] ⚠️ No frames captured")
+                logger.warning(f"[{camera.camera_id}] ⚠️ No valid frames captured")
             
         except Exception as e:
             logger.error(f"[{camera.camera_id}] ❌ Stream fetch error: {e}")
