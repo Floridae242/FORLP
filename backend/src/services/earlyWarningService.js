@@ -258,7 +258,7 @@ export function createRainWarningMessage(rainData) {
 }
 
 /**
- * สร้างข้อความแจ้งเตือนความแออัด (Warning: 300-599)
+ * สร้างข้อความแจ้งเตือนความแออัด (Warning: 501-900)
  */
 export function createCrowdWarningMessage(crowdData) {
     const time = formatThaiTime(crowdData.timestamp);
@@ -279,7 +279,7 @@ export function createCrowdWarningMessage(crowdData) {
 }
 
 /**
- * สร้างข้อความแจ้งเตือนความแออัด (Critical: >= 600)
+ * สร้างข้อความแจ้งเตือนความแออัด (Critical: >= 901)
  */
 export function createCrowdCriticalMessage(crowdData) {
     const time = formatThaiTime(crowdData.timestamp);

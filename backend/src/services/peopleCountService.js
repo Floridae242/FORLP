@@ -15,16 +15,16 @@ import { getDb } from '../db/index.js';
 
 // Threshold สำหรับ status (ตาม PROMPT)
 const STATUS_THRESHOLDS = {
-    NORMAL: { min: 0, max: 99, key: 'normal', label: 'ปกติ' },
-    MODERATE: { min: 100, max: 299, key: 'moderate', label: 'ปานกลาง' },
-    BUSY: { min: 300, max: 599, key: 'busy', label: 'ค่อนข้างหนาแน่น' },
-    CROWDED: { min: 600, max: Infinity, key: 'crowded', label: 'หนาแน่นมาก' }
+    NORMAL: { min: 0, max: 200, key: 'normal', label: 'ปกติ', desc: 'สภาพปกติ ไหลลื่น' },
+    MODERATE: { min: 201, max: 500, key: 'moderate', label: 'ปานกลาง', desc: 'ค่อนข้างคึกคัก' },
+    BUSY: { min: 501, max: 900, key: 'busy', label: 'หนาแน่น', desc: 'เริ่มแออัด ควรระวัง' },
+    CROWDED: { min: 901, max: Infinity, key: 'crowded', label: 'หนาแน่นมาก', desc: 'แจ้งเตือนทันที' }
 };
 
 // Alert thresholds
 const ALERT_THRESHOLDS = {
-    CROWD_WARNING: 300,    // ส่ง warning เมื่อ >= 300
-    CROWD_CRITICAL: 600    // ส่ง critical เมื่อ >= 600
+    CROWD_WARNING: 501,    // ส่ง warning เมื่อ >= 501 (หนาแน่น)
+    CROWD_CRITICAL: 901    // ส่ง critical เมื่อ >= 901 (หนาแน่นมาก)
 };
 
 // EMA smoothing factor (0.1 = smooth, 0.5 = responsive)
@@ -81,15 +81,15 @@ let alertCallbacks = {
  */
 function calculateStatus(count) {
     if (count >= STATUS_THRESHOLDS.CROWDED.min) {
-        return { key: 'crowded', label: 'หนาแน่นมาก' };
+        return { key: 'crowded', label: 'หนาแน่นมาก', desc: 'แจ้งเตือนทันที' };
     }
     if (count >= STATUS_THRESHOLDS.BUSY.min) {
-        return { key: 'busy', label: 'ค่อนข้างหนาแน่น' };
+        return { key: 'busy', label: 'หนาแน่น', desc: 'เริ่มแออัด ควรระวัง' };
     }
     if (count >= STATUS_THRESHOLDS.MODERATE.min) {
-        return { key: 'moderate', label: 'ปานกลาง' };
+        return { key: 'moderate', label: 'ปานกลาง', desc: 'ค่อนข้างคึกคัก' };
     }
-    return { key: 'normal', label: 'ปกติ' };
+    return { key: 'normal', label: 'ปกติ', desc: 'สภาพปกติ ไหลลื่น' };
 }
 
 /**

@@ -3,28 +3,28 @@ import { getCurrentPeopleCount, getDailySummary, isDataStale } from '../services
 
 // กำหนดสถานะความหนาแน่นตามจำนวนคน.
 function getStatus(count) {
-    if (count >= 600) return { 
+    if (count > 900) return { 
         key: 'crowded', 
         label: 'หนาแน่นมาก', 
-        desc: 'พื้นที่มีผู้คนหนาแน่น ควรระมัดระวังในการเดินทาง',
+        desc: 'แจ้งเตือนทันที',
         advice: 'แนะนำให้เจ้าหน้าที่เพิ่มจุดดูแลความปลอดภัย'
     };
-    if (count >= 300) return { 
+    if (count >= 501) return { 
         key: 'busy', 
-        label: 'ค่อนข้างหนาแน่น', 
-        desc: 'มีผู้คนจำนวนมากในพื้นที่ สามารถเดินชมได้ตามปกติ',
-        advice: 'สถานการณ์ปกติ ติดตามสถานการณ์ต่อเนื่อง'
+        label: 'หนาแน่น', 
+        desc: 'เริ่มแออัด ควรระวัง',
+        advice: 'ติดตามสถานการณ์ต่อเนื่อง'
     };
-    if (count >= 100) return { 
+    if (count >= 201) return { 
         key: 'moderate', 
         label: 'ปานกลาง', 
-        desc: 'มีผู้คนพอสมควร การสัญจรสะดวก',
+        desc: 'ค่อนข้างคึกคัก',
         advice: 'สถานการณ์ปกติ'
     };
     return { 
         key: 'normal', 
         label: 'ปกติ', 
-        desc: 'พื้นที่โล่ง การสัญจรสะดวกมาก',
+        desc: 'สภาพปกติ ไหลลื่น',
         advice: 'สถานการณ์ปกติ'
     };
 }
@@ -258,19 +258,19 @@ export default function PeoplePage() {
                 <div className="status-legend">
                     <div className="legend-item">
                         <span className="legend-dot normal"></span>
-                        <span>ปกติ (0–99 คน)</span>
+                        <span>ปกติ (0–200 คน)</span>
                     </div>
                     <div className="legend-item">
                         <span className="legend-dot moderate"></span>
-                        <span>ปานกลาง (100–299 คน)</span>
+                        <span>ปานกลาง (201–500 คน)</span>
                     </div>
                     <div className="legend-item">
                         <span className="legend-dot busy"></span>
-                        <span>ค่อนข้างหนาแน่น (300–599 คน)</span>
+                        <span>หนาแน่น (501–900 คน)</span>
                     </div>
                     <div className="legend-item">
                         <span className="legend-dot crowded"></span>
-                        <span>หนาแน่นมาก (600+ คน)</span>
+                        <span>หนาแน่นมาก (&gt;900 คน)</span>
                     </div>
                 </div>
             </section>
