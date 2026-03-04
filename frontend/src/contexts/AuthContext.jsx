@@ -18,43 +18,10 @@ const AuthContext = createContext(null);
 
 // Role definitions
 export const ROLES = {
-    VENDOR: 'vendor',
-    RESIDENT: 'resident', 
-    TOURIST: 'tourist',
     OFFICER: 'officer'
 };
 
 export const ROLE_INFO = {
-    vendor: {
-        label: 'ร้านค้า',
-        description: 'ผู้ประกอบการร้านค้าในพื้นที่กาดกองต้า',
-        permissions: [
-            { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
-            { text: 'ดูข้อมูลสภาพอากาศและ PM2.5', allowed: true },
-            { text: 'ดูรายงานข้อมูลย้อนหลัง', allowed: true },
-            { text: 'เข้าถึงกล้องวงจรปิด', allowed: false }
-        ]
-    },
-    resident: {
-        label: 'ประชาชนในพื้นที่',
-        description: 'ผู้อยู่อาศัยในพื้นที่ใกล้เคียงกาดกองต้า',
-        permissions: [
-            { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
-            { text: 'ดูข้อมูลสภาพอากาศและ PM2.5', allowed: true },
-            { text: 'ดูรายงานข้อมูลย้อนหลัง', allowed: true },
-            { text: 'เข้าถึงกล้องวงจรปิด', allowed: false }
-        ]
-    },
-    tourist: {
-        label: 'นักท่องเที่ยว',
-        description: 'ผู้มาเยี่ยมชมถนนคนเดินกาดกองต้า',
-        permissions: [
-            { text: 'ดูข้อมูลจำนวนผู้ใช้งานพื้นที่', allowed: true },
-            { text: 'ดูข้อมูลสภาพอากาศและ PM2.5', allowed: true },
-            { text: 'ดูรายงานข้อมูลย้อนหลัง', allowed: false },
-            { text: 'เข้าถึงกล้องวงจรปิด', allowed: false }
-        ]
-    },
     officer: {
         label: 'เจ้าหน้าที่',
         description: 'เจ้าหน้าที่เทศบาลนครลำปาง',
@@ -307,46 +274,8 @@ export function AuthProvider({ children }) {
         setError(null);
     };
 
-    // เปลี่ยน Role
-    const updateRole = async (newRole, officerToken = null) => {
-        const stored = getStoredSession();
-        setError(null);
-
-        if (!stored?.token) {
-            return { success: false, error: 'กรุณาเข้าสู่ระบบก่อน' };
-        }
-
-        try {
-            const response = await fetch(`${API_BASE}/api/auth/role`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${stored.token}`
-                },
-                body: JSON.stringify({ role: newRole, officerToken })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                // อัปเดต user และ cache
-                saveSession(stored.token, stored.expiresAt, result.data.user);
-                setUser(result.data.user);
-                return { success: true, message: result.data.message };
-            } else {
-                setError(result.error);
-                return { success: false, error: result.error };
-            }
-        } catch (err) {
-            const errorMsg = 'ไม่สามารถเปลี่ยนบทบาทได้ กรุณาลองใหม่';
-            setError(errorMsg);
-            return { success: false, error: errorMsg };
-        }
-    };
-
     // ตรวจสอบสิทธิ์
     const canAccessCCTV = () => user?.role === ROLES.OFFICER && user?.roleVerified;
-    const canViewReports = () => user?.role !== ROLES.TOURIST;
 
     // Refresh user data
     const refreshUser = useCallback(async () => {
@@ -361,9 +290,7 @@ export function AuthProvider({ children }) {
         isProcessingCallback,
         login,
         logout,
-        updateRole,
         canAccessCCTV,
-        canViewReports,
         clearError: () => setError(null),
         refreshUser
     };

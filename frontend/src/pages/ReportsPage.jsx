@@ -242,12 +242,6 @@ export default function ReportsPage() {
                                 </div>
                                 <div className="stat-label">จำนวนต่ำสุด</div>
                             </div>
-                            <div className="stat-card">
-                                <div className="stat-value">
-                                    {dailyData.total_samples || 0}
-                                </div>
-                                <div className="stat-label">ครั้งที่บันทึก</div>
-                            </div>
                         </div>
                     ) : (
                         <div className="empty-state">

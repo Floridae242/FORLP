@@ -9,41 +9,11 @@ import crypto from 'crypto';
 
 // ==================== ROLE DEFINITIONS ====================
 export const ROLES = {
-    VENDOR: 'vendor',       // ร้านค้า
-    RESIDENT: 'resident',   // ประชาชนในพื้นที่
-    TOURIST: 'tourist',     // นักท่องเที่ยว
     OFFICER: 'officer'      // เจ้าหน้าที่
 };
 
 // สิทธิ์ของแต่ละ Role
 export const ROLE_PERMISSIONS = {
-    vendor: {
-        label: 'ร้านค้า',
-        description: 'ผู้ประกอบการร้านค้าในพื้นที่กาดกองต้า',
-        canViewPeopleCount: true,
-        canViewWeather: true,
-        canViewReports: true,
-        canViewCCTV: false,
-        canViewAdminDashboard: false
-    },
-    resident: {
-        label: 'ประชาชนในพื้นที่',
-        description: 'ผู้อยู่อาศัยในพื้นที่ใกล้เคียงกาดกองต้า',
-        canViewPeopleCount: true,
-        canViewWeather: true,
-        canViewReports: true,
-        canViewCCTV: false,
-        canViewAdminDashboard: false
-    },
-    tourist: {
-        label: 'นักท่องเที่ยว',
-        description: 'ผู้มาเยี่ยมชมถนนคนเดินกาดกองต้า',
-        canViewPeopleCount: true,
-        canViewWeather: true,
-        canViewReports: false,
-        canViewCCTV: false,
-        canViewAdminDashboard: false
-    },
     officer: {
         label: 'เจ้าหน้าที่',
         description: 'เจ้าหน้าที่เทศบาลนครลำปาง',
@@ -357,10 +327,10 @@ export function upsertUser(lineUserId, displayName, pictureUrl, lineTokens = nul
 
         return db.prepare('SELECT * FROM users WHERE line_user_id = ?').get(lineUserId);
     } else {
-        // สร้างผู้ใช้ใหม่ (default role = tourist)
+        // สร้างผู้ใช้ใหม่ (default role = officer)
         db.prepare(`
             INSERT INTO users (line_user_id, display_name, picture_url, role, last_login_at)
-            VALUES (?, ?, ?, 'tourist', ?)
+            VALUES (?, ?, ?, 'officer', ?)
         `).run(lineUserId, displayName, pictureUrl, now);
 
         const newUser = db.prepare('SELECT * FROM users WHERE line_user_id = ?').get(lineUserId);
@@ -584,17 +554,7 @@ export function updateUserRole(userId, newRole, officerToken = null) {
         return { success: true, role: 'officer', verified: true };
     }
 
-    // สำหรับ Role อื่นๆ ไม่ต้องยืนยัน Token
-    db.prepare(`
-        UPDATE users SET 
-            role = ?,
-            role_verified = 0,
-            officer_token_used = NULL,
-            updated_at = ?
-        WHERE id = ?
-    `).run(newRole, now, userId);
-
-    return { success: true, role: newRole, verified: false };
+    return { success: false, error: 'บทบาทที่เลือกไม่ถูกต้อง' };
 }
 
 /**

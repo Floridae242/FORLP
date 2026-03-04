@@ -5,25 +5,19 @@
    ===================================================== */
 
 import { useState } from 'react';
-import { useAuth, ROLE_INFO, ROLES } from '../contexts/AuthContext';
+import { useAuth, ROLE_INFO } from '../contexts/AuthContext';
 
 export default function SettingsPage() {
     const { 
         user, 
         isAuthenticated, 
         logout, 
-        updateRole, 
         error, 
         clearError, 
         loading,
         isProcessingCallback 
     } = useAuth();
     
-    const [selectedRole, setSelectedRole] = useState(user?.role || 'tourist');
-    const [officerToken, setOfficerToken] = useState('');
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [successMessage, setSuccessMessage] = useState('');
-    const [localError, setLocalError] = useState('');
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     // Loading State
@@ -43,42 +37,8 @@ export default function SettingsPage() {
         return <LoginPrompt />;
     }
 
-    const currentRoleInfo = ROLE_INFO[user.role];
-
-    const handleRoleChange = (role) => {
-        setSelectedRole(role);
-        setOfficerToken('');
-        setLocalError('');
-        setSuccessMessage('');
-        clearError();
-    };
-
-    const handleSaveRole = async () => {
-        if (selectedRole === user.role) {
-            setLocalError('คุณใช้บทบาทนี้อยู่แล้ว');
-            return;
-        }
-
-        if (selectedRole === ROLES.OFFICER && !officerToken.trim()) {
-            setLocalError('กรุณากรอกรหัสยืนยันตัวตนสำหรับเจ้าหน้าที่');
-            return;
-        }
-
-        setIsUpdating(true);
-        setLocalError('');
-        setSuccessMessage('');
-
-        const result = await updateRole(selectedRole, officerToken || null);
-
-        setIsUpdating(false);
-
-        if (result.success) {
-            setSuccessMessage(result.message);
-            setOfficerToken('');
-        } else {
-            setLocalError(result.error);
-        }
-    };
+    const officerRoleInfo = ROLE_INFO.officer;
+    const isOfficer = user.role === 'officer' && user.roleVerified;
 
     const handleLogout = async () => {
         setShowLogoutConfirm(false);
@@ -89,7 +49,7 @@ export default function SettingsPage() {
         <div className="settings-page">
             <header className="settings-header">
                 <h1 className="settings-title">ตั้งค่าบัญชีผู้ใช้งาน</h1>
-                <p className="settings-subtitle">จัดการข้อมูลและบทบาทของคุณในระบบ</p>
+                <p className="settings-subtitle">จัดการข้อมูลของคุณในระบบ</p>
             </header>
 
             {/* ข้อมูลบัญชี LINE */}
@@ -116,122 +76,42 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="account-role-badge" data-role={user.role}>
-                        <span className="role-label">{currentRoleInfo.label}</span>
-                        {user.roleVerified && user.role === 'officer' && (
+                    {isOfficer && (
+                        <div className="account-role-badge" data-role="officer">
+                            <span className="role-label">{officerRoleInfo.label}</span>
                             <span className="verified-badge">ยืนยันแล้ว</span>
-                        )}
-                    </div>
-                </div>
-            </section>
-
-            {/* สิทธิ์ปัจจุบัน */}
-            <section className="settings-section">
-                <h2 className="section-heading">สิทธิ์การใช้งานของคุณ</h2>
-                <p className="section-description">{currentRoleInfo.description}</p>
-                <div className="permissions-card">
-                    <ul className="permissions-list">
-                        {currentRoleInfo.permissions.map((perm, idx) => (
-                            <li key={idx} className={`permission-item ${perm.allowed ? 'allowed' : 'denied'}`}>
-                                <span className="permission-icon">
-                                    {perm.allowed ? '✓' : '—'}
-                                </span>
-                                <span className="permission-text">{perm.text}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </section>
-
-            {/* เปลี่ยนบทบาท */}
-            <section className="settings-section">
-                <h2 className="section-heading">เปลี่ยนบทบาทผู้ใช้งาน</h2>
-                <p className="section-description">
-                    เลือกบทบาทที่ตรงกับคุณ เพื่อให้ระบบแสดงข้อมูลที่เหมาะสม
-                </p>
-
-                <div className="role-selector">
-                    {Object.entries(ROLE_INFO).map(([roleKey, roleData]) => (
-                        <div 
-                            key={roleKey}
-                            className={`role-option ${selectedRole === roleKey ? 'selected' : ''} ${user.role === roleKey ? 'current' : ''}`}
-                            onClick={() => handleRoleChange(roleKey)}
-                        >
-                            <div className="role-option-header">
-                                <span className="role-option-label">{roleData.label}</span>
-                                {user.role === roleKey && (
-                                    <span className="current-badge">ปัจจุบัน</span>
-                                )}
-                                {selectedRole === roleKey && user.role !== roleKey && (
-                                    <span className="role-check">●</span>
-                                )}
-                            </div>
-                            <p className="role-option-desc">{roleData.description}</p>
-                            
-                            {roleKey === 'officer' && (
-                                <p className="role-option-note">
-                                    ต้องมีรหัสยืนยันจากผู้ดูแลระบบ
-                                </p>
-                            )}
                         </div>
-                    ))}
+                    )}
                 </div>
-
-                {/* ช่องกรอกรหัสยืนยันสำหรับเจ้าหน้าที่ */}
-                {selectedRole === ROLES.OFFICER && selectedRole !== user.role && (
-                    <div className="officer-token-section">
-                        <div className="officer-notice">
-                            <span className="notice-icon">ℹ</span>
-                            <div>
-                                <p className="notice-title">สิทธิ์เจ้าหน้าที่</p>
-                                <p className="notice-text">
-                                    สำหรับเจ้าหน้าที่เทศบาลที่ปฏิบัติหน้าที่ดูแลพื้นที่กาดกองต้าเท่านั้น
-                                </p>
-                            </div>
-                        </div>
-                        <label className="token-label">
-                            รหัสยืนยันตัวตน
-                        </label>
-                        <input
-                            type="text"
-                            className="token-input"
-                            placeholder="กรอกรหัสที่ได้รับจากผู้ดูแลระบบ"
-                            value={officerToken}
-                            onChange={(e) => setOfficerToken(e.target.value)}
-                        />
-                        <p className="token-hint">
-                            รหัสนี้ได้รับจากหัวหน้างานหรือผู้ดูแลระบบ และใช้ได้เพียงครั้งเดียว
-                        </p>
-                    </div>
-                )}
-
-                {/* Error Message */}
-                {(localError || error) && (
-                    <div className="settings-message error">
-                        <span className="message-icon">!</span>
-                        <p>{localError || error}</p>
-                    </div>
-                )}
-
-                {/* Success Message */}
-                {successMessage && (
-                    <div className="settings-message success">
-                        <span className="message-icon">✓</span>
-                        <p>{successMessage}</p>
-                    </div>
-                )}
-
-                {/* ปุ่มบันทึก */}
-                {selectedRole !== user.role && (
-                    <button 
-                        className="save-role-btn"
-                        onClick={handleSaveRole}
-                        disabled={isUpdating}
-                    >
-                        {isUpdating ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
-                    </button>
-                )}
             </section>
+
+            {/* สิทธิ์การใช้งาน - แสดงเฉพาะเจ้าหน้าที่ */}
+            {isOfficer && (
+                <section className="settings-section">
+                    <h2 className="section-heading">สิทธิ์การใช้งานของคุณ</h2>
+                    <p className="section-description">{officerRoleInfo.description}</p>
+                    <div className="permissions-card">
+                        <ul className="permissions-list">
+                            {officerRoleInfo.permissions.map((perm, idx) => (
+                                <li key={idx} className={`permission-item ${perm.allowed ? 'allowed' : 'denied'}`}>
+                                    <span className="permission-icon">
+                                        {perm.allowed ? '✓' : '—'}
+                                    </span>
+                                    <span className="permission-text">{perm.text}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </section>
+            )}
+
+            {/* Error Message */}
+            {error && (
+                <div className="settings-message error" style={{ margin: '0 0 1rem 0' }}>
+                    <span className="message-icon">!</span>
+                    <p>{error}</p>
+                </div>
+            )}
 
             {/* ข้อมูลความเป็นส่วนตัว */}
             <section className="settings-section privacy-section">
@@ -336,7 +216,7 @@ function LoginPrompt() {
                 <div className="login-card">
                     <h3 className="login-card-title">เข้าสู่ระบบ</h3>
                     <p className="login-description">
-                        เข้าสู่ระบบด้วยบัญชี LINE เพื่อใช้งานและตั้งค่าบทบาทผู้ใช้
+                        เข้าสู่ระบบด้วยบัญชี LINE สำหรับเจ้าหน้าที่เทศบาล
                     </p>
 
                     {error && (
@@ -364,20 +244,6 @@ function LoginPrompt() {
                     <p className="login-note">
                         ระบบใช้บัญชี LINE เพื่อยืนยันตัวตน<br/>
                         ไม่มีการเก็บรหัสผ่านของคุณ
-                    </p>
-                </div>
-                
-                <div className="login-roles-info">
-                    <h4>บทบาทผู้ใช้งานในระบบ</h4>
-                    <div className="roles-preview">
-                        {Object.entries(ROLE_INFO).map(([key, role]) => (
-                            <div key={key} className="role-preview-item">
-                                <span className="role-preview-label">{role.label}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <p className="roles-hint">
-                        หลังเข้าสู่ระบบ คุณสามารถเลือกบทบาทที่ตรงกับการใช้งานได้
                     </p>
                 </div>
                 

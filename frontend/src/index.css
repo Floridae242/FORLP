@@ -132,6 +132,13 @@ body {
     gap: var(--space-md);
 }
 
+.nav-logo {
+    width: 45px;
+    height: 45px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
 .nav-title {
     font-size: 1rem;
     font-weight: 600;

@@ -29,7 +29,6 @@ import {
     createSession,
     getUserById,
     logoutUser,
-    updateUserRole,
     canAccessCCTV
 } from './services/authService.js';
 
@@ -181,16 +180,6 @@ app.post('/api/auth/line/callback', async (req, res) => {
     }
 });
 
-// GET /api/auth/roles - ดึงรายการ Role และสิทธิ์ทั้งหมด
-app.get('/api/auth/roles', (req, res) => {
-    res.json({
-        success: true,
-        data: {
-            roles: ROLE_PERMISSIONS
-        }
-    });
-});
-
 // POST /api/auth/logout - ออกจากระบบ (Revoke LINE Token)
 app.post('/api/auth/logout', async (req, res) => {
     try {
@@ -220,43 +209,6 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
             user: req.user
         }
     });
-});
-
-// PUT /api/auth/role - เปลี่ยน Role ของผู้ใช้
-app.put('/api/auth/role', authMiddleware, (req, res) => {
-    try {
-        const { role, officerToken } = req.body;
-
-        if (!role) {
-            return res.status(400).json({
-                success: false,
-                error: 'กรุณาเลือกบทบาทที่ต้องการ'
-            });
-        }
-
-        const result = updateUserRole(req.user.id, role, officerToken);
-
-        if (!result.success) {
-            return res.status(400).json({
-                success: false,
-                error: result.error
-            });
-        }
-
-        // ดึงข้อมูลผู้ใช้ใหม่
-        const updatedUser = getUserById(req.user.id);
-
-        res.json({
-            success: true,
-            data: {
-                user: updatedUser,
-                message: `เปลี่ยนบทบาทเป็น "${ROLE_PERMISSIONS[role].label}" สำเร็จ`
-            }
-        });
-    } catch (error) {
-        console.error('[Auth] Role update error:', error);
-        res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการเปลี่ยนบทบาท' });
-    }
 });
 
 // GET /api/auth/check-cctv - ตรวจสอบสิทธิ์เข้าถึง CCTV

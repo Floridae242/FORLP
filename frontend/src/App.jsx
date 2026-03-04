@@ -14,6 +14,7 @@ function Navigation() {
         <nav className="nav-bar">
             <div className="nav-content">
                 <div className="nav-brand">
+                    <img src="/logo.png" alt="โลโก้เทศบาลนครลำปาง" className="nav-logo" />
                     <div>
                         <div className="nav-title">ระบบข้อมูลถนนคนเดินกาดกองต้า</div>
                         <div className="nav-subtitle">เทศบาลนครลำปาง</div>
