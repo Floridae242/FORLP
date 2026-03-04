@@ -126,9 +126,9 @@ ${dateStr}
 • เฉลี่ย: ${(report.avg_people || 0).toLocaleString()} คน
 • ต่ำสุด: ${(report.min_people || 0).toLocaleString()} คน
 
-🌦 สภาพอากาศ: ${report.weather_summary || 'ไม่มีข้อมูล'}${report.temperature_avg ? ` (${report.temperature_avg}°C)` : ''}
+ สภาพอากาศ: ${report.weather_summary || 'ไม่มีข้อมูล'}${report.temperature_avg ? ` (${report.temperature_avg}°C)` : ''}
 
-🌫 PM2.5: ${report.pm25_avg ? `${report.pm25_avg} µg/m³` : 'ไม่มีข้อมูล'} (${report.pm25_status || 'ไม่มีข้อมูล'})
+ PM2.5: ${report.pm25_avg ? `${report.pm25_avg} µg/m³` : 'ไม่มีข้อมูล'} (${report.pm25_status || 'ไม่มีข้อมูล'})
 
 
 ข้อมูลนี้ใช้เพื่อสนับสนุนการตัดสินใจของเทศบาล
@@ -144,11 +144,11 @@ export function createEarlyWarningMessage(weatherData) {
     const warnings = [];
     
     if (weatherData.rainRisk) {
-        warnings.push('🌧 มีความเสี่ยงฝนตก');
+        warnings.push('มีความเสี่ยงฝนตก');
     }
     
     if (weatherData.pm25Risk) {
-        warnings.push(`🌫 PM2.5 สูง (${weatherData.pm25} µg/m³)`);
+        warnings.push(`PM2.5 สูง (${weatherData.pm25} µg/m³)`);
     }
     
     if (warnings.length === 0) return null;
@@ -157,7 +157,7 @@ export function createEarlyWarningMessage(weatherData) {
 
 ${warnings.join('\n')}
 
-💡 คำแนะนำ:
+คำแนะนำ:
 ${weatherData.rainRisk ? '• เตรียมอุปกรณ์กันฝน\n' : ''}${weatherData.pm25Risk ? '• สวมหน้ากากอนามัย\n• หลีกเลี่ยงกิจกรรมกลางแจ้งเป็นเวลานาน\n' : ''}
 
  Kad Kong Ta Smart Insight`;

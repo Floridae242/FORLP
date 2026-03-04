@@ -13,18 +13,18 @@ import { getDb } from '../db/index.js';
 // CONFIGURATION
 // =====================================================
 
-// Threshold สำหรับ status (ตาม PROMPT)
+// Threshold สำหรับ status (ปรับตาม PDF เทศบาลนครลำปาง)
 const STATUS_THRESHOLDS = {
-    NORMAL: { min: 0, max: 200, key: 'normal', label: 'ปกติ', desc: 'สภาพปกติ ไหลลื่น' },
-    MODERATE: { min: 201, max: 500, key: 'moderate', label: 'ปานกลาง', desc: 'ค่อนข้างคึกคัก' },
-    BUSY: { min: 501, max: 900, key: 'busy', label: 'หนาแน่น', desc: 'เริ่มแออัด ควรระวัง' },
-    CROWDED: { min: 901, max: Infinity, key: 'crowded', label: 'หนาแน่นมาก', desc: 'แจ้งเตือนทันที' }
+    NORMAL: { min: 0, max: 500, key: 'normal', label: 'ปกติ', desc: 'สภาพปกติ ไหลลื่น' },
+    MODERATE: { min: 501, max: 1200, key: 'moderate', label: 'ปานกลาง', desc: 'ค่อนข้างคึกคัก' },
+    BUSY: { min: 1201, max: 2500, key: 'busy', label: 'หนาแน่น', desc: 'เริ่มแออัด ควรระวัง' },
+    CROWDED: { min: 2501, max: Infinity, key: 'crowded', label: 'หนาแน่นมาก', desc: 'แจ้งเตือนทันที' }
 };
 
-// Alert thresholds
+// Alert thresholds (ปรับตาม PDF)
 const ALERT_THRESHOLDS = {
-    CROWD_WARNING: 501,    // ส่ง warning เมื่อ >= 501 (หนาแน่น)
-    CROWD_CRITICAL: 901    // ส่ง critical เมื่อ >= 901 (หนาแน่นมาก)
+    CROWD_WARNING: 1201,    // ส่ง warning เมื่อ >= 1,201 (หนาแน่น)
+    CROWD_CRITICAL: 2501    // ส่ง critical เมื่อ >= 2,501 (หนาแน่นมาก)
 };
 
 // EMA smoothing factor (0.1 = smooth, 0.5 = responsive)

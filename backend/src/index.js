@@ -1012,6 +1012,58 @@ app.get('/api/system/status', (req, res) => {
     });
 });
 
+// ==================== LINE NOTIFICATION API (สำหรับ Frontend) ====================
+
+// POST /api/notify/line - ส่งข้อความแจ้งเตือนผ่าน LINE OA
+app.post('/api/notify/line', async (req, res) => {
+    try {
+        const { message, type } = req.body;
+        
+        if (!message || typeof message !== 'string') {
+            return res.status(400).json({
+                success: false,
+                error: 'กรุณาระบุข้อความที่ต้องการส่ง'
+            });
+        }
+        
+        // จำกัดความยาวข้อความ
+        const trimmedMessage = message.substring(0, 2000);
+        
+        const result = await dailyReportService.sendLineMessage(trimmedMessage);
+        
+        console.log(`[LINE Notify] Type: ${type || 'custom'}, Success: ${result.success}`);
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 'ส่งข้อความสำเร็จ' : 'ส่งข้อความไม่สำเร็จ',
+            error: result.error || null
+        });
+    } catch (error) {
+        console.error('[LINE Notify] Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/notify/status - ตรวจสอบสถานะ LINE notification
+app.get('/api/notify/status', (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            line_configured: !!config.lineChannelAccessToken,
+            thresholds: {
+                warning: 1201,
+                critical: 2501
+            },
+            alerts: {
+                rain_check_interval: '10 นาที',
+                crowd_warning: '>= 1,201 คน',
+                crowd_critical: '>= 2,501 คน',
+                daily_report: 'เสาร์-อาทิตย์ 23:00 น.'
+            }
+        }
+    });
+});
+
 // ==================== TEST APIs (Updated) ====================
 
 // GET /api/test/line - ทดสอบส่งข้อความ LINE
@@ -1021,8 +1073,8 @@ app.get('/api/test/line', async (req, res) => {
 
 
 ระบบ LINE OA เชื่อมต่อสำเร็จ
-📅 ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
-🔧 Version 4.0 - Real-time Alerts
+${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+Version 4.0 - Real-time Alerts
 
 Kad Kong Ta Smart Insight`;
 
@@ -1248,7 +1300,7 @@ async function start() {
 
         app.listen(config.port, () => {
             console.log('');
-            console.log(`🚀 Server: http://localhost:${config.port}`);
+            console.log(`Server: http://localhost:${config.port}`);
             console.log('');
             console.log('API Endpoints:');
             console.log('   GET  /api/people/current      - จำนวนคนปัจจุบัน (real-time)');
@@ -1259,7 +1311,7 @@ async function start() {
             console.log('');
             console.log('Scheduled Tasks:');
             console.log('   Rain Check      - ทุก 10 นาที');
-            console.log('   Crowd Alerts    - Real-time (>= 300 warning, >= 600 critical)');
+            console.log('   Crowd Alerts    - Real-time (>= 1,201 warning, >= 2,501 critical)');
             console.log('   Daily Report    - เสาร์-อาทิตย์ 23:00 (Asia/Bangkok)');
             console.log('');
             console.log('Test Endpoints:');

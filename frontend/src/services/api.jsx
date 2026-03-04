@@ -164,6 +164,29 @@ export async function getReportHistory(days = 30) {
 }
 
 // =====================================================
+// LINE NOTIFICATION APIs
+// =====================================================
+
+/**
+ * POST /api/notify/line - ส่งข้อความแจ้งเตือนผ่าน LINE OA
+ */
+export async function sendLineNotification(message, type = 'custom') {
+    const result = await apiFetch('/api/notify/line', {
+        method: 'POST',
+        body: JSON.stringify({ message, type }),
+    });
+    return result;
+}
+
+/**
+ * GET /api/notify/status - ตรวจสอบสถานะ LINE notification
+ */
+export async function getNotifyStatus() {
+    const result = await apiFetch('/api/notify/status');
+    return result.data;
+}
+
+// =====================================================
 // HEALTH CHECK
 // =====================================================
 
@@ -230,6 +253,10 @@ export const api = {
     getDailyReport,
     getWeeklyReport,
     getReportHistory,
+    
+    // LINE Notification
+    sendLineNotification,
+    getNotifyStatus,
     
     // Health
     checkHealth,

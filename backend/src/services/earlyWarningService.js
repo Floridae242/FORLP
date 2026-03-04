@@ -4,7 +4,7 @@
    
    ตาม PROMPT:
    1. Rain Forecast: ส่งแจ้งเตือนเมื่อพยากรณ์ฝนภายใน 60 นาที
-   2. Crowd Warning: ส่งทันทีเมื่อคน >= 300 (warning) หรือ >= 600 (critical)
+   2. Crowd Warning: ส่งทันทีเมื่อคน >= 1,201 (warning) หรือ >= 2,501 (critical)
    3. Daily Report: ส่งทุกเสาร์-อาทิตย์ 23:00 น. (Asia/Bangkok)
    ===================================================== */
 
@@ -247,7 +247,7 @@ export function createRainWarningMessage(rainData) {
 โอกาสฝนตก: ${Math.round(rainData.probability * 100)}%
 สภาพอากาศ: ${rainData.description}
 
-💡 คำแนะนำ:
+คำแนะนำ:
 • เตรียมร่ม/พิจารณาย้ายกิจกรรม
 • แจ้งร้านค้าให้เตรียมพร้อม
 • ระวังพื้นลื่น
@@ -258,17 +258,17 @@ export function createRainWarningMessage(rainData) {
 }
 
 /**
- * สร้างข้อความแจ้งเตือนความแออัด (Warning: 501-900)
+ * สร้างข้อความแจ้งเตือนความแออัด (Warning: 1,201-2,500)
  */
 export function createCrowdWarningMessage(crowdData) {
     const time = formatThaiTime(crowdData.timestamp);
     
-    const message = `📢 แจ้งเตือนความหนาแน่น — กาดกองต้า
+    const message = `แจ้งเตือนความหนาแน่น — กาดกองต้า
 
 สถานะ: ${crowdData.status_label} (ประมาณ ${crowdData.count.toLocaleString()} คน)
 อัปเดตล่าสุด: ${time} น.
 
-💡 คำแนะนำ:
+คำแนะนำ:
 • โปรดพิจารณาเพิ่มเจ้าหน้าที่
 • จัดช่องทางเดินให้ชัดเจน
 • เตรียมพร้อมรับมือสถานการณ์
@@ -279,7 +279,7 @@ export function createCrowdWarningMessage(crowdData) {
 }
 
 /**
- * สร้างข้อความแจ้งเตือนความแออัด (Critical: >= 901)
+ * สร้างข้อความแจ้งเตือนความแออัด (Critical: >= 2,501)
  */
 export function createCrowdCriticalMessage(crowdData) {
     const time = formatThaiTime(crowdData.timestamp);
@@ -306,20 +306,20 @@ export function createCrowdCriticalMessage(crowdData) {
 export function createDailyReportMessage(reportData) {
     const dateStr = formatThaiDate(reportData.date);
     
-    const message = ` [สรุปประจำวัน] กาดกองต้า — ${dateStr}
+    const message = `[สรุปประจำวัน] กาดกองต้า — ${dateStr}
 
- จำนวนคนสูงสุด: ${(reportData.max_people || 0).toLocaleString()} คน
- จำนวนคนเฉลี่ย: ${Math.round(reportData.avg_people || 0).toLocaleString()} คน
- จำนวนตัวอย่าง: ${(reportData.total_samples || 0).toLocaleString()} ครั้ง
+จำนวนคนสูงสุด: ${(reportData.max_people || 0).toLocaleString()} คน
+จำนวนคนเฉลี่ย: ${Math.round(reportData.avg_people || 0).toLocaleString()} คน
+จำนวนตัวอย่าง: ${(reportData.total_samples || 0).toLocaleString()} ครั้ง
 
-🌦 สภาพอากาศ: ${reportData.weather_summary || 'ไม่มีข้อมูล'}
-🌡 อุณหภูมิ: ${reportData.temperature ? `${reportData.temperature}°C` : 'ไม่มีข้อมูล'}
-🌫 PM2.5: ${reportData.pm25 ? `${reportData.pm25} μg/m³ (${reportData.pm25_status})` : 'ไม่มีข้อมูล'}
+สภาพอากาศ: ${reportData.weather_summary || 'ไม่มีข้อมูล'}
+อุณหภูมิ: ${reportData.temperature ? `${reportData.temperature}°C` : 'ไม่มีข้อมูล'}
+PM2.5: ${reportData.pm25 ? `${reportData.pm25} μg/m³ (${reportData.pm25_status})` : 'ไม่มีข้อมูล'}
 
-📝 หมายเหตุ: ${reportData.notes || 'ไม่มีเหตุการณ์ฉุกเฉิน'}
+หมายเหตุ: ${reportData.notes || 'ไม่มีเหตุการณ์ฉุกเฉิน'}
 
 (ข้อมูลจากระบบอัตโนมัติ)
- Kad Kong Ta Smart Insight`;
+Kad Kong Ta Smart Insight`;
 
     return message;
 }
@@ -557,8 +557,8 @@ export async function testSendWarning(type = 'rain') {
     
     if (type === 'crowd') {
         const mockCrowdData = {
-            count: 350,
-            status_label: 'ค่อนข้างหนาแน่น',
+            count: 1500,
+            status_label: 'หนาแน่น',
             timestamp: new Date().toISOString()
         };
         return await sendCrowdWarning(mockCrowdData);
@@ -567,7 +567,7 @@ export async function testSendWarning(type = 'rain') {
     if (type === 'critical') {
         lastAlerts.crowd_critical = null;
         const mockCrowdData = {
-            count: 650,
+            count: 2800,
             status_label: 'หนาแน่นมาก',
             timestamp: new Date().toISOString()
         };
