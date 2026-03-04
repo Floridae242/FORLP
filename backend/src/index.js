@@ -29,7 +29,8 @@ import {
     createSession,
     getUserById,
     logoutUser,
-    canAccessCCTV
+    canAccessCCTV,
+    updateUserRole
 } from './services/authService.js';
 
 const app = express();
@@ -224,6 +225,48 @@ app.get('/api/auth/check-cctv', authMiddleware, (req, res) => {
                 : 'เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้นที่สามารถเข้าถึงกล้องวงจรปิด'
         }
     });
+});
+
+// POST /api/auth/verify-officer - ยืนยันรหัสเจ้าหน้าที่
+app.post('/api/auth/verify-officer', authMiddleware, (req, res) => {
+    try {
+        const { officerToken } = req.body;
+
+        if (!officerToken || typeof officerToken !== 'string') {
+            return res.status(400).json({
+                success: false,
+                error: 'กรุณากรอกรหัสสำหรับเจ้าหน้าที่'
+            });
+        }
+
+        const result = updateUserRole(req.user.id, ROLES.OFFICER, officerToken.trim());
+
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                error: result.error
+            });
+        }
+
+        // ดึงข้อมูลผู้ใช้ที่อัปเดตแล้ว
+        const updatedUser = getUserById(req.user.id);
+
+        console.log(`[Auth] Officer verified: ${req.user.displayName} (${req.user.lineUserId})`);
+
+        res.json({
+            success: true,
+            message: 'ยืนยันตัวตนเจ้าหน้าที่สำเร็จ',
+            data: {
+                user: updatedUser
+            }
+        });
+    } catch (error) {
+        console.error('[Auth] Verify officer error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+        });
+    }
 });
 
 // ==================== PROTECTED CCTV API ====================

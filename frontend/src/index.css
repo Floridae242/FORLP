@@ -1382,6 +1382,83 @@ body {
     margin-top: var(--space-sm);
 }
 
+/* Officer Verify Card */
+.officer-verify-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-card);
+}
+
+.officer-verify-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.officer-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.officer-input-label {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-heading);
+}
+
+.officer-input {
+    width: 100%;
+    font-family: var(--font-main);
+    font-size: 0.9375rem;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--bg-card);
+    color: var(--text-body);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.officer-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+}
+
+.officer-input::placeholder {
+    color: var(--text-light);
+}
+
+.officer-input:disabled {
+    background: var(--bg-muted);
+    cursor: not-allowed;
+}
+
+.officer-verify-btn {
+    width: 100%;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    font-weight: 500;
+    color: white;
+    background: var(--color-primary);
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.officer-verify-btn:hover:not(:disabled) {
+    background: var(--color-primary-light);
+}
+
+.officer-verify-btn:disabled {
+    background: var(--text-light);
+    cursor: not-allowed;
+}
+
 /* Settings Messages */
 .settings-message {
     display: flex;

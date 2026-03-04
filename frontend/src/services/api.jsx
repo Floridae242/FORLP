@@ -187,6 +187,26 @@ export async function getNotifyStatus() {
 }
 
 // =====================================================
+// AUTH APIs
+// =====================================================
+
+/**
+ * POST /api/auth/verify-officer - ยืนยันรหัสเจ้าหน้าที่
+ */
+export async function verifyOfficerToken(officerToken) {
+    const sessionToken = localStorage.getItem('forlp_session_token');
+    const result = await apiFetch('/api/auth/verify-officer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ officerToken }),
+    });
+    return result;
+}
+
+// =====================================================
 // HEALTH CHECK
 // =====================================================
 
@@ -257,6 +277,9 @@ export const api = {
     // LINE Notification
     sendLineNotification,
     getNotifyStatus,
+    
+    // Auth
+    verifyOfficerToken,
     
     // Health
     checkHealth,

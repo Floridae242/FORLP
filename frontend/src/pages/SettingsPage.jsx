@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useAuth, ROLE_INFO } from '../contexts/AuthContext';
+import { verifyOfficerToken } from '../services/api';
 
 export default function SettingsPage() {
     const { 
@@ -15,10 +16,14 @@ export default function SettingsPage() {
         error, 
         clearError, 
         loading,
-        isProcessingCallback 
+        isProcessingCallback,
+        refreshUser
     } = useAuth();
     
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [officerCode, setOfficerCode] = useState('');
+    const [officerVerifying, setOfficerVerifying] = useState(false);
+    const [officerMessage, setOfficerMessage] = useState(null); // { type: 'success' | 'error', text: '' }
 
     // Loading State
     if (loading || isProcessingCallback) {
@@ -43,6 +48,33 @@ export default function SettingsPage() {
     const handleLogout = async () => {
         setShowLogoutConfirm(false);
         await logout();
+    };
+
+    const handleVerifyOfficer = async (e) => {
+        e.preventDefault();
+        if (!officerCode.trim()) {
+            setOfficerMessage({ type: 'error', text: 'กรุณากรอกรหัสสำหรับเจ้าหน้าที่' });
+            return;
+        }
+
+        setOfficerVerifying(true);
+        setOfficerMessage(null);
+
+        try {
+            const result = await verifyOfficerToken(officerCode.trim());
+            if (result.success) {
+                setOfficerMessage({ type: 'success', text: 'ยืนยันตัวตนเจ้าหน้าที่สำเร็จ' });
+                setOfficerCode('');
+                // รีเฟรชข้อมูลผู้ใช้เพื่ออัปเดต role
+                if (refreshUser) await refreshUser();
+            } else {
+                setOfficerMessage({ type: 'error', text: result.error || 'รหัสไม่ถูกต้อง กรุณาลองใหม่' });
+            }
+        } catch (err) {
+            setOfficerMessage({ type: 'error', text: err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง' });
+        } finally {
+            setOfficerVerifying(false);
+        }
     };
 
     return (
@@ -101,6 +133,53 @@ export default function SettingsPage() {
                                 </li>
                             ))}
                         </ul>
+                    </div>
+                </section>
+            )}
+
+            {/* รหัสสำหรับเจ้าหน้าที่ - แสดงเฉพาะเมื่อยังไม่ได้ยืนยัน */}
+            {!isOfficer && (
+                <section className="settings-section">
+                    <h2 className="section-heading">รหัสสำหรับเจ้าหน้าที่</h2>
+                    <p className="section-description">
+                        หากคุณเป็นเจ้าหน้าที่เทศบาล กรุณากรอกรหัสที่ได้รับเพื่อเปิดใช้งานสิทธิ์เจ้าหน้าที่
+                    </p>
+                    <div className="officer-verify-card">
+                        <form onSubmit={handleVerifyOfficer} className="officer-verify-form">
+                            <div className="officer-input-group">
+                                <label htmlFor="officerCode" className="officer-input-label">
+                                    รหัสเจ้าหน้าที่
+                                </label>
+                                <input
+                                    id="officerCode"
+                                    type="text"
+                                    className="officer-input"
+                                    placeholder="กรอกรหัสที่ได้รับจากผู้ดูแลระบบ"
+                                    value={officerCode}
+                                    onChange={(e) => {
+                                        setOfficerCode(e.target.value);
+                                        if (officerMessage) setOfficerMessage(null);
+                                    }}
+                                    disabled={officerVerifying}
+                                    autoComplete="off"
+                                />
+                            </div>
+                            {officerMessage && (
+                                <div className={`settings-message ${officerMessage.type}`}>
+                                    <span className="message-icon">
+                                        {officerMessage.type === 'success' ? '✓' : '!'}
+                                    </span>
+                                    <p>{officerMessage.text}</p>
+                                </div>
+                            )}
+                            <button 
+                                type="submit" 
+                                className="officer-verify-btn"
+                                disabled={officerVerifying || !officerCode.trim()}
+                            >
+                                {officerVerifying ? 'กำลังตรวจสอบ...' : 'ยืนยันรหัส'}
+                            </button>
+                        </form>
                     </div>
                 </section>
             )}
