@@ -57,6 +57,23 @@ export function isWeekend(date = new Date()) {
 }
 
 /**
+ * ตรวจสอบว่าควรส่งแจ้งเตือนหรือไม่ (ถ้าไม่ใช่วันเปิดทำการ ห้ามส่ง)
+ */
+function shouldSendAlertsToday() {
+    const bangkokTime = toBangkokTime();
+    const isWeekendDay = isWeekend(bangkokTime);
+    
+    // แจ้งเตือนเฉพาะวันเสาร์ (6) และอาทิตย์ (0)
+    if (!isWeekendDay) {
+        const dayName = bangkokTime.toLocaleDateString('th-TH', { weekday: 'long', timeZone: 'Asia/Bangkok' });
+        console.log(`[EarlyWarning] ⚠️  วันนี้คือ${dayName} - ห้ามส่งแจ้งเตือน (เปิดทำการเฉพาะเสาร์-อาทิตย์)`);
+        return false;
+    }
+    
+    return true;
+}
+
+/**
  * แปลงเวลาเป็น Asia/Bangkok
  */
 function toBangkokTime(date = new Date()) {
@@ -357,6 +374,12 @@ async function sendLineMessage(message) {
  * ส่งแจ้งเตือนฝน
  */
 export async function sendRainWarning(rainData) {
+    // ตรวจสอบวันที่เปิดทำการ
+    if (!shouldSendAlertsToday()) {
+        console.log('[EarlyWarning] Rain warning blocked - not weekend');
+        return { success: false, reason: 'not_weekend' };
+    }
+    
     if (!shouldSendAlert('rain_warning')) {
         console.log('[EarlyWarning] Rain warning on cooldown');
         return { success: false, reason: 'cooldown' };
@@ -367,7 +390,7 @@ export async function sendRainWarning(rainData) {
     
     if (result.success) {
         markAlertSent('rain_warning');
-        console.log('[EarlyWarning]  Rain warning sent');
+        console.log('[EarlyWarning] ✓ Rain warning sent');
     }
     
     return result;
@@ -377,6 +400,12 @@ export async function sendRainWarning(rainData) {
  * ส่งแจ้งเตือนความแออัด (Warning)
  */
 export async function sendCrowdWarning(crowdData) {
+    // ตรวจสอบวันที่เปิดทำการ
+    if (!shouldSendAlertsToday()) {
+        console.log('[EarlyWarning] Crowd warning blocked - not weekend');
+        return { success: false, reason: 'not_weekend' };
+    }
+    
     if (!shouldSendAlert('crowd_warning')) {
         console.log('[EarlyWarning] Crowd warning on cooldown');
         return { success: false, reason: 'cooldown' };
@@ -387,7 +416,7 @@ export async function sendCrowdWarning(crowdData) {
     
     if (result.success) {
         markAlertSent('crowd_warning');
-        console.log('[EarlyWarning]  Crowd warning sent');
+        console.log('[EarlyWarning] ✓ Crowd warning sent');
     }
     
     return result;
@@ -397,6 +426,12 @@ export async function sendCrowdWarning(crowdData) {
  * ส่งแจ้งเตือนความแออัด (Critical)
  */
 export async function sendCrowdCritical(crowdData) {
+    // ตรวจสอบวันที่เปิดทำการ
+    if (!shouldSendAlertsToday()) {
+        console.log('[EarlyWarning] Crowd critical blocked - not weekend');
+        return { success: false, reason: 'not_weekend' };
+    }
+    
     if (!shouldSendAlert('crowd_critical')) {
         console.log('[EarlyWarning] Crowd critical on cooldown');
         return { success: false, reason: 'cooldown' };
@@ -407,7 +442,7 @@ export async function sendCrowdCritical(crowdData) {
     
     if (result.success) {
         markAlertSent('crowd_critical');
-        console.log('[EarlyWarning]  Crowd critical alert sent');
+        console.log('[EarlyWarning] ✓ Crowd critical alert sent');
     }
     
     return result;
@@ -435,6 +470,12 @@ export async function sendDailyReport(reportData) {
  * ตรวจสอบพยากรณ์ฝนและส่งแจ้งเตือน (เรียกทุก 10 นาที)
  */
 export async function processRainCheck() {
+    // ตรวจสอบวันที่เปิดทำการก่อน
+    if (!shouldSendAlertsToday()) {
+        console.log('[EarlyWarning] Rain check skipped - not weekend');
+        return { success: true, skipped: true, reason: 'not_weekend' };
+    }
+    
     console.log('[EarlyWarning] Checking rain forecast...');
     
     try {
@@ -457,6 +498,12 @@ export async function processRainCheck() {
  * ตรวจสอบความแออัดและส่งแจ้งเตือน (เรียกเมื่อมี ingest)
  */
 export async function processCrowdCheck() {
+    // ตรวจสอบวันที่เปิดทำการก่อน
+    if (!shouldSendAlertsToday()) {
+        console.log('[EarlyWarning] Crowd check skipped - not weekend');
+        return { success: true, skipped: true, reason: 'not_weekend' };
+    }
+    
     const crowdLevel = peopleCountService.checkCrowdLevel();
     
     if (crowdLevel.is_critical) {
@@ -483,8 +530,16 @@ export async function processCrowdCheck() {
  */
 export async function processDailyReport(date = null) {
     const reportDate = date || new Date().toISOString().split('T')[0];
+    const checkDate = date ? new Date(date) : new Date();
     
-    console.log(`[EarlyWarning] Generating daily report for ${reportDate}`);
+    // ตรวจสอบว่าเป็นวันเสาร์-อาทิตย์หรือไม่
+    if (!isWeekend(checkDate)) {
+        const dayName = checkDate.toLocaleDateString('th-TH', { weekday: 'long', timeZone: 'Asia/Bangkok' });
+        console.log(`[EarlyWarning] Daily report skipped for ${reportDate} (${dayName}) - not weekend`);
+        return { success: false, reason: 'not_weekend', message: 'Daily reports are only sent on weekends' };
+    }
+    
+    console.log(`[EarlyWarning] Generating daily report for ${reportDate} (weekend)`);
     
     try {
         // ดึงสรุปจำนวนคน
