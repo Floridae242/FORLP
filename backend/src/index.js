@@ -8,6 +8,15 @@ import express from 'express';
 import cors from 'cors';
 import { config, validateConfig } from './config/index.js';
 import { initDatabase } from './db/index.js';
+import { 
+    setupGlobalErrorHandlers,
+    ErrorLogger,
+    expressAsyncHandler,
+    normalizeError,
+    ValidationError,
+    ExternalServiceError,
+    formatErrorResponse
+} from './utils/errorHandling.js';
 import { peopleCountService } from './services/peopleCountService.js';
 import { weatherService } from './services/weatherService.js';
 import { dailyReportService } from './services/dailyReportService.js';
@@ -32,10 +41,33 @@ import {
     canAccessCCTV,
     updateUserRole
 } from './services/authService.js';
+import {
+    rateLimitMiddleware,
+    validateJsonPayload,
+    sanitizeInputs,
+    validateAiApiKey,
+    isValidOfficerToken,
+    validatePeopleCountRequest,
+    validateOfficerTokenRequest,
+    validateLineCallbackRequest,
+    errorHandler,
+    notFoundHandler,
+    securityHeadersMiddleware
+} from './middleware/index.js';
+
+// ==================== SETUP ERROR HANDLING ====================
+// Global error handlers for unhandled rejections and exceptions
+setupGlobalErrorHandlers();
+
+// Error logger instance
+const errorLogger = new ErrorLogger('./logs');
 
 const app = express();
 
 // ==================== Middleware ====================
+// Security Headers
+app.use(securityHeadersMiddleware);
+
 // CORS Configuration สำหรับ Vercel Frontend
 const corsOptions = {
     origin: [
@@ -46,11 +78,20 @@ const corsOptions = {
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
 };
 
 app.use(cors(corsOptions));
+
+// Rate Limiting (ใช้ก่อน JSON parsing เพื่อป้องกัน DOS)
+app.use(rateLimitMiddleware);
+
+// JSON Parsing + Validation
+app.use(validateJsonPayload);
 app.use(express.json());
+
+// Input Sanitization
+app.use(sanitizeInputs);
 
 if (config.nodeEnv === 'development') {
     app.use((req, res, next) => {
@@ -1160,9 +1201,10 @@ app.get('/api/test/forecast', async (req, res) => {
 });
 
 // ==================== 404 Handler ====================
-app.use((req, res) => {
-    res.status(404).json({ success: false, error: 'Endpoint not found' });
-});
+app.use(notFoundHandler);
+
+// ==================== Global Error Handler (ต้องเป็นตัวสุดท้าย) ====================
+app.use(errorHandler);
 
 // ==================== SCHEDULERS (Updated per PROMPT) ====================
 

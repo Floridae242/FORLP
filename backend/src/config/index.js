@@ -37,6 +37,13 @@ export const config = {
     sessionSecret: process.env.SESSION_SECRET || 'kadkongta-secret-key-2024',
     sessionMaxAge: parseInt(process.env.SESSION_MAX_AGE) || 7 * 24 * 60 * 60 * 1000, // 7 วัน
 
+    // ==================== Officer Token ====================
+    officerTokens: (process.env.OFFICER_TOKENS || '').split(',').filter(t => t.trim()),
+
+    // ==================== Rate Limiting ====================
+    rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 นาที
+    rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+
     // ==================== OpenWeatherMap API ====================
     openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
 
