@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Kad Kong Ta Smart Insight - Zone-based Smart City Platform",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",

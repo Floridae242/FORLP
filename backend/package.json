@@ -4,6 +4,9 @@
   "description": "Backend API for Kad Kong Ta Smart Insight Platform",
   "main": "src/index.js",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
