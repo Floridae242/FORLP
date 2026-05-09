@@ -68,7 +68,7 @@ export default function SettingsPage() {
                 // รีเฟรชข้อมูลผู้ใช้เพื่ออัปเดต role
                 if (refreshUser) await refreshUser();
             } else {
-                setOfficerMessage({ type: 'error', text: result.error || 'รหัสไม่ถูกต้อง กรุณาลองใหม่' });
+                setOfficerMessage({ type: 'error', text: result.error?.message || (typeof result.error === 'string' ? result.error : 'รหัสไม่ถูกต้อง กรุณาลองใหม่') });
             }
         } catch (err) {
             setOfficerMessage({ type: 'error', text: err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง' });

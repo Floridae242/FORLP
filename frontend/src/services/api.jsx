@@ -28,7 +28,7 @@ async function apiFetch(endpoint, options = {}) {
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `API Error: ${response.status}`);
+            throw new Error(errorData.error?.message || (typeof errorData.error === 'string' ? errorData.error : `API Error: ${response.status}`));
         }
         
         return await response.json();

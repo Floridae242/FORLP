@@ -167,7 +167,7 @@ export function AuthProvider({ children }) {
                 return { success: true };
             } else {
                 console.error('[Auth] Callback failed:', result.error);
-                setError(result.error || 'ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่');
+                setError(result.error?.message || (typeof result.error === 'string' ? result.error : 'ไม่สามารถเข้าสู่ระบบได้ กรุณาลองใหม่'));
                 return { success: false, error: result.error };
             }
         } catch (err) {
@@ -242,7 +242,7 @@ export function AuthProvider({ children }) {
                 window.location.href = result.data.authorizationUrl;
             } else {
                 console.error('[Auth] Failed to get auth URL:', result.error);
-                setError(result.error || 'ไม่สามารถเริ่มต้นการเข้าสู่ระบบได้');
+                setError(result.error?.message || (typeof result.error === 'string' ? result.error : 'ไม่สามารถเริ่มต้นการเข้าสู่ระบบได้'));
             }
         } catch (err) {
             console.error('[Auth] Login error:', err);
