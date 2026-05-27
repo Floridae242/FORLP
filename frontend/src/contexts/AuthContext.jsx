@@ -6,7 +6,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp-production.up.railway.app';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
 // Session Storage Keys
 const SESSION_TOKEN_KEY = 'forlp_session_token';

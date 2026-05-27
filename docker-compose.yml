@@ -20,7 +20,7 @@ services:
       - "8081:8081"  # Health & API
     environment:
       - CONFIG_PATH=/app/config.yaml
-      - BACKEND_ENDPOINT=https://forlp-production.up.railway.app/api/ai/people-count
+      - BACKEND_ENDPOINT=https://forlp.onrender.com/api/ai/people-count
       - BACKEND_API_KEY=kadkongta-ai-secret-2024
       - DEVICE=cpu
     volumes:
@@ -55,7 +55,7 @@ services:
       - "8081:8081"
     environment:
       - CONFIG_PATH=/app/config.yaml
-      - BACKEND_ENDPOINT=https://forlp-production.up.railway.app/api/ai/people-count
+      - BACKEND_ENDPOINT=https://forlp.onrender.com/api/ai/people-count
       - BACKEND_API_KEY=kadkongta-ai-secret-2024
       - DEVICE=cuda
     volumes:

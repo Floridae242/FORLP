@@ -10,7 +10,7 @@ import type {
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
-  "https://forlp-production.up.railway.app";
+  "https://forlp.onrender.com";
 
 async function fetcher<T>(endpoint: string): Promise<T> {
   const res = await fetch(`${API_BASE}${endpoint}`, { cache: "no-store" });

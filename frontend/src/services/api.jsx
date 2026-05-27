@@ -5,7 +5,7 @@
    ===================================================== */
 
 // Backend API URL (Railway production หรือ localhost dev)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://forlp-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
 // Default fetch options
 const defaultOptions = {

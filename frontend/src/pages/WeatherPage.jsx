@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp-production.up.railway.app';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
 // มาตรฐาน PM2.5
 const PM25_STANDARDS = {

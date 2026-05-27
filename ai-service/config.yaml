@@ -25,7 +25,7 @@ service:
   smoothing_window: 5
   
   # Backend API
-  backend_endpoint: "https://forlp-production.up.railway.app/api/ai/people-count"
+  backend_endpoint: "https://forlp.onrender.com/api/ai/people-count"
   backend_api_key: "kadkongta-ai-secret-2024"
   
   # Prometheus metrics port
