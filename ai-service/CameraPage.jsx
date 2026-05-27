@@ -30,10 +30,10 @@ const generatePlaybackUrl = (cameraId, startTime, endTime) => {
         const seconds = String(date.getSeconds()).padStart(2, '0');
         return `${year}${month}${day}t${hours}${minutes}${seconds}z`;
     };
-    
+
     const startStr = formatDateTime(startTime);
     const endStr = formatDateTime(endTime);
-    
+
     return `https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%40${ip}%3A554%2FStreaming%2Ftracks%2F${track}%3Fstarttime%3D${startStr}%26endtime%3D${endStr}`;
 };
 
@@ -57,8 +57,8 @@ const styles = {
         fontWeight: '500',
         fontSize: '0.875rem',
         transition: 'all 0.15s ease',
-        background: isActive 
-            ? (mode === 'live' ? 'var(--status-safe)' : 'var(--status-info)') 
+        background: isActive
+            ? (mode === 'live' ? 'var(--status-safe)' : 'var(--status-info)')
             : 'transparent',
         color: isActive ? 'white' : 'var(--text-muted)',
     }),
@@ -175,7 +175,7 @@ export default function CameraPage() {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const containerRef = useRef(null);
-    
+
     const [viewMode, setViewMode] = useState('live');
     const [playbackDate, setPlaybackDate] = useState(() => {
         const today = new Date();
@@ -237,22 +237,22 @@ export default function CameraPage() {
     const handlePlayback = () => {
         const startDateTime = new Date(playbackDate);
         startDateTime.setHours(
-            parseInt(playbackStartHour), 
-            parseInt(playbackStartMinute), 
+            parseInt(playbackStartHour),
+            parseInt(playbackStartMinute),
             parseInt(playbackStartSecond)
         );
-        
+
         const endDateTime = new Date(playbackDate);
         endDateTime.setHours(
-            parseInt(playbackEndHour), 
-            parseInt(playbackEndMinute), 
+            parseInt(playbackEndHour),
+            parseInt(playbackEndMinute),
             parseInt(playbackEndSecond)
         );
-        
+
         if (endDateTime <= startDateTime) {
             endDateTime.setDate(endDateTime.getDate() + 1);
         }
-        
+
         const url = generatePlaybackUrl(selectedCamera, startDateTime, endDateTime);
         setPlaybackUrl(url);
         setViewMode('playback');
@@ -312,7 +312,7 @@ export default function CameraPage() {
                                 style={styles.dateInput}
                             />
                         </div>
-                        
+
                         {/* Start Time */}
                         <div>
                             <label style={styles.inputLabel}>เวลาเริ่มต้น</label>
@@ -349,7 +349,7 @@ export default function CameraPage() {
                                 </select>
                             </div>
                         </div>
-                        
+
                         {/* End Time */}
                         <div>
                             <label style={styles.inputLabel}>เวลาสิ้นสุด</label>
@@ -386,7 +386,7 @@ export default function CameraPage() {
                                 </select>
                             </div>
                         </div>
-                        
+
                         {/* Play Button */}
                         <div>
                             <label style={{ ...styles.inputLabel, opacity: 0 }}>-</label>
@@ -400,7 +400,7 @@ export default function CameraPage() {
                             </button>
                         </div>
                     </div>
-                    
+
                     {/* Playback Status */}
                     {playbackUrl && (
                         <div style={styles.playbackStatus}>
@@ -454,7 +454,7 @@ export default function CameraPage() {
                         </p>
                     </div>
                 )}
-                
+
                 {/* Overlay - Camera Info */}
                 <div className="camera-overlay top-left">
                     <span style={styles.statusIndicator(viewMode)}></span>
@@ -478,7 +478,7 @@ export default function CameraPage() {
                     <h2 className="section-title">กล้องทั้งหมด</h2>
                     <span className="section-badge">{cameras.length} ตัว</span>
                 </div>
-                
+
                 <div className="camera-grid">
                     {cameras.map((camera) => (
                         <div

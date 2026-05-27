@@ -8,7 +8,7 @@ import express from 'express';
 import cors from 'cors';
 import { config, validateConfig } from './config/index.js';
 import { initDatabase } from './db/index.js';
-import { 
+import {
     setupGlobalErrorHandlers,
     ErrorLogger,
     expressAsyncHandler,
@@ -21,9 +21,9 @@ import { peopleCountService } from './services/peopleCountService.js';
 import { weatherService } from './services/weatherService.js';
 import { dailyReportService } from './services/dailyReportService.js';
 import { earlyWarningService } from './services/earlyWarningService.js';
-import { 
-    authService, 
-    ROLES, 
+import {
+    authService,
+    ROLES,
     ROLE_PERMISSIONS,
     authMiddleware,
     officerOnlyMiddleware,
@@ -64,6 +64,9 @@ const errorLogger = new ErrorLogger('./logs');
 
 const app = express();
 
+// Trust Render's reverse proxy (required for express-rate-limit behind proxy)
+app.set('trust proxy', 1);
+
 // ==================== Middleware ====================
 // Security Headers
 app.use(securityHeadersMiddleware);
@@ -102,12 +105,12 @@ if (config.nodeEnv === 'development') {
 
 // ==================== Health Check ====================
 app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
+    res.json({
+        status: 'ok',
         version: '4.0.0',
         system: 'Kad Kong Ta - AI People Counter',
         features: ['real-time-alerts', 'rain-forecast', 'crowd-warning'],
-        timestamp: new Date().toISOString() 
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -119,13 +122,13 @@ app.get('/api/auth/line/authorize', (req, res) => {
         // สร้าง state และ nonce สำหรับป้องกัน CSRF และ Replay Attack
         const state = generateStateToken();
         const nonce = generateNonce();
-        
+
         // บันทึก state และ nonce ไว้ตรวจสอบภายหลัง
         saveAuthState(state, nonce);
-        
+
         // สร้าง LINE Authorization URL
         const authUrl = getLineAuthorizationUrl(state, nonce);
-        
+
         res.json({
             success: true,
             data: {
@@ -135,9 +138,9 @@ app.get('/api/auth/line/authorize', (req, res) => {
         });
     } catch (error) {
         console.error('[Auth] Authorization URL error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'ไม่สามารถเริ่มต้นการเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง' 
+        res.status(500).json({
+            success: false,
+            error: 'ไม่สามารถเริ่มต้นการเข้าสู่ระบบได้ กรุณาลองใหม่อีกครั้ง'
         });
     }
 });
@@ -146,14 +149,14 @@ app.get('/api/auth/line/authorize', (req, res) => {
 app.post('/api/auth/line/callback', async (req, res) => {
     try {
         const { code, state } = req.body;
-        
+
         if (!code || !state) {
             return res.status(400).json({
                 success: false,
                 error: 'ข้อมูลไม่ครบถ้วน กรุณาลองเข้าสู่ระบบใหม่'
             });
         }
-        
+
         // ตรวจสอบ state เพื่อป้องกัน CSRF
         const authState = getAndRemoveAuthState(state);
         if (!authState) {
@@ -162,7 +165,7 @@ app.post('/api/auth/line/callback', async (req, res) => {
                 error: 'การเชื่อมต่อหมดอายุ กรุณาลองเข้าสู่ระบบใหม่'
             });
         }
-        
+
         // แลก Authorization Code เป็น Access Token
         const tokenResult = await exchangeCodeForToken(code);
         if (!tokenResult.success) {
@@ -171,7 +174,7 @@ app.post('/api/auth/line/callback', async (req, res) => {
                 error: tokenResult.error || 'ไม่สามารถเชื่อมต่อกับ LINE ได้'
             });
         }
-        
+
         // Verify ID Token และดึงข้อมูลผู้ใช้
         const idTokenResult = await verifyIdToken(tokenResult.data.idToken, authState.nonce);
         if (!idTokenResult.success) {
@@ -180,9 +183,9 @@ app.post('/api/auth/line/callback', async (req, res) => {
                 error: idTokenResult.error || 'ไม่สามารถยืนยันตัวตนได้'
             });
         }
-        
+
         const lineUser = idTokenResult.data;
-        
+
         // สร้างหรืออัปเดตผู้ใช้ในระบบ พร้อมบันทึก LINE Tokens
         const user = upsertUser(
             lineUser.userId,
@@ -194,15 +197,15 @@ app.post('/api/auth/line/callback', async (req, res) => {
                 expiresIn: tokenResult.data.expiresIn
             }
         );
-        
+
         // สร้าง Session Token สำหรับ Frontend
         const session = createSession(user.id);
-        
+
         // ดึงข้อมูลผู้ใช้แบบเต็ม
         const fullUser = getUserById(user.id);
-        
+
         console.log(`[Auth] LINE Login success: ${lineUser.displayName} (${lineUser.userId})`);
-        
+
         res.json({
             success: true,
             data: {
@@ -215,9 +218,9 @@ app.post('/api/auth/line/callback', async (req, res) => {
         });
     } catch (error) {
         console.error('[Auth] LINE callback error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง' 
+        res.status(500).json({
+            success: false,
+            error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง'
         });
     }
 });
@@ -226,7 +229,7 @@ app.post('/api/auth/line/callback', async (req, res) => {
 app.post('/api/auth/logout', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
-        
+
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const sessionToken = authHeader.substring(7);
             // ลบ session และ revoke LINE token
@@ -261,8 +264,8 @@ app.get('/api/auth/check-cctv', authMiddleware, (req, res) => {
         success: true,
         data: {
             canAccess: hasAccess,
-            reason: hasAccess 
-                ? 'คุณมีสิทธิ์เข้าถึงกล้องวงจรปิด' 
+            reason: hasAccess
+                ? 'คุณมีสิทธิ์เข้าถึงกล้องวงจรปิด'
                 : 'เฉพาะเจ้าหน้าที่ที่ได้รับอนุญาตเท่านั้นที่สามารถเข้าถึงกล้องวงจรปิด'
         }
     });
@@ -331,27 +334,27 @@ app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) =
 
 // กำหนดข้อมูลกล้อง
 const CAMERAS = [
-    { 
-        id: 1, 
-        name: 'ทางเข้าหลัก', 
+    {
+        id: 1,
+        name: 'ทางเข้าหลัก',
         zone: 'โซน A',
         channel: '301',
         status: 'online',
         rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/301',
         webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F301'
     },
-    { 
-        id: 2, 
-        name: 'บริเวณกลาง', 
+    {
+        id: 2,
+        name: 'บริเวณกลาง',
         zone: 'โซน B',
         channel: '201',
         status: 'online',
         rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201',
         webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F201'
     },
-    { 
-        id: 3, 
-        name: 'ทางออก', 
+    {
+        id: 3,
+        name: 'ทางออก',
         zone: 'โซน C',
         channel: '501',
         status: 'online',
@@ -366,7 +369,7 @@ const AI_API_KEY = process.env.AI_API_KEY || 'kadkongta-ai-secret-2024';
 // Middleware ตรวจสอบ API Key สำหรับ AI Service
 const aiAuthMiddleware = (req, res, next) => {
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
-    
+
     if (!apiKey || apiKey !== AI_API_KEY) {
         return res.status(401).json({
             success: false,
@@ -399,14 +402,14 @@ app.get('/api/ai/cameras', aiAuthMiddleware, (req, res) => {
 app.get('/api/ai/cameras/:id', aiAuthMiddleware, (req, res) => {
     const cameraId = parseInt(req.params.id);
     const camera = CAMERAS.find(c => c.id === cameraId);
-    
+
     if (!camera) {
         return res.status(404).json({
             success: false,
             error: 'Camera not found'
         });
     }
-    
+
     res.json({
         success: true,
         data: {
@@ -424,14 +427,14 @@ app.get('/api/ai/cameras/:id', aiAuthMiddleware, (req, res) => {
 app.get('/api/ai/cameras/:id/stream-url', aiAuthMiddleware, (req, res) => {
     const cameraId = parseInt(req.params.id);
     const camera = CAMERAS.find(c => c.id === cameraId);
-    
+
     if (!camera) {
         return res.status(404).json({
             success: false,
             error: 'Camera not found'
         });
     }
-    
+
     res.json({
         success: true,
         data: {
@@ -447,11 +450,11 @@ app.get('/api/ai/cameras/:id/stream-url', aiAuthMiddleware, (req, res) => {
 
 // POST /api/ai/people-count - รับข้อมูลจำนวนคนจาก AI Service (รองรับทั้ง Realtime และ Playback Mode)
 app.post('/api/ai/people-count', aiAuthMiddleware, (req, res) => {
-    const { 
-        camera_id, 
+    const {
+        camera_id,
         count,           // Realtime mode
-        timestamp, 
-        confidence, 
+        timestamp,
+        confidence,
         detections,
         // Playback mode fields
         window_start,
@@ -463,30 +466,30 @@ app.post('/api/ai/people-count', aiAuthMiddleware, (req, res) => {
         sampling_fps,
         source_type
     } = req.body;
-    
+
     // ตรวจสอบว่าเป็น Playback Mode หรือ Realtime Mode
     const isPlaybackMode = source_type === 'playback' || (max_people !== undefined && window_start);
-    
+
     if (isPlaybackMode) {
         // === PLAYBACK MODE ===
         // รับข้อมูลจากการวิเคราะห์วิดีโอย้อนหลัง
-        
+
         if (typeof max_people !== 'number' || max_people < 0) {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid max_people value for playback mode'
             });
         }
-        
+
         // บันทึก max_people เป็น count หลัก (เพื่อใช้ใน dashboard)
         const result = peopleCountService.ingestPeopleCount(max_people, timestamp || new Date().toISOString());
-        
+
         // Log สำหรับ debug
         console.log(`[AI Playback] Camera ${camera_id || 'unknown'}:`);
         console.log(`   Window: ${window_start} → ${window_end}`);
         console.log(`   Max: ${max_people} | Avg: ${avg_people?.toFixed(1) || 'N/A'} | Min: ${min_people || 'N/A'}`);
         console.log(`   Frames: ${frames_processed || 'N/A'} @ ${sampling_fps || 1} fps`);
-        
+
         res.json({
             success: true,
             data: {
@@ -502,24 +505,24 @@ app.post('/api/ai/people-count', aiAuthMiddleware, (req, res) => {
                 timestamp: result.timestamp
             }
         });
-        
+
     } else {
         // === REALTIME MODE ===
         // รับข้อมูลแบบเดิม (single count per request)
-        
+
         if (typeof count !== 'number' || count < 0) {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid count value'
             });
         }
-        
+
         // บันทึกข้อมูล
         const result = peopleCountService.ingestPeopleCount(count, timestamp);
-        
+
         // Log สำหรับ debug
         console.log(`[AI Realtime] Camera ${camera_id || 'unknown'}: ${count} people (confidence: ${confidence || 'N/A'})`);
-        
+
         res.json({
             success: true,
             data: {
@@ -536,20 +539,20 @@ app.post('/api/ai/people-count', aiAuthMiddleware, (req, res) => {
 // POST /api/ai/people-count/batch - รับข้อมูลจำนวนคนจากหลายกล้องพร้อมกัน
 app.post('/api/ai/people-count/batch', aiAuthMiddleware, (req, res) => {
     const { counts } = req.body;
-    
+
     if (!Array.isArray(counts)) {
         return res.status(400).json({
             success: false,
             error: 'counts must be an array'
         });
     }
-    
+
     let totalCount = 0;
     const results = [];
-    
+
     for (const item of counts) {
         const { camera_id, count, timestamp, confidence } = item;
-        
+
         if (typeof count === 'number' && count >= 0) {
             totalCount += count;
             results.push({
@@ -560,10 +563,10 @@ app.post('/api/ai/people-count/batch', aiAuthMiddleware, (req, res) => {
             console.log(`[AI Batch] Camera ${camera_id}: ${count} people`);
         }
     }
-    
+
     // บันทึกจำนวนรวม
     const result = peopleCountService.ingestPeopleCount(totalCount, new Date().toISOString());
-    
+
     res.json({
         success: true,
         data: {
@@ -597,7 +600,7 @@ app.get('/api/ai/config', aiAuthMiddleware, (req, res) => {
 // GET /api/people/current - จำนวนคนปัจจุบัน (Real-time from AI)
 app.get('/api/people/current', (req, res) => {
     const data = peopleCountService.getCurrentCount();
-    
+
     res.json({
         success: true,
         data: {
@@ -618,7 +621,7 @@ app.get('/api/people/current', (req, res) => {
 app.get('/api/people/daily', (req, res) => {
     const { date } = req.query;
     const summary = peopleCountService.getDailySummary(date);
-    
+
     res.json({
         success: true,
         data: summary
@@ -638,7 +641,7 @@ app.post('/api/people/ingest', (req, res) => {
         source_type,
         confidence
     } = req.body;
-    
+
     // Validate required fields
     if (typeof people_count !== 'number' || people_count < 0) {
         return res.status(400).json({
@@ -646,7 +649,7 @@ app.post('/api/people/ingest', (req, res) => {
             error: 'Invalid people_count value'
         });
     }
-    
+
     // Ingest data
     const result = peopleCountService.ingestPeopleCount({
         stream_id: stream_id || 'unknown',
@@ -659,12 +662,12 @@ app.post('/api/people/ingest', (req, res) => {
         source_type: source_type || 'playback',
         confidence
     });
-    
+
     // Trigger crowd check after ingest (real-time alerts)
     earlyWarningService.processCrowdCheck().catch(err => {
         console.error('[Ingest] Crowd check error:', err.message);
     });
-    
+
     res.json({
         success: true,
         data: result.data
@@ -674,7 +677,7 @@ app.post('/api/people/ingest', (req, res) => {
 // GET /api/people/stats - สถิติล่าสุด (สำหรับ Dashboard)
 app.get('/api/people/stats', (req, res) => {
     const stats = peopleCountService.getLatestStats();
-    
+
     res.json({
         success: true,
         data: stats
@@ -684,7 +687,7 @@ app.get('/api/people/stats', (req, res) => {
 // GET /api/people/cameras - ข้อมูลทุกกล้อง
 app.get('/api/people/cameras', (req, res) => {
     const cameras = peopleCountService.getAllCamerasData();
-    
+
     res.json({
         success: true,
         data: cameras
@@ -695,7 +698,7 @@ app.get('/api/people/cameras', (req, res) => {
 app.get('/api/people/history', (req, res) => {
     const days = parseInt(req.query.days) || 7;
     const history = peopleCountService.getHistoricalData(days);
-    
+
     res.json({
         success: true,
         data: history,
@@ -707,7 +710,7 @@ app.get('/api/people/history', (req, res) => {
 app.get('/api/people/hourly', (req, res) => {
     const { date } = req.query;
     const hourly = peopleCountService.getHourlyData(date);
-    
+
     res.json({
         success: true,
         data: hourly
@@ -717,7 +720,7 @@ app.get('/api/people/hourly', (req, res) => {
 // GET /api/people/crowd-level - ระดับความแออัดปัจจุบัน
 app.get('/api/people/crowd-level', (req, res) => {
     const crowdLevel = peopleCountService.checkCrowdLevel();
-    
+
     res.json({
         success: true,
         data: crowdLevel
@@ -731,21 +734,21 @@ app.get('/api/dashboard', async (req, res) => {
     try {
         // จำนวนคนปัจจุบัน
         let peopleData = peopleCountService.getCurrentCount();
-        
+
         if (peopleData.count === 0 && !peopleData.timestamp) {
             peopleData = peopleCountService.generateMockCount();
         }
-        
+
         // Weather
         let weather = null;
         let airQuality = null;
-        
+
         try {
             const [weatherResult, airResult] = await Promise.all([
                 weatherService.getCurrentWeather(),
                 weatherService.getAirQuality()
             ]);
-            
+
             if (weatherResult.success) {
                 weather = {
                     temperature: weatherResult.data?.temperature?.current,
@@ -753,7 +756,7 @@ app.get('/api/dashboard', async (req, res) => {
                     description: weatherResult.data?.weather?.description
                 };
             }
-            
+
             if (airResult.success) {
                 airQuality = {
                     pm25: airResult.data?.components?.pm2_5?.value,
@@ -763,7 +766,7 @@ app.get('/api/dashboard', async (req, res) => {
         } catch (err) {
             console.warn('[Dashboard] Weather error:', err.message);
         }
-        
+
         res.json({
             success: true,
             data: {
@@ -789,7 +792,7 @@ app.get('/api/reports/daily', (req, res) => {
         const { date } = req.query;
         const summary = peopleCountService.getDailySummary(date);
         const hourly = peopleCountService.getHourlyData(date);
-        
+
         res.json({
             success: true,
             data: {
@@ -807,27 +810,27 @@ app.get('/api/reports/weekly', (req, res) => {
     try {
         // ดึงข้อมูลย้อนหลัง 30 วัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
         const allHistory = peopleCountService.getHistoricalDataMarketHours(30);
-        
+
         // Filter เฉพาะวันเสาร์ (6) และอาทิตย์ (0)
         const weekendHistory = allHistory.filter(day => {
             const date = new Date(day.date);
             const dayOfWeek = date.getDay();
             return dayOfWeek === 0 || dayOfWeek === 6; // 0 = อาทิตย์, 6 = เสาร์
         });
-        
+
         // จัดกลุ่มเป็นสัปดาห์ (เสาร์-อาทิตย์ คู่กัน)
         const weeks = [];
         let currentWeek = null;
-        
+
         weekendHistory.forEach(day => {
             const date = new Date(day.date);
             const dayOfWeek = date.getDay();
-            
+
             // หา week number (ISO week)
             const startOfYear = new Date(date.getFullYear(), 0, 1);
             const weekNumber = Math.ceil((((date - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
             const weekKey = `${date.getFullYear()}-W${weekNumber}`;
-            
+
             if (!currentWeek || currentWeek.weekKey !== weekKey) {
                 currentWeek = {
                     weekKey,
@@ -839,26 +842,26 @@ app.get('/api/reports/weekly', (req, res) => {
                 };
                 weeks.push(currentWeek);
             }
-            
+
             currentWeek.days.push(day);
             if (dayOfWeek === 6) currentWeek.saturday = day;
             if (dayOfWeek === 0) currentWeek.sunday = day;
         });
-        
+
         // คำนวณสรุปแต่ละสัปดาห์
         const weeklySummaries = weeks.map(week => {
             const totalDays = week.days.length;
             const maxPeople = totalDays > 0 ? Math.max(...week.days.map(d => d.max_people || 0)) : 0;
-            const avgPeople = totalDays > 0 
+            const avgPeople = totalDays > 0
                 ? Math.round(week.days.reduce((sum, d) => sum + (d.avg_people || 0), 0) / totalDays)
                 : 0;
             const totalSamples = week.days.reduce((sum, d) => sum + (d.total_samples || 0), 0);
-            
+
             // หาช่วงวันที่
             const dates = week.days.map(d => new Date(d.date)).sort((a, b) => a - b);
             const startDate = dates.length > 0 ? dates[0].toISOString().split('T')[0] : null;
             const endDate = dates.length > 0 ? dates[dates.length - 1].toISOString().split('T')[0] : null;
-            
+
             return {
                 week_key: week.weekKey,
                 week_number: week.weekNumber,
@@ -883,7 +886,7 @@ app.get('/api/reports/weekly', (req, res) => {
                 daily: week.days
             };
         });
-        
+
         // สรุปรวมทั้งหมด
         const overallSummary = {
             total_weeks: weeklySummaries.length,
@@ -895,7 +898,7 @@ app.get('/api/reports/weekly', (req, res) => {
             market_hours: '16:00-22:00',
             note: 'ข้อมูลนับเฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 น.)'
         };
-        
+
         res.json({
             success: true,
             data: {
@@ -914,7 +917,7 @@ app.get('/api/reports/history', (req, res) => {
     try {
         const days = parseInt(req.query.days) || 30;
         const history = peopleCountService.getHistoricalData(days);
-        
+
         res.json({
             success: true,
             data: history,
@@ -934,7 +937,7 @@ app.get('/api/weather/current', async (req, res) => {
             weatherService.getCurrentWeather(),
             weatherService.getAirQuality()
         ]);
-        
+
         // รวมข้อมูลให้ง่ายต่อการใช้งาน
         const data = {
             temperature: weatherResult.data?.temperature?.current ?? null,
@@ -944,7 +947,7 @@ app.get('/api/weather/current', async (req, res) => {
             pm25: airResult.data?.components?.pm2_5?.value ?? null,
             timestamp: new Date().toISOString()
         };
-        
+
         res.json({
             success: true,
             data: data
@@ -972,7 +975,7 @@ app.get('/api/weather', async (req, res) => {
             weatherService.getCurrentWeather(),
             weatherService.getAirQuality()
         ]);
-        
+
         res.json({
             success: true,
             data: {
@@ -991,7 +994,7 @@ app.get('/api/weather', async (req, res) => {
 app.get('/api/warnings/rain-check', async (req, res) => {
     try {
         const result = await earlyWarningService.checkRainForecast();
-        
+
         res.json({
             success: true,
             data: result
@@ -1005,7 +1008,7 @@ app.get('/api/warnings/rain-check', async (req, res) => {
 app.get('/api/warnings/forecast', async (req, res) => {
     try {
         const forecast = await earlyWarningService.getHourlyForecast();
-        
+
         res.json({
             success: true,
             data: forecast
@@ -1020,7 +1023,7 @@ app.post('/api/warnings/test', async (req, res) => {
     try {
         const { type } = req.body; // 'rain', 'crowd', 'critical', 'daily'
         const result = await earlyWarningService.testSendWarning(type || 'rain');
-        
+
         res.json({
             success: result.success,
             data: result
@@ -1054,21 +1057,21 @@ app.get('/api/system/status', (req, res) => {
 app.post('/api/notify/line', async (req, res) => {
     try {
         const { message, type } = req.body;
-        
+
         if (!message || typeof message !== 'string') {
             return res.status(400).json({
                 success: false,
                 error: 'กรุณาระบุข้อความที่ต้องการส่ง'
             });
         }
-        
+
         // จำกัดความยาวข้อความ
         const trimmedMessage = message.substring(0, 2000);
-        
+
         const result = await dailyReportService.sendLineMessage(trimmedMessage);
-        
+
         console.log(`[LINE Notify] Type: ${type || 'custom'}, Success: ${result.success}`);
-        
+
         res.json({
             success: result.success,
             message: result.success ? 'ส่งข้อความสำเร็จ' : 'ส่งข้อความไม่สำเร็จ',
@@ -1115,7 +1118,7 @@ Version 4.0 - Real-time Alerts
 Kad Kong Ta Smart Insight`;
 
         const result = await dailyReportService.sendLineMessage(testMessage);
-        
+
         res.json({
             success: result.success,
             message: result.success ? 'ส่งข้อความทดสอบสำเร็จ' : 'ส่งข้อความไม่สำเร็จ',
@@ -1130,7 +1133,7 @@ Kad Kong Ta Smart Insight`;
 app.get('/api/test/rain-warning', async (req, res) => {
     try {
         const result = await earlyWarningService.testSendWarning('rain');
-        
+
         res.json({
             success: result.success,
             message: result.success ? 'ส่ง Rain Warning สำเร็จ' : 'ส่งไม่สำเร็จ',
@@ -1145,7 +1148,7 @@ app.get('/api/test/rain-warning', async (req, res) => {
 app.get('/api/test/crowd-warning', async (req, res) => {
     try {
         const result = await earlyWarningService.testSendWarning('crowd');
-        
+
         res.json({
             success: result.success,
             message: result.success ? 'ส่ง Crowd Warning สำเร็จ' : 'ส่งไม่สำเร็จ',
@@ -1160,7 +1163,7 @@ app.get('/api/test/crowd-warning', async (req, res) => {
 app.get('/api/test/crowd-critical', async (req, res) => {
     try {
         const result = await earlyWarningService.testSendWarning('critical');
-        
+
         res.json({
             success: result.success,
             message: result.success ? 'ส่ง Critical Alert สำเร็จ' : 'ส่งไม่สำเร็จ',
@@ -1175,7 +1178,7 @@ app.get('/api/test/crowd-critical', async (req, res) => {
 app.get('/api/test/daily-report', async (req, res) => {
     try {
         const result = await earlyWarningService.testSendWarning('daily');
-        
+
         res.json({
             success: result.success,
             message: result.success ? 'ส่ง Daily Report สำเร็จ' : 'ส่งไม่สำเร็จ',
@@ -1190,7 +1193,7 @@ app.get('/api/test/daily-report', async (req, res) => {
 app.get('/api/test/forecast', async (req, res) => {
     try {
         const forecast = await earlyWarningService.getForecastSummary();
-        
+
         res.json({
             success: true,
             data: forecast
@@ -1215,14 +1218,14 @@ let rainCheckInterval = null;
 
 function startRainCheckScheduler() {
     const interval = 10 * 60 * 1000; // 10 นาที
-    
+
     console.log('[Rain Check] Starting scheduler (every 10 minutes)');
-    
+
     // ตรวจสอบครั้งแรกหลัง 1 นาที (รอ server พร้อม)
     setTimeout(() => {
         earlyWarningService.processRainCheck();
     }, 60 * 1000);
-    
+
     // ตั้ง interval
     rainCheckInterval = setInterval(() => {
         earlyWarningService.processRainCheck();
@@ -1242,10 +1245,10 @@ const sentToday = {
 
 function startLineScheduler() {
     console.log('[LINE Scheduler] Starting (Daily Report: Sat-Sun 23:00)');
-    
+
     // ตรวจสอบทุก 1 นาที
     lineSchedulerInterval = setInterval(checkAndSendDailyReport, 60 * 1000);
-    
+
     // ตรวจสอบครั้งแรกทันที
     checkAndSendDailyReport();
 }
@@ -1258,7 +1261,7 @@ async function checkAndSendDailyReport() {
     const minute = nowBangkok.getMinutes();
     const dayOfWeek = nowBangkok.getDay(); // 0 = อาทิตย์, 6 = เสาร์
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    
+
     // Daily Report: เฉพาะวันเสาร์-อาทิตย์ เวลา 23:00 (ตาม PROMPT)
     if (isWeekend && hour === 23 && minute === 0 && sentToday.dailyReport !== today) {
         console.log('[LINE Scheduler] Sending Daily Report (Weekend 23:00)...');
@@ -1286,7 +1289,7 @@ function setupLineSender() {
             return { success: false, error: error.message };
         }
     });
-    
+
     console.log('[LINE Sender] Connected to Early Warning Service');
 }
 
@@ -1304,7 +1307,7 @@ function setupAlertCallbacks() {
             await earlyWarningService.sendCrowdCritical(data);
         }
     });
-    
+
     console.log('[Alert Callbacks] Connected to People Count Service');
 }
 
@@ -1315,7 +1318,7 @@ async function start() {
     console.log('');
     console.log('Features: Real-time Alerts, Rain Forecast, Crowd Warning');
     console.log('');
-    
+
     try {
         console.log('Validating configuration...');
         validateConfig();
@@ -1325,13 +1328,13 @@ async function start() {
 
         console.log('Setting up LINE sender...');
         setupLineSender();
-        
+
         console.log('Setting up alert callbacks...');
         setupAlertCallbacks();
 
         console.log('Starting rain check scheduler (every 10 min)...');
         startRainCheckScheduler();
-        
+
         console.log('Starting LINE notification scheduler...');
         startLineScheduler();
 
