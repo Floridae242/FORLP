@@ -26,6 +26,29 @@ export const api = {
   getHourlyData: (date?: string) =>
     fetcher<HourlyDataPoint[]>(date ? `/api/people/hourly?date=${date}` : "/api/people/hourly"),
   getWeather: () => fetcher<WeatherData>("/api/weather/current"),
+  getZones: async (): Promise<ZoneDensity[]> => {
+    const json = await fetch(
+      `${API_BASE}/api/zones/current`,
+      { cache: "no-store" }
+    );
+    if (!json.ok) throw new Error(`Zones API ${json.status}`);
+    const body = await json.json();
+    const data = body.data;
+    return (data.zones as Array<{
+      zone_code: string;
+      name: string;
+      percentage: number;
+      estimated_count: number | null;
+      crowd_level: string;
+    }>).map((z) => ({
+      zone: z.zone_code,
+      label: z.name,
+      density: z.estimated_count ?? 0,
+      capacity: data.total_people ?? 0,
+      percentage: z.percentage,
+      status: z.crowd_level as import("@/types").CrowdStatus,
+    }));
+  },
 };
 
 // ─────────────────────────────────────────────────────
