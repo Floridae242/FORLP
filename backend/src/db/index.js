@@ -247,6 +247,9 @@ export const queries = {
     },
 
     // ==================== ZONE ESTIMATES ====================
+    /**
+     * @returns {{ zone_code: string, percentage: number, updated_by: string|null, updated_at: string|null }[]}
+     */
     getZoneEstimates: () => {
         const rows = getDb().prepare(
             'SELECT * FROM zone_estimates ORDER BY zone_code'
@@ -261,6 +264,11 @@ export const queries = {
         return rows;
     },
 
+    /**
+     * @param {{ A: number, B: number, C: number }} percentages - must sum to 100
+     * @param {string} updatedBy - officer display name
+     * @returns {string} ISO timestamp of the update
+     */
     updateZoneEstimates: (percentages, updatedBy) => {
         const stmt = getDb().prepare(
             'INSERT OR REPLACE INTO zone_estimates (zone_code, percentage, updated_by, updated_at) VALUES (?, ?, ?, ?)'
@@ -272,5 +280,6 @@ export const queries = {
             }
         });
         insertAll(Object.entries(percentages));
+        return now;
     }
 };
