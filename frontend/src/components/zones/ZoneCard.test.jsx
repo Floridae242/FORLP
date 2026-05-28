@@ -35,3 +35,8 @@ test('renders crowd label', () => {
     render(<ZoneCard zone={baseZone} />);
     expect(screen.getByText('ค่อนข้างแออัด')).toBeInTheDocument();
 });
+
+test('renders without crashing when crowd_level is unknown', () => {
+    render(<ZoneCard zone={{ ...baseZone, crowd_level: 'unknown_value' }} />);
+    expect(screen.getByText('โซน A')).toBeInTheDocument();
+});

@@ -1,3 +1,6 @@
+/**
+ * @param {{ zone: { zone_code: string, name: string, percentage: number, estimated_count: number|null, crowd_label: string, crowd_level: string } }} props
+ */
 const COLORS = {
     normal:   { bg: '#f0fff4', border: '#9ae6b4', text: '#276749', bar: '#48bb78' },
     moderate: { bg: '#fffbeb', border: '#fcd34d', text: '#92400e', bar: '#f59e0b' },
