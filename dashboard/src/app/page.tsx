@@ -10,6 +10,7 @@ import { TrafficChart } from "@/components/charts/TrafficChart";
 import { LiveMap } from "@/components/map/LiveMap";
 import { HeatmapGrid } from "@/components/dashboard/HeatmapGrid";
 import { CCTVGrid } from "@/components/dashboard/CCTVGrid";
+import { ZoneCards } from "@/components/dashboard/ZoneCards";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   Users,
@@ -107,6 +108,11 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+
+        {/* ─── Zone Crowd Estimates ─── */}
+        <div className="mb-4">
+          <ZoneCards zones={zones} />
+        </div>
 
         {/* ─── Top: Key Metrics with Sparklines ─── */}
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
