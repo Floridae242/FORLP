@@ -244,5 +244,33 @@ export const queries = {
             people_counts_deleted: result1.changes,
             line_logs_deleted: result2.changes
         };
+    },
+
+    // ==================== ZONE ESTIMATES ====================
+    getZoneEstimates: () => {
+        const rows = getDb().prepare(
+            'SELECT * FROM zone_estimates ORDER BY zone_code'
+        ).all();
+        if (rows.length === 0) {
+            return [
+                { zone_code: 'A', percentage: 60, updated_by: null, updated_at: null },
+                { zone_code: 'B', percentage: 30, updated_by: null, updated_at: null },
+                { zone_code: 'C', percentage: 10, updated_by: null, updated_at: null },
+            ];
+        }
+        return rows;
+    },
+
+    updateZoneEstimates: (percentages, updatedBy) => {
+        const stmt = getDb().prepare(
+            'INSERT OR REPLACE INTO zone_estimates (zone_code, percentage, updated_by, updated_at) VALUES (?, ?, ?, ?)'
+        );
+        const now = new Date().toISOString();
+        const insertAll = getDb().transaction((pairs) => {
+            for (const [code, pct] of pairs) {
+                stmt.run(code, pct, updatedBy, now);
+            }
+        });
+        insertAll(Object.entries(percentages));
     }
 };
