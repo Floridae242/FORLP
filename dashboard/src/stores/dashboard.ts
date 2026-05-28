@@ -90,7 +90,12 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       }
 
       const cameras = REAL_CAMERAS;
-      const zones = realZones();
+      let zones: ZoneDensity[];
+      try {
+        zones = await api.getZones();
+      } catch {
+        zones = realZones();
+      }
       const hourlyPeak = realHourlyPeak();
       const hourlyNormal = realHourlyNormal();
 
