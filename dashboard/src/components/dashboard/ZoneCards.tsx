@@ -34,7 +34,7 @@ function ZoneCard({ zone }: { zone: ZoneDensity }) {
       <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${zone.percentage}%`, background: c.bar }}
+          style={{ width: `${Math.min(100, Math.max(0, zone.percentage))}%`, background: c.bar }}
         />
       </div>
 
@@ -54,7 +54,7 @@ export function ZoneCards({ zones }: { zones: ZoneDensity[] }) {
       <h3 className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3 font-thai">
         ความหนาแน่นตามโซน
       </h3>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {zones.map((z) => (
           <ZoneCard key={z.zone} zone={z} />
         ))}
