@@ -51,6 +51,14 @@ export const config = {
     cameraApiUrl: process.env.CAMERA_API_URL || '',
     cameraApiKey: process.env.CAMERA_API_KEY || '',
 
+    // ==================== NVR Camera Credentials ====================
+    nvrHostA: process.env.NVR_HOST_A || '',
+    nvrHostB: process.env.NVR_HOST_B || '',
+    nvrUser: process.env.NVR_USER || '',
+    nvrPass: process.env.NVR_PASS || '',
+    webrtcBaseUrl: process.env.WEBRTC_BASE_URL || '',
+    aiApiKey: process.env.AI_API_KEY || '',
+
     // ==================== Polling Settings ====================
     pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 60000, 
 

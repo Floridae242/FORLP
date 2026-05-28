@@ -1,41 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
 
-// กล้องทั้งหมด 6 ตัว - ตลาดกาดกองต้า
-const CAMERA_STREAMS = {
-    1: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.4%3A554%2FStreaming%2FChannels%2F201',
-    2: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F201',
-    3: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F301',
-    4: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.4%3A554%2FStreaming%2FChannels%2F401',
-    5: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F501',
-    6: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F601',
-};
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
-const CAMERA_TRACKS = {
-    1: { track: '201', ip: '10.0.10.4' },
-    2: { track: '201', ip: '10.0.10.3' },
-    3: { track: '301', ip: '10.0.10.3' },
-    4: { track: '401', ip: '10.0.10.4' },
-    5: { track: '501', ip: '10.0.10.3' },
-    6: { track: '601', ip: '10.0.10.3' },
-};
+async function fetchCameraStreams() {
+    const sessionToken = localStorage.getItem('forlp_session_token');
+    const res = await fetch(`${API_BASE_URL}/api/cctv/streams`, {
+        headers: { 'Authorization': `Bearer ${sessionToken}` },
+    });
+    if (!res.ok) throw new Error(`Camera API error: ${res.status}`);
+    const json = await res.json();
+    return json.data.cameras;
+}
 
-const generatePlaybackUrl = (cameraId, startTime, endTime) => {
-    const { track, ip } = CAMERA_TRACKS[cameraId];
-    const formatDateTime = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${year}${month}${day}t${hours}${minutes}${seconds}z`;
-    };
-
-    const startStr = formatDateTime(startTime);
-    const endStr = formatDateTime(endTime);
-
-    return `https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%40${ip}%3A554%2FStreaming%2Ftracks%2F${track}%3Fstarttime%3D${startStr}%26endtime%3D${endStr}`;
-};
+async function fetchPlaybackUrl(cameraId, startTime, endTime) {
+    const sessionToken = localStorage.getItem('forlp_session_token');
+    const res = await fetch(`${API_BASE_URL}/api/cctv/playback-url`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+            cameraId,
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+        }),
+    });
+    if (!res.ok) throw new Error(`Playback URL error: ${res.status}`);
+    const json = await res.json();
+    return json.data.webrtc_url;
+}
 
 // Styles object for cleaner component
 const styles = {
@@ -166,14 +160,20 @@ const styles = {
 };
 
 export default function CameraPage() {
-    const [cameras] = useState([
-        { id: 1, name: 'LPG-A01-CC-01 ตลาดกาดกองต้า (PTZ)', zone: 'โซน A', status: 'online' },
-        { id: 2, name: 'LPG-A01-CC-02 ตลาดกาดกองต้า', zone: 'โซน A', status: 'online' },
-        { id: 3, name: 'LPG-B01-CC-01 ฝั่งสะพานรัษฎา', zone: 'โซน B', status: 'online' },
-        { id: 4, name: 'LPG-B01-CC-02 ฝั่งสะพานรัษฎา (PTZ)', zone: 'โซน B', status: 'online' },
-        { id: 5, name: 'LPG-B02-CC-01 ตลาดเก่า', zone: 'โซน B', status: 'online' },
-        { id: 6, name: 'LPG-B02-CC-02 ตลาดเก่า', zone: 'โซน B', status: 'online' },
-    ]);
+    const [cameras, setCameras] = useState([]);
+    const [cameraStreamUrls, setCameraStreamUrls] = useState({});
+    const [cameraError, setCameraError] = useState(null);
+
+    useEffect(() => {
+        fetchCameraStreams()
+            .then((list) => {
+                setCameras(list);
+                const urlMap = {};
+                list.forEach((c) => { urlMap[c.id] = c.webrtc_url; });
+                setCameraStreamUrls(urlMap);
+            })
+            .catch((err) => setCameraError(err.message));
+    }, []);
     const [selectedCamera, setSelectedCamera] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -237,7 +237,7 @@ export default function CameraPage() {
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    const handlePlayback = () => {
+    const handlePlayback = async () => {
         const startDateTime = new Date(playbackDate);
         startDateTime.setHours(
             parseInt(playbackStartHour),
@@ -256,9 +256,13 @@ export default function CameraPage() {
             endDateTime.setDate(endDateTime.getDate() + 1);
         }
 
-        const url = generatePlaybackUrl(selectedCamera, startDateTime, endDateTime);
-        setPlaybackUrl(url);
-        setViewMode('playback');
+        try {
+            const url = await fetchPlaybackUrl(selectedCamera, startDateTime, endDateTime);
+            setPlaybackUrl(url);
+            setViewMode('playback');
+        } catch (err) {
+            setCameraError(`ไม่สามารถโหลดวิดีโอย้อนหลัง: ${err.message}`);
+        }
     };
 
     const switchToLive = () => {
@@ -271,10 +275,16 @@ export default function CameraPage() {
     };
 
     const currentCamera = cameras.find(c => c.id === selectedCamera);
-    const currentStreamUrl = viewMode === 'live' ? CAMERA_STREAMS[selectedCamera] : playbackUrl;
+    const currentStreamUrl = viewMode === 'live' ? cameraStreamUrls[selectedCamera] : playbackUrl;
 
     return (
         <div className="page-container">
+            {cameraError && (
+                <div style={{ padding: '12px 16px', background: 'var(--status-danger-bg, #fff5f5)', color: 'var(--status-danger, #c53030)', borderRadius: 'var(--border-radius)', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                    ⚠ {cameraError}
+                </div>
+            )}
+
             {/* Header */}
             <header className="page-header">
                 <h1 className="page-title">กล้องวงจรปิด</h1>
@@ -491,7 +501,7 @@ export default function CameraPage() {
                         >
                             <div className="camera-thumbnail-preview">
                                 <iframe
-                                    src={CAMERA_STREAMS[camera.id]}
+                                    src={cameraStreamUrls[camera.id]}
                                     title={camera.name}
                                     style={{
                                         width: '100%',

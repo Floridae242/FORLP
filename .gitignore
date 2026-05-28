@@ -1,1 +1,16 @@
 node_modules
+
+# Environment files — never commit real credentials
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+dashboard/.env
+dashboard/.env.local
+ai-service/.env
+
+# Keep examples in version control
+!.env.example
+!backend/.env.example
+!frontend/.env.example
