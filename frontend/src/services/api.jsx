@@ -207,6 +207,35 @@ export async function verifyOfficerToken(officerToken) {
 }
 
 // =====================================================
+// ZONE ESTIMATES APIs
+// =====================================================
+
+/**
+ * GET /api/zones/current — สัดส่วนผู้คนในแต่ละโซน
+ */
+export async function getZoneCurrent() {
+    const result = await apiFetch('/api/zones/current');
+    return result.data;
+}
+
+/**
+ * POST /api/zones/update — อัปเดตสัดส่วนโซน (officer only)
+ * @param {{ A: number, B: number, C: number }} percentages
+ */
+export async function updateZones(percentages) {
+    const sessionToken = localStorage.getItem('forlp_session_token');
+    const result = await apiFetch('/api/zones/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify(percentages),
+    });
+    return result.data;
+}
+
+// =====================================================
 // HEALTH CHECK
 // =====================================================
 
@@ -260,35 +289,39 @@ export const api = {
     getCrowdLevel,
     getHistoricalData,
     getHourlyData,
-    
+
     // Weather
     getCurrentWeather,
     getWeatherForecast,
     checkRainForecast,
-    
+
     // Dashboard
     getDashboardData,
-    
+
     // Reports
     getDailyReport,
     getWeeklyReport,
     getReportHistory,
-    
+
     // LINE Notification
     sendLineNotification,
     getNotifyStatus,
-    
+
     // Auth
     verifyOfficerToken,
-    
+
+    // Zone Estimates
+    getZoneCurrent,
+    updateZones,
+
     // Health
     checkHealth,
-    
+
     // Utilities
     calculateStaleness,
     isDataStale,
     formatStaleness,
-    
+
     // Config
     API_BASE_URL,
 };
