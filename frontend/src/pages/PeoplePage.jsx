@@ -7,6 +7,8 @@ import {
     getCurrentPeopleCount, getDailySummary, getHourlyData,
     getHistoricalData, isDataStale, sendLineNotification
 } from '../services/api.jsx';
+import { useAuth } from '../contexts/AuthContext';
+import ZoneHeatmap from '../components/zones/ZoneHeatmap';
 
 // =====================================================
 // CONSTANTS — ปรับ threshold ตาม PDF เทศบาลนครลำปาง
@@ -107,6 +109,8 @@ function ChartTooltip({ active, payload, label }) {
 // MAIN COMPONENT
 // =====================================================
 export default function PeoplePage() {
+    const { user } = useAuth();
+    const isOfficer = user?.role === 'officer';
     const [currentData, setCurrentData] = useState(null);
     const [dailyData, setDailyData] = useState(null);
     const [hourlyData, setHourlyData] = useState([]);
@@ -346,6 +350,9 @@ export default function PeoplePage() {
                     <span className="update-auto">• ข้อมูลจากระบบอัตโนมัติ</span>
                 </div>
             </div>
+
+            {/* ═══════ ZONE HEATMAP ═══════ */}
+            <ZoneHeatmap isOfficer={isOfficer} />
 
             {/* ═══════ ข้อมูลจาก PDF Report ═══════ */}
             <section className="section" style={{ marginTop: '1.5rem' }}>
