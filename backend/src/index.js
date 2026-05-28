@@ -7,7 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import { config, validateConfig } from './config/index.js';
-import { initDatabase } from './db/index.js';
+import { initDatabase, queries } from './db/index.js';
 import {
     setupGlobalErrorHandlers,
     ErrorLogger,
@@ -317,54 +317,146 @@ app.post('/api/auth/verify-officer', authMiddleware, (req, res) => {
 
 // GET /api/cctv/streams - ดึงรายการกล้อง (เจ้าหน้าที่เท่านั้น)
 app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) => {
-    // สำหรับ demo - ส่งรายการกล้องจำลอง
     res.json({
         success: true,
         data: {
-            cameras: [
-                { id: 'cam-1', name: 'กล้อง A', location: 'โซน A', status: 'online' },
-                { id: 'cam-2', name: 'กล้อง B', location: 'โซน B', status: 'online' },
-                { id: 'cam-3', name: 'กล้อง C', location: 'โซน C', status: 'online' }
-            ]
+            cameras: CAMERAS.map(({ id, name, zone, channel, status, webrtc_url }) =>
+                ({ id, name, zone, channel, status, webrtc_url }))
         }
     });
 });
 
+// POST /api/cctv/playback-url — สร้าง playback URL ฝั่ง server โดยไม่เปิดเผย credentials ให้ frontend
+app.post('/api/cctv/playback-url', authMiddleware, officerOnlyMiddleware, (req, res) => {
+    const { cameraId, startTime, endTime } = req.body;
+    const camera = CAMERAS.find(c => c.id === parseInt(cameraId));
+
+    if (!camera) {
+        return res.status(404).json({ success: false, error: 'Camera not found' });
+    }
+
+    const { nvrUser, nvrPass, webrtcBaseUrl } = config;
+    if (!webrtcBaseUrl || !nvrUser) {
+        return res.status(503).json({ success: false, error: 'Camera credentials not configured' });
+    }
+
+    const formatDt = (iso) => {
+        const d = new Date(iso);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}t${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}z`;
+    };
+
+    const u = encodeURIComponent(nvrUser);
+    const p = encodeURIComponent(nvrPass);
+    const start = formatDt(startTime);
+    const end = formatDt(endTime);
+    const webrtc_url = `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${camera.host}%3A554%2FStreaming%2Ftracks%2F${camera.channel}%3Fstarttime%3D${start}%26endtime%3D${end}`;
+
+    res.json({ success: true, data: { webrtc_url } });
+});
+
+// ==================== ZONE ESTIMATES API ====================
+
+const ZONE_NAMES = { A: 'ถนนคนเดิน', B: 'สะพานรัษฎา', C: 'ตลาดเก่า' };
+
+function zoneStatusFromCount(count) {
+    if (count >= 2501) return { crowd_level: 'crowded',  crowd_label: 'แออัด' };
+    if (count >= 1201) return { crowd_level: 'busy',     crowd_label: 'ค่อนข้างแออัด' };
+    if (count >= 501)  return { crowd_level: 'moderate', crowd_label: 'ปกติ' };
+    return             { crowd_level: 'normal',   crowd_label: 'เบาบาง' };
+}
+
+function buildZoneResponse() {
+    const current = peopleCountService.getCurrentCount();
+    const total = current?.smoothed_count ?? current?.count ?? 0;
+    const rows = queries.getZoneEstimates();
+
+    const zones = rows.map((row) => {
+        const estimated_count = total > 0
+            ? Math.round((row.percentage / 100) * total)
+            : null;
+        return {
+            zone_code: row.zone_code,
+            name: ZONE_NAMES[row.zone_code] || row.zone_code,
+            percentage: row.percentage,
+            estimated_count,
+            ...zoneStatusFromCount(estimated_count ?? 0),
+        };
+    });
+
+    const lastRow = rows.find((r) => r.updated_at);
+    return {
+        total_people: total,
+        updated_by: lastRow?.updated_by ?? null,
+        updated_at: lastRow?.updated_at ?? null,
+        zones,
+    };
+}
+
+// GET /api/zones/current — สัดส่วนผู้คนในแต่ละโซน (public)
+app.get('/api/zones/current', (req, res) => {
+    res.json({ success: true, data: buildZoneResponse() });
+});
+
+// POST /api/zones/update — อัปเดตสัดส่วนโซน (officer only)
+app.post('/api/zones/update', authMiddleware, officerOnlyMiddleware, (req, res) => {
+    const { A, B, C } = req.body;
+
+    if (typeof A !== 'number' || typeof B !== 'number' || typeof C !== 'number') {
+        return res.status(400).json({
+            success: false,
+            error: 'A, B, C ต้องเป็นตัวเลข',
+        });
+    }
+
+    const sum = A + B + C;
+    if (Math.abs(sum - 100) > 0.5) {
+        return res.status(400).json({
+            success: false,
+            error: `สัดส่วนรวมต้องเท่ากับ 100 (ได้รับ ${sum.toFixed(1)})`,
+        });
+    }
+
+    const updatedBy = req.user?.displayName || req.user?.userId || 'เจ้าหน้าที่';
+    queries.updateZoneEstimates({ A, B, C }, updatedBy);
+
+    res.json({ success: true, data: buildZoneResponse() });
+});
+
 // ==================== CAMERA API FOR AI SERVICE ====================
 
-// กำหนดข้อมูลกล้อง
-const CAMERAS = [
-    {
-        id: 1,
-        name: 'ทางเข้าหลัก',
-        zone: 'โซน A',
-        channel: '301',
-        status: 'online',
-        rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/301',
-        webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F301'
-    },
-    {
-        id: 2,
-        name: 'บริเวณกลาง',
-        zone: 'โซน B',
-        channel: '201',
-        status: 'online',
-        rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/201',
-        webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F201'
-    },
-    {
-        id: 3,
-        name: 'ทางออก',
-        zone: 'โซน C',
-        channel: '501',
-        status: 'online',
-        rtsp_url: 'rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/501',
-        webrtc_url: 'https://iocpiramid.com:8085/webrtc.html?src=rtsp%3A%2F%2Fadmin%3AP1r%40m1dnvrLpg%4010.0.10.3%3A554%2FStreaming%2FChannels%2F501'
-    }
-];
+// สร้างข้อมูลกล้องจาก environment variables — credentials ไม่ถูก hardcode ในโค้ด
+function buildCameras() {
+    const { nvrHostA, nvrHostB, nvrUser, nvrPass, webrtcBaseUrl } = config;
+    const u = encodeURIComponent(nvrUser);
+    const p = encodeURIComponent(nvrPass);
 
-// API Key สำหรับ AI Service (ควรเก็บใน Environment Variable)
-const AI_API_KEY = process.env.AI_API_KEY || 'kadkongta-ai-secret-2024';
+    const makeRtsp = (host, channel) =>
+        nvrUser ? `rtsp://${nvrUser}:${nvrPass}@${host}:554/Streaming/Channels/${channel}` : '';
+    const makeWebrtc = (host, channel) =>
+        webrtcBaseUrl ? `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${host}%3A554%2FStreaming%2FChannels%2F${channel}` : '';
+    const makePlaybackWebrtc = (host, track, start, end) =>
+        webrtcBaseUrl ? `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${host}%3A554%2FStreaming%2Ftracks%2F${track}%3Fstarttime%3D${start}%26endtime%3D${end}` : '';
+
+    return [
+        { id: 1, name: 'LPG-A01-CC-01 ตลาดกาดกองต้า (PTZ)', zone: 'โซน A', channel: '201', host: nvrHostB, status: 'online',
+          rtsp_url: makeRtsp(nvrHostB, '201'), webrtc_url: makeWebrtc(nvrHostB, '201') },
+        { id: 2, name: 'LPG-A01-CC-02 ตลาดกาดกองต้า', zone: 'โซน A', channel: '201', host: nvrHostA, status: 'online',
+          rtsp_url: makeRtsp(nvrHostA, '201'), webrtc_url: makeWebrtc(nvrHostA, '201') },
+        { id: 3, name: 'LPG-B01-CC-01 ฝั่งสะพานรัษฎา', zone: 'โซน B', channel: '301', host: nvrHostA, status: 'online',
+          rtsp_url: makeRtsp(nvrHostA, '301'), webrtc_url: makeWebrtc(nvrHostA, '301') },
+        { id: 4, name: 'LPG-B01-CC-02 ฝั่งสะพานรัษฎา (PTZ)', zone: 'โซน B', channel: '401', host: nvrHostB, status: 'online',
+          rtsp_url: makeRtsp(nvrHostB, '401'), webrtc_url: makeWebrtc(nvrHostB, '401') },
+        { id: 5, name: 'LPG-B02-CC-01 ตลาดเก่า', zone: 'โซน B', channel: '501', host: nvrHostA, status: 'online',
+          rtsp_url: makeRtsp(nvrHostA, '501'), webrtc_url: makeWebrtc(nvrHostA, '501') },
+        { id: 6, name: 'LPG-B02-CC-02 ตลาดเก่า', zone: 'โซน B', channel: '601', host: nvrHostA, status: 'online',
+          rtsp_url: makeRtsp(nvrHostA, '601'), webrtc_url: makeWebrtc(nvrHostA, '601') },
+    ];
+}
+const CAMERAS = buildCameras();
+
+// API Key สำหรับ AI Service — ต้องตั้งค่า AI_API_KEY ใน environment variables
+const AI_API_KEY = config.aiApiKey;
 
 // Middleware ตรวจสอบ API Key สำหรับ AI Service
 const aiAuthMiddleware = (req, res, next) => {
