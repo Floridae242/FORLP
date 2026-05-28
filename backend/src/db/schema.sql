@@ -219,3 +219,10 @@ CREATE TABLE IF NOT EXISTS crowd_alerts (
 CREATE INDEX IF NOT EXISTS idx_crowd_alerts_date ON crowd_alerts(DATE(created_at));
 CREATE INDEX IF NOT EXISTS idx_crowd_alerts_level ON crowd_alerts(alert_level);
 
+-- Zone Estimates (สัดส่วนผู้คนในแต่ละโซน — บันทึกโดยเจ้าหน้าที่)
+CREATE TABLE IF NOT EXISTS zone_estimates (
+  zone_code   TEXT PRIMARY KEY,   -- 'A', 'B', or 'C'
+  percentage  REAL NOT NULL,      -- 0–100; three rows must always sum to 100
+  updated_by  TEXT,               -- officer display name
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
