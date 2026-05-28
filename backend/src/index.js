@@ -395,17 +395,25 @@ function buildZoneResponse() {
 
 // GET /api/zones/current — สัดส่วนผู้คนในแต่ละโซน (public)
 app.get('/api/zones/current', (req, res) => {
-    res.json({ success: true, data: buildZoneResponse() });
+    try {
+        res.json({ success: true, data: buildZoneResponse() });
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'ไม่สามารถโหลดข้อมูลโซนได้' });
+    }
 });
 
 // POST /api/zones/update — อัปเดตสัดส่วนโซน (officer only)
 app.post('/api/zones/update', authMiddleware, officerOnlyMiddleware, (req, res) => {
     const { A, B, C } = req.body;
 
-    if (typeof A !== 'number' || typeof B !== 'number' || typeof C !== 'number') {
+    if (
+        typeof A !== 'number' || typeof B !== 'number' || typeof C !== 'number' ||
+        !Number.isFinite(A) || !Number.isFinite(B) || !Number.isFinite(C) ||
+        A < 0 || A > 100 || B < 0 || B > 100 || C < 0 || C > 100
+    ) {
         return res.status(400).json({
             success: false,
-            error: 'A, B, C ต้องเป็นตัวเลข',
+            error: 'A, B, C ต้องเป็นตัวเลขระหว่าง 0–100',
         });
     }
 
@@ -418,9 +426,16 @@ app.post('/api/zones/update', authMiddleware, officerOnlyMiddleware, (req, res) 
     }
 
     const updatedBy = req.user?.displayName || req.user?.userId || 'เจ้าหน้าที่';
-    queries.updateZoneEstimates({ A, B, C }, updatedBy);
 
-    res.json({ success: true, data: buildZoneResponse() });
+    try {
+        queries.updateZoneEstimates({ A, B, C }, updatedBy);
+        res.json({ success: true, data: buildZoneResponse() });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง',
+        });
+    }
 });
 
 // ==================== CAMERA API FOR AI SERVICE ====================
