@@ -6,14 +6,13 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
-            '/api': {
-                target: 'http://localhost:3001',
-                changeOrigin: true
-            },
-            '/line': {
-                target: 'http://localhost:3001',
-                changeOrigin: true
-            }
-        }
-    }
+            '/api': { target: 'http://localhost:3001', changeOrigin: true },
+            '/line': { target: 'http://localhost:3001', changeOrigin: true },
+        },
+    },
+    test: {
+        environment: 'jsdom',
+        globals: true,
+        setupFiles: './src/test-setup.js',
+    },
 });
