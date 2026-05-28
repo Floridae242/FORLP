@@ -4,8 +4,11 @@ import { updateZones } from '../../services/api.jsx';
 const ZONE_LABELS = { A: 'โซน A — ถนนคนเดิน', B: 'โซน B — สะพานรัษฎา', C: 'โซน C — ตลาดเก่า' };
 
 export default function ZoneUpdateModal({ currentZones, onClose, onSaved }) {
-    const initial = { A: 60, B: 30, C: 10 };
-    currentZones?.forEach((z) => { initial[z.zone_code] = z.percentage; });
+    const initial = {
+        A: currentZones?.find((z) => z.zone_code === 'A')?.percentage ?? 60,
+        B: currentZones?.find((z) => z.zone_code === 'B')?.percentage ?? 30,
+        C: currentZones?.find((z) => z.zone_code === 'C')?.percentage ?? 10,
+    };
 
     const [values, setValues] = useState(initial);
     const [error, setError] = useState(null);

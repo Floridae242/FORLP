@@ -340,6 +340,10 @@ app.post('/api/cctv/playback-url', authMiddleware, officerOnlyMiddleware, (req, 
         return res.status(503).json({ success: false, error: 'Camera credentials not configured' });
     }
 
+    if (!startTime || !endTime || isNaN(new Date(startTime).getTime()) || isNaN(new Date(endTime).getTime())) {
+        return res.status(400).json({ success: false, error: 'startTime and endTime must be valid ISO strings' });
+    }
+
     const formatDt = (iso) => {
         const d = new Date(iso);
         const pad = (n) => String(n).padStart(2, '0');
