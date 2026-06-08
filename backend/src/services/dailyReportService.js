@@ -18,7 +18,7 @@ export async function generateDailyReport(date = null) {
     
     try {
         // 1. ดึงสรุปจำนวนคน (รวมทุกกล้องเป็นค่าเดียว)
-        const peopleSummary = peopleCountService.getDailySummary(reportDate);
+        const peopleSummary = await peopleCountService.getDailySummary(reportDate);
         
         // 2. ดึงข้อมูล Weather และ PM2.5
         const weatherData = await getWeatherSummary();

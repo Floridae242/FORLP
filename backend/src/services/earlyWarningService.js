@@ -543,7 +543,7 @@ export async function processDailyReport(date = null) {
     
     try {
         // ดึงสรุปจำนวนคน
-        const peopleSummary = peopleCountService.getDailySummary(reportDate);
+        const peopleSummary = await peopleCountService.getDailySummary(reportDate);
         
         // ดึงข้อมูลสภาพอากาศ (ถ้ามี)
         let weatherSummary = 'ไม่มีข้อมูล';
