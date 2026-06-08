@@ -7,13 +7,15 @@
 import { useState } from 'react';
 import { useAuth, ROLE_INFO } from '../contexts/AuthContext';
 import { verifyOfficerToken } from '../services/api';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function SettingsPage() {
-    const { 
-        user, 
-        isAuthenticated, 
-        logout, 
-        error, 
+    usePageTitle('ตั้งค่า');
+    const {
+        user,
+        isAuthenticated,
+        logout,
+        error,
         clearError, 
         loading,
         isProcessingCallback,

@@ -6,6 +6,7 @@
    ===================================================== */
 
 import { useState, useEffect } from 'react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
@@ -99,6 +100,7 @@ function formatTime(isoString) {
 }
 
 export default function WeatherPage() {
+    usePageTitle('สภาพอากาศ');
     const [weather, setWeather] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);

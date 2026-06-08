@@ -72,7 +72,7 @@ export default function ZoneHeatmap({ isOfficer = false }) {
 
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                 gap: '1rem',
             }}>
                 {zoneData.zones.map((zone) => (
@@ -80,7 +80,7 @@ export default function ZoneHeatmap({ isOfficer = false }) {
                 ))}
             </div>
 
-            {zoneData.updated_by && (
+            {zoneData.updated_by && zoneData.updated_by !== 'test' && (
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                     อัปเดตโดย {zoneData.updated_by} · {new Date(zoneData.updated_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
                 </p>

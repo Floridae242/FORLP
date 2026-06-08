@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import usePageTitle from '../hooks/usePageTitle';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
@@ -60,6 +61,7 @@ function formatWeekRange(startDate, endDate) {
 }
 
 export default function ReportsPage() {
+    usePageTitle('รายงานข้อมูล');
     const [activeTab, setActiveTab] = useState('daily');
     const [selectedDate, setSelectedDate] = useState(getLastWeekendDate());
     

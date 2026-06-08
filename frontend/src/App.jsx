@@ -6,6 +6,25 @@ import WeatherPage from './pages/WeatherPage';
 import CameraPage from './pages/CameraPage';
 import SettingsPage from './pages/SettingsPage';
 
+const VENUE_NAME = import.meta.env.VITE_VENUE_NAME || 'กาดกองต้า Smart Insight';
+const VENUE_SUBTITLE = import.meta.env.VITE_VENUE_SUBTITLE || 'ระบบนับจำนวนผู้ใช้พื้นที่';
+
+// Fallback avatar when user has no LINE profile picture
+function AvatarFallback({ name }) {
+    const initial = name ? name.trim()[0] : '?';
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.25)', color: '#fff',
+            fontSize: '0.8125rem', fontWeight: 600,
+            border: '2px solid rgba(255,255,255,0.4)',
+        }}>
+            {initial}
+        </span>
+    );
+}
+
 // Navigation Component ที่รองรับ Role-based Access
 function Navigation() {
     const { user, isAuthenticated, canAccessCCTV } = useAuth();
@@ -14,10 +33,10 @@ function Navigation() {
         <nav className="nav-bar">
             <div className="nav-content">
                 <div className="nav-brand">
-                    <img src="/logo.png" alt="โลโก้เทศบาลนครลำปาง" className="nav-logo" />
+                    <img src="/logo.png" alt="โลโก้" className="nav-logo" />
                     <div>
-                        <div className="nav-title">ระบบข้อมูลถนนคนเดินกาดกองต้า</div>
-                        <div className="nav-subtitle">เทศบาลนครลำปาง</div>
+                        <div className="nav-title">{VENUE_NAME}</div>
+                        <div className="nav-subtitle">{VENUE_SUBTITLE}</div>
                     </div>
                 </div>
                 
@@ -60,7 +79,7 @@ function Navigation() {
                                 {user?.pictureUrl ? (
                                     <img src={user.pictureUrl} alt="" className="nav-avatar" />
                                 ) : (
-                                    ''
+                                    <AvatarFallback name={user?.displayName} />
                                 )}
                             </span>
                         ) : (
@@ -137,11 +156,9 @@ function AppContent() {
             </main>
 
             <footer className="app-footer">
-                <div className="footer-text">
-                    ระบบข้อมูลถนนคนเดินกาดกองต้า
-                </div>
+                <div className="footer-text">{VENUE_NAME}</div>
                 <div className="footer-sub">
-                    เทศบาลนครลำปาง • ข้อมูลอัปเดตอัตโนมัติทุก 5 นาที
+                    {VENUE_SUBTITLE} • ข้อมูลอัปเดตอัตโนมัติทุก 5 นาที
                 </div>
             </footer>
         </div>

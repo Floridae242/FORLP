@@ -54,7 +54,7 @@ export default function ZoneMap({ zoneData }) {
   if (!zoneData) {
     return (
       <div style={{
-        height: 200,
+        height: 280,
         background: '#f1f5f9',
         borderRadius: 8,
         display: 'flex',

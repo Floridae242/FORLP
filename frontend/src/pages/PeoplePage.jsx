@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import usePageTitle from '../hooks/usePageTitle';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine
@@ -109,6 +110,7 @@ function ChartTooltip({ active, payload, label }) {
 // MAIN COMPONENT
 // =====================================================
 export default function PeoplePage() {
+    usePageTitle('ภาพรวมพื้นที่');
     const { user } = useAuth();
     const isOfficer = user?.role === 'officer';
     const [currentData, setCurrentData] = useState(null);
@@ -354,47 +356,46 @@ export default function PeoplePage() {
             {/* ═══════ ZONE HEATMAP ═══════ */}
             <ZoneHeatmap isOfficer={isOfficer} />
 
-            {/* ═══════ ข้อมูลจาก PDF Report ═══════ */}
+            {/* ═══════ ข้อมูลอ้างอิงจาก PDF Report (ข้อมูลประวัติศาสตร์) ═══════ */}
             <section className="section" style={{ marginTop: '1.5rem' }}>
-                <h2 className="section-title" style={{ marginBottom: '1rem' }}>
-                    ข้อมูลจากรายงานเทศบาล
-                </h2>
-                <div className="card">
-                    <div style={{
-                        display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem',
+                <div className="section-header" style={{ marginBottom: '1rem' }}>
+                    <h2 className="section-title">ข้อมูลอ้างอิงจากรายงานเทศบาล</h2>
+                    <span style={{
+                        fontSize: '0.75rem', fontWeight: 500,
+                        background: 'var(--bg-subtle)', color: 'var(--text-muted)',
+                        padding: '2px 8px', borderRadius: 99,
                     }}>
+                        {new Date(PDF_REPORT.reportDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                </div>
+                <div className="card">
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                        ข้อมูลนับจำนวนผู้คนจากรายงานครั้งเดียว — ไม่ใช่ข้อมูล real-time
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                         <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--status-safe-bg)', borderRadius: 'var(--border-radius)' }}>
-                            <div style={{ fontSize: '0.8125rem', color: 'var(--status-safe)', fontWeight: 500, marginBottom: 4 }}>
-                                เข้า (Enter)
-                            </div>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--status-safe)', fontWeight: 500, marginBottom: 4 }}>เข้า (Enter)</div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--status-safe)', lineHeight: 1.2 }}>
                                 {PDF_REPORT.enter.toLocaleString()}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>คน</div>
                         </div>
                         <div style={{ textAlign: 'center', padding: '1rem', background: 'var(--status-caution-bg)', borderRadius: 'var(--border-radius)' }}>
-                            <div style={{ fontSize: '0.8125rem', color: 'var(--status-caution)', fontWeight: 500, marginBottom: 4 }}>
-                                ออก (Leave)
-                            </div>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--status-caution)', fontWeight: 500, marginBottom: 4 }}>ออก (Leave)</div>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--status-caution)', lineHeight: 1.2 }}>
                                 {PDF_REPORT.leave.toLocaleString()}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>คน</div>
                         </div>
                     </div>
-                    <div style={{
-                        marginTop: '0.75rem', padding: '0.75rem', background: 'var(--bg-muted)',
-                        borderRadius: 'var(--border-radius)', textAlign: 'center',
-                    }}>
+                    <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'var(--bg-muted)', borderRadius: 'var(--border-radius)', textAlign: 'center' }}>
                         <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
                             ผลต่าง (Leave − Enter): <strong style={{ color: 'var(--text-heading)' }}>
                                 {(PDF_REPORT.leave - PDF_REPORT.enter).toLocaleString()}
                             </strong> คน
                         </span>
                         <br />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                            ที่มา: {PDF_REPORT.source}
-                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>ที่มา: {PDF_REPORT.source}</span>
                     </div>
                 </div>
             </section>
