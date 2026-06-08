@@ -76,9 +76,9 @@ CREATE TABLE IF NOT EXISTS users (
   line_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
   picture_url TEXT,
-  role TEXT DEFAULT 'visitor' CHECK(role IN ('vendor', 'resident', 'tourist', 'officer')),
-  role_verified INTEGER DEFAULT 0,  -- 0 = ยังไม่ยืนยัน, 1 = ยืนยันแล้ว
-  officer_token_used TEXT,  -- token ที่ใช้ยืนยันสิทธิ์เจ้าหน้าที่
+  role TEXT DEFAULT 'officer' CHECK(role IN ('officer')),
+  role_verified INTEGER DEFAULT 0,  -- 0 = ยังไม่ยืนยัน token, 1 = ยืนยันแล้ว
+  officer_token_used TEXT,  -- officer token ที่ใช้ยืนยันสิทธิ์
   last_login_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))

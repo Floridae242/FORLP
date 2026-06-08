@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Kad Kong Ta IOC — ระบบนับจำนวนผู้ใช้พื้นที่กาดกองต้า",
+  title: "Smart Area IOC | ระบบนับจำนวนผู้ใช้พื้นที่อัจฉริยะ",
   description:
-    "โครงการพัฒนาระบบนับจำนวนผู้ใช้พื้นที่กาดกองต้า เทศบาลนครลำปาง — AI People Counting (YOLOv8)",
+    "ระบบนับจำนวนผู้ใช้พื้นที่และวิเคราะห์ข้อมูลแบบ Real-time | People Counting and Area Data Services Dashboard for Officers",
   icons: { icon: "/favicon.ico" },
 };
 

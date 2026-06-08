@@ -16,7 +16,7 @@ export const ROLES = {
 export const ROLE_PERMISSIONS = {
     officer: {
         label: 'เจ้าหน้าที่',
-        description: 'เจ้าหน้าที่เทศบาลนครลำปาง',
+        description: 'เจ้าหน้าที่ผู้ดูแลระบบ (Venue Officer)',
         canViewPeopleCount: true,
         canViewWeather: true,
         canViewReports: true,

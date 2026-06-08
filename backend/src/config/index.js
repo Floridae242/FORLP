@@ -7,9 +7,12 @@ export const config = {
     mockMode: process.env.MOCK_MODE !== 'false', 
     
     // ==================== Database ====================
-    dbPath: process.env.DB_PATH || './data/kadkongta.db',
+    dbPath: process.env.DB_PATH || './data/venues.db',
 
-    // ==================== Location (กาดก้องตา ลำปาง) ====================
+    // ==================== Venue Config (กำหนดผ่าน ENV per deployment) ====================
+    // ตัวอย่าง: VENUE_NAME="กาดกองต้า ลำปาง" หรือ "ถนนคนเดินเชียงใหม่"
+    venueName: process.env.VENUE_NAME || 'กาดกองต้า ลำปาง',
+    venueId: process.env.VENUE_ID || 'kad-kong-ta',
     defaultLat: parseFloat(process.env.DEFAULT_LAT) || 18.2816,
     defaultLon: parseFloat(process.env.DEFAULT_LON) || 99.5082,
 
