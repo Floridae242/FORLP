@@ -43,7 +43,6 @@ import {
 } from './services/authService.js';
 import {
     rateLimitMiddleware,
-    validateJsonPayload,
     sanitizeInputs,
     validateAiApiKey,
     isValidOfficerToken,
@@ -89,9 +88,8 @@ app.use(cors(corsOptions));
 // Rate Limiting (ใช้ก่อน JSON parsing เพื่อป้องกัน DOS)
 app.use(rateLimitMiddleware);
 
-// JSON Parsing + Validation
-app.use(validateJsonPayload);
-app.use(express.json());
+// JSON Parsing (1 MB limit)
+app.use(express.json({ limit: '1mb' }));
 
 // Input Sanitization
 app.use(sanitizeInputs);
