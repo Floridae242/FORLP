@@ -38,7 +38,7 @@ export async function generateDailyReport(date = null) {
         };
         
         // 4. บันทึกลง Database
-        queries.saveDailyReport(reportData);
+        await queries.saveDailyReport(reportData);
         
         console.log(`[DailyReport] Report saved for ${reportDate}`);
         
@@ -210,14 +210,14 @@ export async function sendDailyReportToLine(report) {
     if (result.success) {
         // บันทึก log
         try {
-            queries.logLineBroadcast({
+            await queries.logLineBroadcast({
                 report_date: report.report_date,
                 message_type: 'daily_report',
                 message_content: message,
                 status: 'sent',
                 error_message: null
             });
-            queries.markReportSentLine(report.report_date);
+            await queries.markReportSentLine(report.report_date);
         } catch (e) {
             console.warn('[LINE] Failed to log broadcast:', e.message);
         }
@@ -241,7 +241,7 @@ export async function sendEarlyWarningToLine(weatherData) {
     
     if (result.success) {
         try {
-            queries.logLineBroadcast({
+            await queries.logLineBroadcast({
                 report_date: new Date().toISOString().split('T')[0],
                 message_type: 'early_warning',
                 message_content: message,
@@ -264,7 +264,7 @@ export async function processAndSendDailyReport(date = null) {
     
     // ตรวจสอบว่าส่งไปแล้วหรือยัง
     try {
-        if (queries.isReportSentLine(reportDate)) {
+        if (await queries.isReportSentLine(reportDate)) {
             console.log(`[DailyReport] Report for ${reportDate} already sent to LINE`);
             return { success: true, message: 'Already sent' };
         }
@@ -329,37 +329,16 @@ export async function processEarlyWarning() {
     }
 }
 
-/**
- * ดึงรายงานล่าสุด
- */
-export function getLatestReport() {
-    try {
-        return queries.getLatestDailyReport();
-    } catch (e) {
-        return null;
-    }
+export async function getLatestReport() {
+    try { return await queries.getLatestDailyReport(); } catch { return null; }
 }
 
-/**
- * ดึงรายงานตามวันที่
- */
-export function getReportByDate(date) {
-    try {
-        return queries.getDailyReport(date);
-    } catch (e) {
-        return null;
-    }
+export async function getReportByDate(date) {
+    try { return await queries.getDailyReport(date); } catch { return null; }
 }
 
-/**
- * ดึงรายงานย้อนหลัง
- */
-export function getRecentReports(limit = 7) {
-    try {
-        return queries.getDailyReports(limit);
-    } catch (e) {
-        return [];
-    }
+export async function getRecentReports(limit = 7) {
+    try { return await queries.getDailyReports(limit); } catch { return []; }
 }
 
 export const dailyReportService = {

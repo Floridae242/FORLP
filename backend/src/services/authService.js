@@ -3,7 +3,7 @@
    รองรับ LINE Login v2.1 (OAuth 2.0 Authorization Code Flow)
    ===================================================== */
 
-import { getDb } from '../db/index.js';
+import { query, queryOne, execute, transaction } from '../db/index.js';
 import { config } from '../config/index.js';
 import crypto from 'crypto';
 
@@ -302,44 +302,26 @@ export async function revokeAccessToken(accessToken) {
 /**
  * สร้างหรืออัปเดตผู้ใช้จาก LINE Login
  */
-export function upsertUser(lineUserId, displayName, pictureUrl, lineTokens = null) {
-    const db = getDb();
+export async function upsertUser(lineUserId, displayName, pictureUrl, lineTokens = null) {
     const now = new Date().toISOString();
-
-    // ตรวจสอบว่ามีผู้ใช้อยู่แล้วหรือไม่
-    const existingUser = db.prepare('SELECT * FROM users WHERE line_user_id = ?').get(lineUserId);
+    const existingUser = await queryOne('SELECT * FROM users WHERE line_user_id = $1', [lineUserId]);
 
     if (existingUser) {
-        // อัปเดตข้อมูลผู้ใช้
-        db.prepare(`
-            UPDATE users SET 
-                display_name = ?,
-                picture_url = ?,
-                last_login_at = ?,
-                updated_at = ?
-            WHERE line_user_id = ?
-        `).run(displayName, pictureUrl, now, now, lineUserId);
-
-        // อัปเดต LINE Tokens ถ้ามี
-        if (lineTokens) {
-            updateUserLineTokens(existingUser.id, lineTokens);
-        }
-
-        return db.prepare('SELECT * FROM users WHERE line_user_id = ?').get(lineUserId);
+        await execute(
+            `UPDATE users SET display_name=$1, picture_url=$2, last_login_at=$3, updated_at=$4
+             WHERE line_user_id=$5`,
+            [displayName, pictureUrl, now, now, lineUserId]
+        );
+        if (lineTokens) await updateUserLineTokens(existingUser.id, lineTokens);
+        return queryOne('SELECT * FROM users WHERE line_user_id = $1', [lineUserId]);
     } else {
-        // สร้างผู้ใช้ใหม่ (default role = officer)
-        db.prepare(`
-            INSERT INTO users (line_user_id, display_name, picture_url, role, last_login_at)
-            VALUES (?, ?, ?, 'officer', ?)
-        `).run(lineUserId, displayName, pictureUrl, now);
-
-        const newUser = db.prepare('SELECT * FROM users WHERE line_user_id = ?').get(lineUserId);
-
-        // บันทึก LINE Tokens ถ้ามี
-        if (lineTokens) {
-            updateUserLineTokens(newUser.id, lineTokens);
-        }
-
+        await execute(
+            `INSERT INTO users (line_user_id, display_name, picture_url, role, last_login_at)
+             VALUES ($1,$2,$3,'officer',$4)`,
+            [lineUserId, displayName, pictureUrl, now]
+        );
+        const newUser = await queryOne('SELECT * FROM users WHERE line_user_id = $1', [lineUserId]);
+        if (lineTokens) await updateUserLineTokens(newUser.id, lineTokens);
         return newUser;
     }
 }
@@ -347,53 +329,35 @@ export function upsertUser(lineUserId, displayName, pictureUrl, lineTokens = nul
 /**
  * อัปเดต LINE Tokens ของผู้ใช้ (เก็บไว้ฝั่ง Backend เท่านั้น)
  */
-export function updateUserLineTokens(userId, tokens) {
-    const db = getDb();
-    const now = new Date().toISOString();
-    
-    // คำนวณวันหมดอายุ
+export async function updateUserLineTokens(userId, tokens) {
     const accessTokenExpiresAt = new Date(Date.now() + (tokens.expiresIn || 2592000) * 1000).toISOString();
-    const refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(); // 90 วัน
-
-    // ลบ tokens เก่า
-    db.prepare('DELETE FROM user_line_tokens WHERE user_id = ?').run(userId);
-
-    // บันทึก tokens ใหม่
-    db.prepare(`
-        INSERT INTO user_line_tokens 
-        (user_id, access_token, refresh_token, access_token_expires_at, refresh_token_expires_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-        userId, 
-        tokens.accessToken, 
-        tokens.refreshToken,
-        accessTokenExpiresAt,
-        refreshTokenExpiresAt,
-        now
+    const refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+    await execute('DELETE FROM user_line_tokens WHERE user_id = $1', [userId]);
+    await execute(
+        `INSERT INTO user_line_tokens
+         (user_id, access_token, refresh_token, access_token_expires_at, refresh_token_expires_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,NOW())`,
+        [userId, tokens.accessToken, tokens.refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt]
     );
 }
 
 /**
  * ดึง LINE Tokens ของผู้ใช้
  */
-export function getUserLineTokens(userId) {
-    const db = getDb();
-    return db.prepare('SELECT * FROM user_line_tokens WHERE user_id = ?').get(userId);
+export async function getUserLineTokens(userId) {
+    return queryOne('SELECT * FROM user_line_tokens WHERE user_id = $1', [userId]);
 }
 
 /**
  * สร้าง Session สำหรับผู้ใช้
  */
-export function createSession(userId) {
-    const db = getDb();
+export async function createSession(userId) {
     const sessionToken = generateSessionToken();
     const expiresAt = new Date(Date.now() + config.sessionMaxAge).toISOString();
-
-    db.prepare(`
-        INSERT INTO user_sessions (user_id, session_token, expires_at)
-        VALUES (?, ?, ?)
-    `).run(userId, sessionToken, expiresAt);
-
+    await execute(
+        'INSERT INTO user_sessions (user_id, session_token, expires_at) VALUES ($1,$2,$3)',
+        [userId, sessionToken, expiresAt]
+    );
     return { sessionToken, expiresAt };
 }
 
@@ -401,31 +365,28 @@ export function createSession(userId) {
  * ตรวจสอบ Session Token และ Refresh LINE Token ถ้าจำเป็น
  */
 export async function verifySession(sessionToken) {
-    const db = getDb();
     const now = new Date().toISOString();
-
-    const session = db.prepare(`
-        SELECT s.*, u.* 
-        FROM user_sessions s
-        JOIN users u ON s.user_id = u.id
-        WHERE s.session_token = ? AND s.expires_at > ?
-    `).get(sessionToken, now);
+    const session = await queryOne(
+        `SELECT s.*, u.id as user_id, u.line_user_id, u.display_name, u.picture_url,
+                u.role, u.role_verified
+         FROM user_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1 AND s.expires_at > $2`,
+        [sessionToken, now]
+    );
 
     if (!session) {
         return { valid: false, error: 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่' };
     }
 
-    // ตรวจสอบและ Refresh LINE Token ถ้าใกล้หมดอายุ
-    const lineTokens = getUserLineTokens(session.user_id);
+    const lineTokens = await getUserLineTokens(session.user_id);
     if (lineTokens) {
         const accessTokenExpires = new Date(lineTokens.access_token_expires_at);
         const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
-
-        // ถ้า access token จะหมดอายุภายใน 1 ชั่วโมง ให้ refresh
         if (accessTokenExpires < oneHourFromNow && lineTokens.refresh_token) {
             const refreshResult = await refreshAccessToken(lineTokens.refresh_token);
             if (refreshResult.success) {
-                updateUserLineTokens(session.user_id, refreshResult.data);
+                await updateUserLineTokens(session.user_id, refreshResult.data);
                 console.log(`[Auth] Refreshed LINE token for user ${session.user_id}`);
             }
         }
@@ -448,48 +409,32 @@ export async function verifySession(sessionToken) {
 /**
  * ลบ Session (Logout)
  */
-export function deleteSession(sessionToken) {
-    const db = getDb();
-    db.prepare('DELETE FROM user_sessions WHERE session_token = ?').run(sessionToken);
+export async function deleteSession(sessionToken) {
+    await execute('DELETE FROM user_sessions WHERE session_token = $1', [sessionToken]);
 }
 
 /**
  * ลบ Session และ Revoke LINE Token
  */
 export async function logoutUser(sessionToken) {
-    const db = getDb();
-    
-    // ดึง session เพื่อหา user_id
-    const session = db.prepare('SELECT * FROM user_sessions WHERE session_token = ?').get(sessionToken);
-    
+    const session = await queryOne('SELECT * FROM user_sessions WHERE session_token = $1', [sessionToken]);
     if (session) {
-        // ดึง LINE Token เพื่อ revoke
-        const lineTokens = getUserLineTokens(session.user_id);
-        
-        if (lineTokens && lineTokens.access_token) {
-            // Revoke LINE Access Token
+        const lineTokens = await getUserLineTokens(session.user_id);
+        if (lineTokens?.access_token) {
             await revokeAccessToken(lineTokens.access_token);
-            
-            // ลบ LINE Tokens จาก database
-            db.prepare('DELETE FROM user_line_tokens WHERE user_id = ?').run(session.user_id);
+            await execute('DELETE FROM user_line_tokens WHERE user_id = $1', [session.user_id]);
         }
-        
-        // ลบ Session
-        db.prepare('DELETE FROM user_sessions WHERE session_token = ?').run(sessionToken);
+        await execute('DELETE FROM user_sessions WHERE session_token = $1', [sessionToken]);
     }
-    
     return { success: true };
 }
 
 /**
  * ดึงข้อมูลผู้ใช้จาก ID
  */
-export function getUserById(userId) {
-    const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-    
+export async function getUserById(userId) {
+    const user = await queryOne('SELECT * FROM users WHERE id = $1', [userId]);
     if (!user) return null;
-
     return {
         id: user.id,
         lineUserId: user.line_user_id,
@@ -506,51 +451,34 @@ export function getUserById(userId) {
 /**
  * อัปเดต Role ของผู้ใช้
  */
-export function updateUserRole(userId, newRole, officerToken = null) {
-    const db = getDb();
-    const now = new Date().toISOString();
-
-    // ตรวจสอบว่า Role ถูกต้อง
+export async function updateUserRole(userId, newRole, officerToken = null) {
     if (!Object.values(ROLES).includes(newRole)) {
         return { success: false, error: 'บทบาทที่เลือกไม่ถูกต้อง' };
     }
 
-    // ถ้าเลือก Role เจ้าหน้าที่ ต้องมี Token
     if (newRole === ROLES.OFFICER) {
         if (!officerToken) {
             return { success: false, error: 'กรุณากรอกรหัสยืนยันตัวตนสำหรับเจ้าหน้าที่' };
         }
-
-        // ตรวจสอบ Token
-        const tokenRecord = db.prepare(`
-            SELECT * FROM officer_tokens 
-            WHERE token = ? AND is_used = 0 
-            AND (expires_at IS NULL OR expires_at > ?)
-        `).get(officerToken, now);
-
+        const now = new Date().toISOString();
+        const tokenRecord = await queryOne(
+            `SELECT * FROM officer_tokens
+             WHERE token = $1 AND is_used = 0
+             AND (expires_at IS NULL OR expires_at > $2)`,
+            [officerToken, now]
+        );
         if (!tokenRecord) {
             return { success: false, error: 'รหัสยืนยันไม่ถูกต้อง หมดอายุ หรือถูกใช้งานแล้ว' };
         }
-
-        // อัปเดต Role เป็นเจ้าหน้าที่
-        db.prepare(`
-            UPDATE users SET 
-                role = 'officer',
-                role_verified = 1,
-                officer_token_used = ?,
-                updated_at = ?
-            WHERE id = ?
-        `).run(officerToken, now, userId);
-
-        // Mark token as used
-        db.prepare(`
-            UPDATE officer_tokens SET 
-                is_used = 1,
-                used_by_user_id = ?,
-                used_at = ?
-            WHERE token = ?
-        `).run(userId, now, officerToken);
-
+        await execute(
+            `UPDATE users SET role='officer', role_verified=1, officer_token_used=$1, updated_at=$2
+             WHERE id=$3`,
+            [officerToken, now, userId]
+        );
+        await execute(
+            `UPDATE officer_tokens SET is_used=1, used_by_user_id=$1, used_at=$2 WHERE token=$3`,
+            [userId, now, officerToken]
+        );
         return { success: true, role: 'officer', verified: true };
     }
 

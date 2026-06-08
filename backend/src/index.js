@@ -185,7 +185,7 @@ app.post('/api/auth/line/callback', async (req, res) => {
         const lineUser = idTokenResult.data;
 
         // สร้างหรืออัปเดตผู้ใช้ในระบบ พร้อมบันทึก LINE Tokens
-        const user = upsertUser(
+        const user = await upsertUser(
             lineUser.userId,
             lineUser.displayName,
             lineUser.pictureUrl,
@@ -197,10 +197,10 @@ app.post('/api/auth/line/callback', async (req, res) => {
         );
 
         // สร้าง Session Token สำหรับ Frontend
-        const session = createSession(user.id);
+        const session = await createSession(user.id);
 
         // ดึงข้อมูลผู้ใช้แบบเต็ม
-        const fullUser = getUserById(user.id);
+        const fullUser = await getUserById(user.id);
 
         console.log(`[Auth] LINE Login success: ${lineUser.displayName} (${lineUser.userId})`);
 
@@ -270,7 +270,7 @@ app.get('/api/auth/check-cctv', authMiddleware, (req, res) => {
 });
 
 // POST /api/auth/verify-officer - ยืนยันรหัสเจ้าหน้าที่
-app.post('/api/auth/verify-officer', authMiddleware, (req, res) => {
+app.post('/api/auth/verify-officer', authMiddleware, async (req, res) => {
     try {
         const { officerToken } = req.body;
 
@@ -281,7 +281,7 @@ app.post('/api/auth/verify-officer', authMiddleware, (req, res) => {
             });
         }
 
-        const result = updateUserRole(req.user.id, ROLES.OFFICER, officerToken.trim());
+        const result = await updateUserRole(req.user.id, ROLES.OFFICER, officerToken.trim());
 
         if (!result.success) {
             return res.status(400).json({
@@ -291,7 +291,7 @@ app.post('/api/auth/verify-officer', authMiddleware, (req, res) => {
         }
 
         // ดึงข้อมูลผู้ใช้ที่อัปเดตแล้ว
-        const updatedUser = getUserById(req.user.id);
+        const updatedUser = await getUserById(req.user.id);
 
         console.log(`[Auth] Officer verified: ${req.user.displayName} (${req.user.lineUserId})`);
 
@@ -368,10 +368,10 @@ function zoneStatusFromCount(count) {
     return             { crowd_level: 'normal',   crowd_label: 'เบาบาง' };
 }
 
-function buildZoneResponse() {
+async function buildZoneResponse() {
     const current = peopleCountService.getCurrentCount();
     const total = current?.smoothed_count ?? current?.count ?? 0;
-    const rows = queries.getZoneEstimates();
+    const rows = await queries.getZoneEstimates();
 
     const zones = rows.map((row) => {
         const estimated_count = total > 0
@@ -396,16 +396,16 @@ function buildZoneResponse() {
 }
 
 // GET /api/zones/current — สัดส่วนผู้คนในแต่ละโซน (public)
-app.get('/api/zones/current', (req, res) => {
+app.get('/api/zones/current', async (req, res) => {
     try {
-        res.json({ success: true, data: buildZoneResponse() });
+        res.json({ success: true, data: await buildZoneResponse() });
     } catch (err) {
         res.status(500).json({ success: false, error: 'ไม่สามารถโหลดข้อมูลโซนได้' });
     }
 });
 
 // POST /api/zones/update — อัปเดตสัดส่วนโซน (officer only)
-app.post('/api/zones/update', authMiddleware, officerOnlyMiddleware, (req, res) => {
+app.post('/api/zones/update', authMiddleware, officerOnlyMiddleware, async (req, res) => {
     const { A, B, C } = req.body;
 
     if (
@@ -430,8 +430,8 @@ app.post('/api/zones/update', authMiddleware, officerOnlyMiddleware, (req, res) 
     const updatedBy = req.user?.displayName || req.user?.userId || 'เจ้าหน้าที่';
 
     try {
-        queries.updateZoneEstimates({ A, B, C }, updatedBy);
-        res.json({ success: true, data: buildZoneResponse() });
+        await queries.updateZoneEstimates({ A, B, C }, updatedBy);
+        res.json({ success: true, data: await buildZoneResponse() });
     } catch (err) {
         res.status(500).json({
             success: false,
@@ -727,9 +727,9 @@ app.get('/api/people/current', (req, res) => {
 });
 
 // GET /api/people/daily - สรุปรายวัน (ตาม PROMPT)
-app.get('/api/people/daily', (req, res) => {
+app.get('/api/people/daily', async (req, res) => {
     const { date } = req.query;
-    const summary = peopleCountService.getDailySummary(date);
+    const summary = await peopleCountService.getDailySummary(date);
 
     res.json({
         success: true,
@@ -784,8 +784,8 @@ app.post('/api/people/ingest', (req, res) => {
 });
 
 // GET /api/people/stats - สถิติล่าสุด (สำหรับ Dashboard)
-app.get('/api/people/stats', (req, res) => {
-    const stats = peopleCountService.getLatestStats();
+app.get('/api/people/stats', async (req, res) => {
+    const stats = await peopleCountService.getLatestStats();
 
     res.json({
         success: true,
@@ -804,9 +804,9 @@ app.get('/api/people/cameras', (req, res) => {
 });
 
 // GET /api/people/history - ข้อมูลย้อนหลัง
-app.get('/api/people/history', (req, res) => {
+app.get('/api/people/history', async (req, res) => {
     const days = parseInt(req.query.days) || 7;
-    const history = peopleCountService.getHistoricalData(days);
+    const history = await peopleCountService.getHistoricalData(days);
 
     res.json({
         success: true,
@@ -816,9 +816,9 @@ app.get('/api/people/history', (req, res) => {
 });
 
 // GET /api/people/hourly - ข้อมูลรายชั่วโมง
-app.get('/api/people/hourly', (req, res) => {
+app.get('/api/people/hourly', async (req, res) => {
     const { date } = req.query;
-    const hourly = peopleCountService.getHourlyData(date);
+    const hourly = await peopleCountService.getHourlyData(date);
 
     res.json({
         success: true,
@@ -896,11 +896,13 @@ app.get('/api/dashboard', async (req, res) => {
 // ==================== REPORTS API ====================
 
 // GET /api/reports/daily - รายงานประจำวัน
-app.get('/api/reports/daily', (req, res) => {
+app.get('/api/reports/daily', async (req, res) => {
     try {
         const { date } = req.query;
-        const summary = peopleCountService.getDailySummary(date);
-        const hourly = peopleCountService.getHourlyData(date);
+        const [summary, hourly] = await Promise.all([
+            peopleCountService.getDailySummary(date),
+            peopleCountService.getHourlyData(date),
+        ]);
 
         res.json({
             success: true,
@@ -915,10 +917,10 @@ app.get('/api/reports/daily', (req, res) => {
 });
 
 // GET /api/reports/weekly - รายงานรายสัปดาห์ (เฉพาะวันเสาร์-อาทิตย์ ช่วงเวลา 16:00-22:00 เวลาไทย)
-app.get('/api/reports/weekly', (req, res) => {
+app.get('/api/reports/weekly', async (req, res) => {
     try {
         // ดึงข้อมูลย้อนหลัง 30 วัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
-        const allHistory = peopleCountService.getHistoricalDataMarketHours(30);
+        const allHistory = await peopleCountService.getHistoricalDataMarketHours(30);
 
         // Filter เฉพาะวันเสาร์ (6) และอาทิตย์ (0)
         const weekendHistory = allHistory.filter(day => {
@@ -1022,10 +1024,10 @@ app.get('/api/reports/weekly', (req, res) => {
 });
 
 // GET /api/reports/history - ประวัติรายงาน
-app.get('/api/reports/history', (req, res) => {
+app.get('/api/reports/history', async (req, res) => {
     try {
         const days = parseInt(req.query.days) || 30;
-        const history = peopleCountService.getHistoricalData(days);
+        const history = await peopleCountService.getHistoricalData(days);
 
         res.json({
             success: true,

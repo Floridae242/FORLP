@@ -6,8 +6,8 @@ export const config = {
     nodeEnv: process.env.NODE_ENV || 'development',
     mockMode: process.env.MOCK_MODE !== 'false', 
     
-    // ==================== Database ====================
-    dbPath: process.env.DB_PATH || './data/venues.db',
+    // ==================== Database (Supabase PostgreSQL) ====================
+    databaseUrl: process.env.DATABASE_URL || '',
 
     // ==================== Venue Config (กำหนดผ่าน ENV per deployment) ====================
     // ตัวอย่าง: VENUE_NAME="กาดกองต้า ลำปาง" หรือ "ถนนคนเดินเชียงใหม่"

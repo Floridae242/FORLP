@@ -7,7 +7,7 @@
    - ส่ง alert เมื่อแออัด
    ===================================================== */
 
-import { getDb } from '../db/index.js';
+import { execute, query } from '../db/index.js';
 
 // =====================================================
 // CONFIGURATION
@@ -250,44 +250,25 @@ export function ingestPeopleCount(data) {
 }
 
 /**
- * บันทึกลง Database
+ * บันทึกลง Database (fire-and-forget — ไม่ block ingest path)
  */
 function saveToDatabase(count, timestamp, cameraId, sourceType) {
-    try {
-        const db = getDb();
-        
-        // บันทึก people_counts (aggregate)
-        db.prepare(`
-            INSERT INTO people_counts (count, recorded_at, source)
-            VALUES (?, ?, ?)
-        `).run(count, timestamp, sourceType);
+    execute(
+        'INSERT INTO people_counts (count, recorded_at, source) VALUES ($1,$2,$3)',
+        [count, timestamp, sourceType]
+    ).catch(e => console.error('[PeopleCount] DB save error:', e.message));
 
-        // บันทึก ai_people_counts (per camera) - ถ้ามี table
-        try {
-            const camData = cameraData.get(cameraId);
-            if (camData) {
-                db.prepare(`
-                    INSERT INTO ai_people_counts 
-                    (camera_id, max_people, avg_people, min_people, frames_processed, 
-                     window_start, window_end, source_type, recorded_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `).run(
-                    cameraId,
-                    camData.max_count,
-                    camData.avg_count,
-                    camData.raw_count,
-                    camData.frames_processed,
-                    camData.window_start,
-                    camData.window_end,
-                    sourceType,
-                    timestamp
-                );
-            }
-        } catch (e) {
-            // Table อาจยังไม่มี
-        }
-    } catch (error) {
-        console.error('[PeopleCount] Database save error:', error.message);
+    const camData = cameraData.get(cameraId);
+    if (camData) {
+        execute(
+            `INSERT INTO ai_people_counts
+             (camera_id, max_people, avg_people, min_people, frames_processed,
+              window_start, window_end, source_type, recorded_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [cameraId, camData.max_count, camData.avg_count, camData.raw_count,
+             camData.frames_processed, camData.window_start, camData.window_end,
+             sourceType, timestamp]
+        ).catch(() => {}); // ai_people_counts is optional
     }
 }
 
@@ -385,41 +366,26 @@ export function getRealtimeHistory(minutes = 30) {
 /**
  * ดึงสรุปรายวัน (GET /api/people/daily?date=YYYY-MM-DD)
  */
-export function getDailySummary(date) {
+export async function getDailySummary(date) {
     const targetDate = date || new Date().toISOString().split('T')[0];
-    
     try {
-        const db = getDb();
-        const result = db.prepare(`
-            SELECT 
-                DATE(recorded_at) as date,
-                MAX(count) as max_people,
-                ROUND(AVG(count), 1) as avg_people,
-                MIN(count) as min_people,
-                COUNT(*) as total_samples
-            FROM people_counts
-            WHERE DATE(recorded_at) = ?
-            GROUP BY DATE(recorded_at)
-        `).get(targetDate);
-        
+        const rows = await query(
+            `SELECT recorded_at::date as date,
+                    MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    MIN(count) as min_people,
+                    COUNT(*) as total_samples
+             FROM people_counts
+             WHERE recorded_at::date = $1::date
+             GROUP BY recorded_at::date`,
+            [targetDate]
+        );
+        const result = rows[0];
         if (!result) {
-            return {
-                date: targetDate,
-                max_people: 0,
-                avg_people: 0,
-                min_people: 0,
-                total_samples: 0
-            };
+            return { date: targetDate, max_people: 0, avg_people: 0, min_people: 0, total_samples: 0 };
         }
-
-        // คำนวณ status จาก max
         const status = calculateStatus(result.max_people);
-        
-        return {
-            ...result,
-            status: status.key,
-            status_label: status.label
-        };
+        return { ...result, status: status.key, status_label: status.label };
     } catch (error) {
         console.error('[PeopleCount] Daily summary error:', error.message);
         return null;
@@ -430,48 +396,28 @@ export function getDailySummary(date) {
  * ดึงสรุปรายวัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
  * เวลาไทย = UTC+7, ดังนั้น 16:00-22:00 ไทย = 09:00-15:00 UTC
  */
-export function getDailySummaryMarketHours(date) {
+export async function getDailySummaryMarketHours(date) {
     const targetDate = date || new Date().toISOString().split('T')[0];
-    
     try {
-        const db = getDb();
-        // กรองเฉพาะเวลา 16:00-22:00 เวลาไทย (09:00-15:00 UTC)
-        // strftime('%H', recorded_at) คืนค่าเป็น UTC
-        // 16:00 ไทย = 09:00 UTC, 22:00 ไทย = 15:00 UTC
-        const result = db.prepare(`
-            SELECT 
-                DATE(recorded_at) as date,
-                MAX(count) as max_people,
-                ROUND(AVG(count), 1) as avg_people,
-                MIN(count) as min_people,
-                COUNT(*) as total_samples
-            FROM people_counts
-            WHERE DATE(recorded_at) = ?
-              AND CAST(strftime('%H', recorded_at) AS INTEGER) >= 9
-              AND CAST(strftime('%H', recorded_at) AS INTEGER) < 15
-            GROUP BY DATE(recorded_at)
-        `).get(targetDate);
-        
+        const rows = await query(
+            `SELECT recorded_at::date as date,
+                    MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    MIN(count) as min_people,
+                    COUNT(*) as total_samples
+             FROM people_counts
+             WHERE recorded_at::date = $1::date
+               AND EXTRACT(HOUR FROM recorded_at) >= 9
+               AND EXTRACT(HOUR FROM recorded_at) < 15
+             GROUP BY recorded_at::date`,
+            [targetDate]
+        );
+        const result = rows[0];
         if (!result) {
-            return {
-                date: targetDate,
-                max_people: 0,
-                avg_people: 0,
-                min_people: 0,
-                total_samples: 0,
-                market_hours: '16:00-22:00'
-            };
+            return { date: targetDate, max_people: 0, avg_people: 0, min_people: 0, total_samples: 0, market_hours: '16:00-22:00' };
         }
-
-        // คำนวณ status จาก max
         const status = calculateStatus(result.max_people);
-        
-        return {
-            ...result,
-            status: status.key,
-            status_label: status.label,
-            market_hours: '16:00-22:00'
-        };
+        return { ...result, status: status.key, status_label: status.label, market_hours: '16:00-22:00' };
     } catch (error) {
         console.error('[PeopleCount] Daily summary (market hours) error:', error.message);
         return null;
@@ -481,21 +427,20 @@ export function getDailySummaryMarketHours(date) {
 /**
  * ดึงข้อมูลย้อนหลังหลายวัน
  */
-export function getHistoricalData(days = 7) {
+export async function getHistoricalData(days = 7) {
     try {
-        const db = getDb();
-        return db.prepare(`
-            SELECT 
-                DATE(recorded_at) as date,
-                MAX(count) as max_people,
-                ROUND(AVG(count), 1) as avg_people,
-                MIN(count) as min_people,
-                COUNT(*) as total_samples
-            FROM people_counts
-            WHERE recorded_at >= datetime('now', '-' || ? || ' days')
-            GROUP BY DATE(recorded_at)
-            ORDER BY date DESC
-        `).all(days);
+        return await query(
+            `SELECT recorded_at::date as date,
+                    MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    MIN(count) as min_people,
+                    COUNT(*) as total_samples
+             FROM people_counts
+             WHERE recorded_at >= NOW() - ($1 || ' days')::interval
+             GROUP BY recorded_at::date
+             ORDER BY date DESC`,
+            [days]
+        );
     } catch (error) {
         console.error('[PeopleCount] Historical data error:', error.message);
         return [];
@@ -506,26 +451,24 @@ export function getHistoricalData(days = 7) {
  * ดึงข้อมูลย้อนหลังหลายวัน เฉพาะช่วงเวลาที่ตลาดเปิด (16:00-22:00 เวลาไทย)
  * ใช้สำหรับรายงานรายสัปดาห์
  */
-export function getHistoricalDataMarketHours(days = 7) {
+export async function getHistoricalDataMarketHours(days = 7) {
     try {
-        const db = getDb();
-        // กรองเฉพาะเวลา 16:00-22:00 เวลาไทย (09:00-15:00 UTC)
-        return db.prepare(`
-            SELECT 
-                DATE(recorded_at) as date,
-                MAX(count) as max_people,
-                ROUND(AVG(count), 1) as avg_people,
-                MIN(count) as min_people,
-                COUNT(*) as total_samples
-            FROM people_counts
-            WHERE recorded_at >= datetime('now', '-' || ? || ' days')
-              AND CAST(strftime('%H', recorded_at) AS INTEGER) >= 9
-              AND CAST(strftime('%H', recorded_at) AS INTEGER) < 15
-            GROUP BY DATE(recorded_at)
-            ORDER BY date DESC
-        `).all(days);
+        return await query(
+            `SELECT recorded_at::date as date,
+                    MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    MIN(count) as min_people,
+                    COUNT(*) as total_samples
+             FROM people_counts
+             WHERE recorded_at >= NOW() - ($1 || ' days')::interval
+               AND EXTRACT(HOUR FROM recorded_at) >= 9
+               AND EXTRACT(HOUR FROM recorded_at) < 15
+             GROUP BY recorded_at::date
+             ORDER BY date DESC`,
+            [days]
+        );
     } catch (error) {
-        console.error('[PeopleCount] Historical data (market hours) error:', error.message);
+        console.error('[PeopleCount] Historical (market hours) error:', error.message);
         return [];
     }
 }
@@ -533,22 +476,20 @@ export function getHistoricalDataMarketHours(days = 7) {
 /**
  * ดึงข้อมูลรายชั่วโมง
  */
-export function getHourlyData(date) {
+export async function getHourlyData(date) {
     const targetDate = date || new Date().toISOString().split('T')[0];
-    
     try {
-        const db = getDb();
-        return db.prepare(`
-            SELECT 
-                strftime('%H', recorded_at) as hour,
-                MAX(count) as max_people,
-                ROUND(AVG(count), 1) as avg_people,
-                COUNT(*) as samples
-            FROM people_counts
-            WHERE DATE(recorded_at) = ?
-            GROUP BY strftime('%H', recorded_at)
-            ORDER BY hour
-        `).all(targetDate);
+        return await query(
+            `SELECT LPAD(EXTRACT(HOUR FROM recorded_at)::text, 2, '0') as hour,
+                    MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    COUNT(*) as samples
+             FROM people_counts
+             WHERE recorded_at::date = $1::date
+             GROUP BY EXTRACT(HOUR FROM recorded_at)
+             ORDER BY hour`,
+            [targetDate]
+        );
     } catch (error) {
         console.error('[PeopleCount] Hourly data error:', error.message);
         return [];
@@ -578,11 +519,15 @@ export function checkCrowdLevel() {
 /**
  * ดึงสถิติล่าสุด (สำหรับ Dashboard)
  */
-export function getLatestStats() {
+export async function getLatestStats() {
+    const [today, hourly] = await Promise.all([
+        getDailySummary(),
+        getHourlyData(),
+    ]);
     return {
         current: getCurrentCount(),
-        today: getDailySummary(),
-        hourly: getHourlyData(),
+        today,
+        hourly,
         crowdLevel: checkCrowdLevel(),
         cameras: getAllCamerasData(),
         history: getRealtimeHistory(30),
