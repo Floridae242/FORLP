@@ -1,10 +1,18 @@
 import pkg from 'pg';
-const { Pool } = pkg;
+const { Pool, types } = pkg;
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// PG returns BIGINT/NUMERIC as strings and DATE as JS Date by default.
+// The frontend expects plain JS numbers and YYYY-MM-DD strings.
+// 20 = INT8/BIGINT (used by COUNT, SUM), 1700 = NUMERIC (used by ROUND, AVG)
+// 1082 = DATE — return as-is from the wire (YYYY-MM-DD).
+types.setTypeParser(20, (v) => v === null ? null : parseInt(v, 10));
+types.setTypeParser(1700, (v) => v === null ? null : parseFloat(v));
+types.setTypeParser(1082, (v) => v);
 
 let pool = null;
 
