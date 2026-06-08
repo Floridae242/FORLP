@@ -1,6 +1,11 @@
+/**
+ * ZoneHeatmap — ความหนาแน่นตามโซน: แผนที่ดาวเทียม + การ์ดโซน A/B/C
+ */
 import { useState, useEffect } from 'react';
 import { getZoneCurrent } from '../../services/api.jsx';
+import { POLL_INTERVALS } from '../../lib/constants.js';
 import ZoneCard from './ZoneCard';
+import ZoneMap from './ZoneMap';
 import ZoneUpdateModal from './ZoneUpdateModal';
 
 export default function ZoneHeatmap({ isOfficer = false }) {
@@ -20,7 +25,7 @@ export default function ZoneHeatmap({ isOfficer = false }) {
 
     useEffect(() => {
         fetchZones();
-        const id = setInterval(fetchZones, 60_000);
+        const id = setInterval(fetchZones, POLL_INTERVALS.ZONE_HEATMAP_MS);
         return () => clearInterval(id);
     }, []);
 
@@ -62,6 +67,8 @@ export default function ZoneHeatmap({ isOfficer = false }) {
                     )}
                 </div>
             </div>
+
+            <ZoneMap zoneData={zoneData} />
 
             <div style={{
                 display: 'grid',

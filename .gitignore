@@ -1,6 +1,8 @@
 node_modules
 .DS_Store
 **/.DS_Store
+frontend/dist
+dashboard/.next
 
 # Environment files — never commit real credentials
 .env
