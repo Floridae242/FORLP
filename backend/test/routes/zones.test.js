@@ -27,3 +27,12 @@ describe('zone estimates round-trip', () => {
         expect(byCode.C.percentage).toBe(10);
     });
 });
+
+describe('POST /api/zones/update validation', () => {
+    it('returns 401 without auth', async () => {
+        const res = await request(app)
+            .post('/api/zones/update')
+            .send({ A: 50, B: 30, C: 20 });
+        expect(res.status).toBe(401);
+    });
+});
