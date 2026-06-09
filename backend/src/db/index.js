@@ -16,6 +16,15 @@ types.setTypeParser(1082, (v) => v);
 
 let pool = null;
 
+function resolveConnectionString() {
+    const base = process.env.DATABASE_URL;
+    if (!base) return base;
+    const schema = process.env.PGSCHEMA;
+    if (!schema) return base;
+    const sep = base.includes('?') ? '&' : '?';
+    return `${base}${sep}options=${encodeURIComponent(`-c search_path=${schema},public`)}`;
+}
+
 export function getPool() {
     if (!pool) throw new Error('Database not initialized');
     return pool;
@@ -53,7 +62,7 @@ export async function transaction(fn) {
 
 export async function initDatabase() {
     pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: resolveConnectionString(),
         ssl: process.env.NODE_ENV === 'production'
             ? { rejectUnauthorized: false }
             : (process.env.DATABASE_URL?.includes('supabase') ? { rejectUnauthorized: false } : false),
