@@ -14,7 +14,8 @@
     "db:seed": "node src/db/seed.js",
     "db:seed:fresh": "node src/db/seed.js --clear",
     "db:reset": "rm -f ./data/kadkongta.db* && node src/db/seed.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "PGSCHEMA=forlp_test vitest run",
+    "test:watch": "PGSCHEMA=forlp_test vitest"
   },
   "dependencies": {
     "@line/bot-sdk": "^8.0.0",
