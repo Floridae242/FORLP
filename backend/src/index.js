@@ -1481,6 +1481,8 @@ async function start() {
 process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+    start();
+}
 
 export default app;
