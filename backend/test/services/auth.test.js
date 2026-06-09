@@ -5,7 +5,9 @@ import {
     verifySession,
     logoutUser,
     getUserById,
+    updateUserRole,
 } from '../../src/services/authService.js';
+import { getPool } from '../../src/db/index.js';
 
 describe('auth session lifecycle', () => {
     it('upsert → create session → verify → logout → verify fails', async () => {
@@ -34,5 +36,25 @@ describe('auth session lifecycle', () => {
     it('getUserById returns null for a missing id', async () => {
         const u = await getUserById(99999);
         expect(u).toBeNull();
+    });
+});
+
+describe('officer token consumption', () => {
+    it('consumes the token on first success and rejects reuse', async () => {
+        // Seed: one user + one usable officer token
+        const user = await upsertUser('U_officer', 'Officer A', null);
+        await getPool().query(
+            `INSERT INTO officer_tokens (token, description) VALUES ('TESTOFC01', 'test')`
+        );
+
+        // First use — succeeds, marks token used
+        const r1 = await updateUserRole(user.id, 'officer', 'TESTOFC01');
+        expect(r1.success).toBe(true);
+
+        // Second use — same token, different user, must fail
+        const user2 = await upsertUser('U_officer2', 'Officer B', null);
+        const r2 = await updateUserRole(user2.id, 'officer', 'TESTOFC01');
+        expect(r2.success).toBe(false);
+        expect(r2.error).toMatch(/ใช้งานแล้ว|หมดอายุ|ไม่ถูกต้อง/);
     });
 });
