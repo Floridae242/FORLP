@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { beforeAll, afterAll, beforeEach } from 'vitest';
 import { ensureTestSchema } from './schema.js';
 import { truncateAll } from './truncate.js';
