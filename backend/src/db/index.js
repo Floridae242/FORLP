@@ -22,7 +22,9 @@ function resolveConnectionString() {
     const schema = process.env.PGSCHEMA;
     if (!schema) return base;
     const sep = base.includes('?') ? '&' : '?';
-    return `${base}${sep}options=${encodeURIComponent(`-c search_path=${schema},public`)}`;
+    // libpq treats unescaped spaces in `options` as parameter separators,
+    // so escape the space inside the search_path value with a backslash.
+    return `${base}${sep}options=${encodeURIComponent(`-c search_path=${schema},\\ public`)}`;
 }
 
 export function getPool() {
