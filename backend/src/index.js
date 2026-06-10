@@ -18,6 +18,7 @@ import {
     formatErrorResponse
 } from './utils/errorHandling.js';
 import { peopleCountService } from './services/peopleCountService.js';
+import { zoneStatusFromCount } from './services/zoneStatus.js';
 import { weatherService } from './services/weatherService.js';
 import { dailyReportService } from './services/dailyReportService.js';
 import { earlyWarningService } from './services/earlyWarningService.js';
@@ -360,13 +361,6 @@ app.post('/api/cctv/playback-url', authMiddleware, officerOnlyMiddleware, (req, 
 // ==================== ZONE ESTIMATES API ====================
 
 const ZONE_NAMES = { A: 'ถนนคนเดิน', B: 'สะพานรัษฎา', C: 'ตลาดเก่า' };
-
-function zoneStatusFromCount(count) {
-    if (count >= 2501) return { crowd_level: 'crowded',  crowd_label: 'แออัด' };
-    if (count >= 1201) return { crowd_level: 'busy',     crowd_label: 'ค่อนข้างแออัด' };
-    if (count >= 501)  return { crowd_level: 'moderate', crowd_label: 'ปกติ' };
-    return             { crowd_level: 'normal',   crowd_label: 'เบาบาง' };
-}
 
 async function buildZoneResponse() {
     const current = peopleCountService.getCurrentCount();
