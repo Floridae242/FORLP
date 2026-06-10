@@ -69,8 +69,12 @@ export async function initDatabase() {
             ? { rejectUnauthorized: false }
             : (process.env.DATABASE_URL?.includes('supabase') ? { rejectUnauthorized: false } : false),
         max: 10,
-        idleTimeoutMillis: 30000,
+        idleTimeoutMillis: 10_000,
         connectionTimeoutMillis: 5000,
+    });
+
+    pool.on('error', (err) => {
+        console.error('[DB Pool] Unexpected pool error:', err.message);
     });
 
     const client = await pool.connect();
