@@ -115,7 +115,7 @@ function calculateLatency(timestamp) {
 /**
  * ตรวจสอบว่าควรส่ง alert หรือไม่ (cooldown)
  */
-function shouldSendAlert(alertType) {
+export function shouldSendAlert(alertType) {
     const lastSent = lastAlerts[alertType];
     if (!lastSent) return true;
     
@@ -126,7 +126,7 @@ function shouldSendAlert(alertType) {
 /**
  * บันทึกเวลาที่ส่ง alert
  */
-function markAlertSent(alertType) {
+export function markAlertSent(alertType) {
     lastAlerts[alertType] = Date.now();
 }
 
