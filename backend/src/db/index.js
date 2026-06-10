@@ -16,6 +16,17 @@ types.setTypeParser(1082, (v) => v);
 
 let pool = null;
 
+function resolveConnectionString() {
+    const base = process.env.DATABASE_URL;
+    if (!base) return base;
+    const schema = process.env.PGSCHEMA;
+    if (!schema) return base;
+    const sep = base.includes('?') ? '&' : '?';
+    // libpq treats unescaped spaces in `options` as parameter separators,
+    // so escape the space inside the search_path value with a backslash.
+    return `${base}${sep}options=${encodeURIComponent(`-c search_path=${schema},\\ public`)}`;
+}
+
 export function getPool() {
     if (!pool) throw new Error('Database not initialized');
     return pool;
@@ -53,13 +64,17 @@ export async function transaction(fn) {
 
 export async function initDatabase() {
     pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: resolveConnectionString(),
         ssl: process.env.NODE_ENV === 'production'
             ? { rejectUnauthorized: false }
             : (process.env.DATABASE_URL?.includes('supabase') ? { rejectUnauthorized: false } : false),
         max: 10,
-        idleTimeoutMillis: 30000,
+        idleTimeoutMillis: 10_000,
         connectionTimeoutMillis: 5000,
+    });
+
+    pool.on('error', (err) => {
+        console.error('[DB Pool] Unexpected pool error:', err.message);
     });
 
     const client = await pool.connect();

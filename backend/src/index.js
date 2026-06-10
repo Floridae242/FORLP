@@ -18,6 +18,7 @@ import {
     formatErrorResponse
 } from './utils/errorHandling.js';
 import { peopleCountService } from './services/peopleCountService.js';
+import { zoneStatusFromCount } from './services/zoneStatus.js';
 import { weatherService } from './services/weatherService.js';
 import { dailyReportService } from './services/dailyReportService.js';
 import { earlyWarningService } from './services/earlyWarningService.js';
@@ -87,6 +88,16 @@ app.use(cors(corsOptions));
 
 // Rate Limiting (ใช้ก่อน JSON parsing เพื่อป้องกัน DOS)
 app.use(rateLimitMiddleware);
+
+// Per-request timeout — prevents a hung Supabase call from pinning a worker
+app.use((req, res, next) => {
+    res.setTimeout(30_000, () => {
+        if (!res.headersSent) {
+            res.status(503).json({ success: false, error: 'Request timeout' });
+        }
+    });
+    next();
+});
 
 // JSON Parsing (1 MB limit)
 app.use(express.json({ limit: '1mb' }));
@@ -360,13 +371,6 @@ app.post('/api/cctv/playback-url', authMiddleware, officerOnlyMiddleware, (req, 
 // ==================== ZONE ESTIMATES API ====================
 
 const ZONE_NAMES = { A: 'ถนนคนเดิน', B: 'สะพานรัษฎา', C: 'ตลาดเก่า' };
-
-function zoneStatusFromCount(count) {
-    if (count >= 2501) return { crowd_level: 'crowded',  crowd_label: 'แออัด' };
-    if (count >= 1201) return { crowd_level: 'busy',     crowd_label: 'ค่อนข้างแออัด' };
-    if (count >= 501)  return { crowd_level: 'moderate', crowd_label: 'ปกติ' };
-    return             { crowd_level: 'normal',   crowd_label: 'เบาบาง' };
-}
 
 async function buildZoneResponse() {
     const current = peopleCountService.getCurrentCount();
@@ -1481,6 +1485,8 @@ async function start() {
 process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+    start();
+}
 
 export default app;

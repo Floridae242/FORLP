@@ -79,7 +79,7 @@ let alertCallbacks = {
 /**
  * คำนวณ status จาก count
  */
-function calculateStatus(count) {
+export function calculateStatus(count) {
     if (count >= STATUS_THRESHOLDS.CROWDED.min) {
         return { key: 'crowded', label: 'หนาแน่นมาก', desc: 'แจ้งเตือนทันที' };
     }
@@ -115,7 +115,7 @@ function calculateLatency(timestamp) {
 /**
  * ตรวจสอบว่าควรส่ง alert หรือไม่ (cooldown)
  */
-function shouldSendAlert(alertType) {
+export function shouldSendAlert(alertType) {
     const lastSent = lastAlerts[alertType];
     if (!lastSent) return true;
     
@@ -126,7 +126,7 @@ function shouldSendAlert(alertType) {
 /**
  * บันทึกเวลาที่ส่ง alert
  */
-function markAlertSent(alertType) {
+export function markAlertSent(alertType) {
     lastAlerts[alertType] = Date.now();
 }
 
@@ -268,7 +268,10 @@ function saveToDatabase(count, timestamp, cameraId, sourceType) {
             [cameraId, camData.max_count, camData.avg_count, camData.raw_count,
              camData.frames_processed, camData.window_start, camData.window_end,
              sourceType, timestamp]
-        ).catch(() => {}); // ai_people_counts is optional
+        ).catch((e) => {
+            // ai_people_counts is optional (best-effort), but log so we notice persistent failures
+            console.warn('[PeopleCount] ai_people_counts insert failed:', e.message);
+        });
     }
 }
 
