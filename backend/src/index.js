@@ -89,6 +89,16 @@ app.use(cors(corsOptions));
 // Rate Limiting (ใช้ก่อน JSON parsing เพื่อป้องกัน DOS)
 app.use(rateLimitMiddleware);
 
+// Per-request timeout — prevents a hung Supabase call from pinning a worker
+app.use((req, res, next) => {
+    res.setTimeout(30_000, () => {
+        if (!res.headersSent) {
+            res.status(503).json({ success: false, error: 'Request timeout' });
+        }
+    });
+    next();
+});
+
 // JSON Parsing (1 MB limit)
 app.use(express.json({ limit: '1mb' }));
 
