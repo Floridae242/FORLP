@@ -66,6 +66,20 @@ INSERT OR IGNORE INTO system_settings (setting_key, setting_value) VALUES
     ('early_warning_time', '14:00'),
     ('daily_report_time', '23:00');
 
+-- Venues Table (ข้อมูลสถานที่)
+CREATE TABLE IF NOT EXISTS venues (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  venue_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  latitude REAL,
+  longitude REAL,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venues_venue_id ON venues(venue_id);
+
 -- =====================================================
 -- USER MANAGEMENT (ระบบจัดการผู้ใช้งาน)
 -- =====================================================
