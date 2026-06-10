@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getPool } from '../../src/db/index.js';
+import { getPool, queries } from '../../src/db/index.js';
 
 // Mock the weather wrapper so we don't hit OpenWeather in tests
 vi.mock('../../src/services/weatherService.js', () => ({
@@ -44,5 +44,25 @@ describe('dailyReportService.generateDailyReport', () => {
         const result = await generateDailyReport('2026-01-01');
         expect(result.success).toBe(true);
         expect(result.data.max_people).toBe(0);
+    });
+});
+
+describe('queries.isReportSentLine', () => {
+    it('returns false for an unsaved date', async () => {
+        expect(await queries.isReportSentLine('2026-03-15')).toBe(false);
+    });
+
+    it('returns false for a saved-but-not-marked date, true after marking', async () => {
+        await queries.saveDailyReport({
+            report_date: '2026-03-15',
+            max_people: 100,
+            avg_people: 50,
+            min_people: 10,
+            total_samples: 5,
+        });
+        expect(await queries.isReportSentLine('2026-03-15')).toBe(false);
+
+        await queries.markReportSentLine('2026-03-15');
+        expect(await queries.isReportSentLine('2026-03-15')).toBe(true);
     });
 });
