@@ -268,7 +268,10 @@ function saveToDatabase(count, timestamp, cameraId, sourceType) {
             [cameraId, camData.max_count, camData.avg_count, camData.raw_count,
              camData.frames_processed, camData.window_start, camData.window_end,
              sourceType, timestamp]
-        ).catch(() => {}); // ai_people_counts is optional
+        ).catch((e) => {
+            // ai_people_counts is optional (best-effort), but log so we notice persistent failures
+            console.warn('[PeopleCount] ai_people_counts insert failed:', e.message);
+        });
     }
 }
 

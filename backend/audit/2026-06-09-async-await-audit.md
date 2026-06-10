@@ -11,20 +11,9 @@ and `authService.*` async call sites are either directly `await`ed or wrapped in
 (`dailyReportService.js:21`, `earlyWarningService.js:546`) were already patched
 in commit 215080b and were re-verified by this audit.
 
-## High (file as TODO, fix in Task 26)
+## High
 
-- `src/services/dailyReportService.js:333` — `getLatestReport()` swallows all
-  errors with `catch { return null; }` (no log). Caller cannot distinguish
-  "no report yet" from "DB is down". Replace with
-  `catch (e) { console.warn('[DailyReport] getLatestReport failed:', e.message); return null; }`.
-- `src/services/dailyReportService.js:337` — `getReportByDate(date)` same
-  pattern. Same fix.
-- `src/services/dailyReportService.js:341` — `getRecentReports(limit)` same
-  pattern (returns `[]`). Same fix.
-- `src/services/peopleCountService.js:271` — `.catch(() => {})` on the
-  `ai_people_counts` insert. Comment says "optional", but a silent drop hides
-  schema drift and pool exhaustion. Log the error at `console.warn` level
-  while still discarding the rejection (so the outer Promise stays resolved).
+(all fixed in Task 26 — see "Fixed in Phase 6" below)
 
 ## Medium / Low (punch list — triage later)
 
@@ -119,3 +108,8 @@ grep -rn 'process\.env\.' src/ --include='*.js'
 ## Outcome
 
 No CRITICAL findings. No inline fixes required.
+
+## Fixed in Phase 6
+
+- `src/services/dailyReportService.js` — `getLatestReport`, `getReportByDate`, `getRecentReports` now log errors via `console.warn` before returning the null/empty fallback.
+- `src/services/peopleCountService.js` — `ai_people_counts` insert catch now logs the error instead of silently discarding.

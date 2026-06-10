@@ -330,15 +330,30 @@ export async function processEarlyWarning() {
 }
 
 export async function getLatestReport() {
-    try { return await queries.getLatestDailyReport(); } catch { return null; }
+    try {
+        return await queries.getLatestDailyReport();
+    } catch (e) {
+        console.warn('[DailyReport] getLatestReport failed:', e.message);
+        return null;
+    }
 }
 
 export async function getReportByDate(date) {
-    try { return await queries.getDailyReport(date); } catch { return null; }
+    try {
+        return await queries.getDailyReport(date);
+    } catch (e) {
+        console.warn('[DailyReport] getReportByDate failed:', e.message);
+        return null;
+    }
 }
 
 export async function getRecentReports(limit = 7) {
-    try { return await queries.getDailyReports(limit); } catch { return []; }
+    try {
+        return await queries.getDailyReports(limit);
+    } catch (e) {
+        console.warn('[DailyReport] getRecentReports failed:', e.message);
+        return [];
+    }
 }
 
 export const dailyReportService = {
