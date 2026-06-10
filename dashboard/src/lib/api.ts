@@ -56,14 +56,16 @@ export const api = {
 // Camera: LPG-B01-Temp-CC-01
 // ─────────────────────────────────────────────────────
 
+// ตัวเลข enter/leave ของ 02/07, 02/08, 02/09, 02/11 ตรงตามรายงาน NVR ใน ref/เทศบาลนครลำปาง.pdf
+// แถวอื่นเป็นค่าประมาณ (ไม่มีรายงานยืนยัน)
 export const REPORT_SCENARIOS: ReportScenario[] = [
-  { date: "2026-02-07", label: "Night Market (Peak)", enter: 337, leave: 3161, duplicate: 42, net: 337 - 3161 },
-  { date: "2026-02-08", label: "Night Market (Sat)", enter: 289, leave: 2740, duplicate: 38, net: 289 - 2740 },
-  { date: "2026-02-09", label: "Sunday Market", enter: 236, leave: 2089, duplicate: 31, net: 236 - 2089 },
-  { date: "2026-02-10", label: "Weekday (Mon)", enter: 42, leave: 198, duplicate: 8, net: 42 - 198 },
-  { date: "2026-02-11", label: "Weekday (Tue)", enter: 31, leave: 142, duplicate: 5, net: 31 - 142 },
-  { date: "2026-02-12", label: "Weekday (Wed AM)", enter: 19, leave: 89, duplicate: 3, net: 19 - 89 },
-  { date: "2026-02-13", label: "Weekday (Thu)", enter: 27, leave: 121, duplicate: 4, net: 27 - 121 },
+  { date: "2026-02-07", label: "Night Market (Sat, Peak)", enter: 337, leave: 3161, duplicate: 0, net: 337 - 3161 },
+  { date: "2026-02-08", label: "Night Market (Sun)", enter: 304, leave: 2018, duplicate: 0, net: 304 - 2018 },
+  { date: "2026-02-09", label: "Weekday (Mon)", enter: 64, leave: 416, duplicate: 0, net: 64 - 416 },
+  { date: "2026-02-10", label: "Weekday (Tue)", enter: 42, leave: 198, duplicate: 8, net: 42 - 198 },
+  { date: "2026-02-11", label: "Weekday (Wed)", enter: 52, leave: 416, duplicate: 0, net: 52 - 416 },
+  { date: "2026-02-12", label: "Weekday (Thu AM)", enter: 19, leave: 89, duplicate: 3, net: 19 - 89 },
+  { date: "2026-02-13", label: "Weekday (Fri)", enter: 27, leave: 121, duplicate: 4, net: 27 - 121 },
 ];
 
 export const REAL_CAMERAS: CameraNode[] = [

@@ -168,11 +168,16 @@ export async function getReportHistory(days = 30) {
 // =====================================================
 
 /**
- * POST /api/notify/line - ส่งข้อความแจ้งเตือนผ่าน LINE OA
+ * POST /api/notify/line - ส่งข้อความแจ้งเตือนผ่าน LINE OA (เจ้าหน้าที่เท่านั้น)
  */
 export async function sendLineNotification(message, type = 'custom') {
+    const sessionToken = localStorage.getItem('forlp_session_token');
     const result = await apiFetch('/api/notify/line', {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`,
+        },
         body: JSON.stringify({ message, type }),
     });
     return result;

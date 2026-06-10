@@ -1168,8 +1168,8 @@ app.get('/api/system/status', (req, res) => {
 
 // ==================== LINE NOTIFICATION API (สำหรับ Frontend) ====================
 
-// POST /api/notify/line - ส่งข้อความแจ้งเตือนผ่าน LINE OA
-app.post('/api/notify/line', async (req, res) => {
+// POST /api/notify/line - ส่งข้อความแจ้งเตือนผ่าน LINE OA (เจ้าหน้าที่เท่านั้น)
+app.post('/api/notify/line', authMiddleware, officerOnlyMiddleware, async (req, res) => {
     try {
         const { message, type } = req.body;
 

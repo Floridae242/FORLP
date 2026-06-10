@@ -27,7 +27,7 @@ const WARNING_LINE = 2500; // เส้นแจ้งเตือนบน char
 const PDF_REPORT = {
     enter: 337,
     leave: 3161,
-    reportDate: '2025-02-01', // วันที่รายงาน PDF
+    reportDate: '2026-02-07', // Report Time ในรายงาน NVR (กล้อง LPG-B01-Temp-CC-01)
     source: 'รายงานเทศบาลนครลำปาง',
 };
 
@@ -111,8 +111,9 @@ function ChartTooltip({ active, payload, label }) {
 // =====================================================
 export default function PeoplePage() {
     usePageTitle('ภาพรวมพื้นที่');
-    const { user } = useAuth();
-    const isOfficer = user?.role === 'officer';
+    const { canAccessCCTV } = useAuth();
+    // ตรงกับ officerOnlyMiddleware ฝั่ง backend: ต้องเป็นเจ้าหน้าที่ที่ยืนยันสิทธิ์แล้ว
+    const isOfficer = canAccessCCTV();
     const [currentData, setCurrentData] = useState(null);
     const [dailyData, setDailyData] = useState(null);
     const [hourlyData, setHourlyData] = useState([]);
@@ -322,7 +323,8 @@ export default function PeoplePage() {
                     </div>
                 </div>
 
-                {/* LINE Notify Button */}
+                {/* LINE Notify Button — เจ้าหน้าที่ที่ยืนยันสิทธิ์แล้วเท่านั้น (ตรงกับ backend) */}
+                {isOfficer && (
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                     <button
                         onClick={handleNotify}
@@ -344,6 +346,7 @@ export default function PeoplePage() {
                         <p style={{ fontSize: '0.8125rem', color: 'var(--status-danger)', marginTop: 6 }}>ส่งไม่สำเร็จ กรุณาลองใหม่</p>
                     )}
                 </div>
+                )}
 
                 {/* Update info */}
                 <div className="update-info">

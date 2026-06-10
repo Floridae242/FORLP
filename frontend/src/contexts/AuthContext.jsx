@@ -70,7 +70,6 @@ function getStoredSession() {
         
         // ตรวจสอบว่า session หมดอายุหรือยัง
         if (expiresAt && new Date(expiresAt) < new Date()) {
-            console.log('[Auth] Stored session expired');
             clearSession();
             return null;
         }
@@ -97,7 +96,6 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         async function initAuth() {
             try {
-                console.log('[Auth] Starting initialization...');
                 
                 // ตรวจสอบว่ามี callback จาก LINE หรือไม่
                 const urlParams = new URLSearchParams(window.location.search);
@@ -117,7 +115,6 @@ export function AuthProvider({ children }) {
                 
                 if (code && state) {
                     // มี callback จาก LINE - ดำเนินการ exchange token
-                    console.log('[Auth] Processing LINE callback...');
                     setIsProcessingCallback(true);
                     await processLineCallback(code, state);
                     window.history.replaceState({}, '', window.location.pathname);
@@ -140,7 +137,6 @@ export function AuthProvider({ children }) {
     // Process LINE Callback - แลก Authorization Code เป็น Session
     const processLineCallback = async (code, state) => {
         try {
-            console.log('[Auth] Exchanging code for session...');
             
             const response = await fetch(`${API_BASE}/api/auth/line/callback`, {
                 method: 'POST',
@@ -153,7 +149,6 @@ export function AuthProvider({ children }) {
             const result = await response.json();
             
             if (result.success) {
-                console.log('[Auth] Login successful:', result.data.user.displayName);
                 
                 // บันทึก Session แบบ Persistent
                 saveSession(
@@ -182,7 +177,6 @@ export function AuthProvider({ children }) {
         const stored = getStoredSession();
         
         if (!stored) {
-            console.log('[Auth] No stored session found');
             return false;
         }
 
@@ -192,7 +186,6 @@ export function AuthProvider({ children }) {
         }
 
         try {
-            console.log('[Auth] Validating session with backend...');
             const response = await fetch(`${API_BASE}/api/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${stored.token}`
@@ -202,7 +195,6 @@ export function AuthProvider({ children }) {
             if (response.ok) {
                 const result = await response.json();
                 if (result.success) {
-                    console.log('[Auth] Session valid, user:', result.data.user.displayName);
                     
                     // อัปเดต user cache
                     saveSession(stored.token, stored.expiresAt, result.data.user);
@@ -212,7 +204,6 @@ export function AuthProvider({ children }) {
             }
             
             // Session ไม่ valid - ลบ session แต่ไม่แสดง error
-            console.log('[Auth] Session expired or invalid');
             clearSession();
             setUser(null);
             return false;
@@ -221,7 +212,6 @@ export function AuthProvider({ children }) {
             console.error('[Auth] Load user error:', err);
             // Network error - ใช้ cached user ถ้ามี
             if (stored.userCache) {
-                console.log('[Auth] Using cached user due to network error');
                 return true;
             }
             return false;
@@ -230,7 +220,6 @@ export function AuthProvider({ children }) {
 
     // เริ่มต้น LINE Login Flow
     const login = useCallback(async () => {
-        console.log('[Auth] Starting LINE Login flow...');
         setError(null);
         
         try {
@@ -238,7 +227,6 @@ export function AuthProvider({ children }) {
             const result = await response.json();
             
             if (result.success) {
-                console.log('[Auth] Redirecting to LINE Login...');
                 window.location.href = result.data.authorizationUrl;
             } else {
                 console.error('[Auth] Failed to get auth URL:', result.error);
@@ -252,7 +240,6 @@ export function AuthProvider({ children }) {
 
     // ออกจากระบบ (Revoke LINE Token + Clear Session)
     const logout = async () => {
-        console.log('[Auth] Logging out...');
         const stored = getStoredSession();
 
         try {

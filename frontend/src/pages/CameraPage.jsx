@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
+// วันที่แบบ local (YYYY-MM-DD) — ห้ามใช้ toISOString() เพราะจะกลายเป็นวัน UTC
+// ซึ่งผิดวันช่วงก่อน 07:00 น. ตามเวลาไทย
+function localDateString(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 async function fetchCameraStreams() {
     const sessionToken = localStorage.getItem('forlp_session_token');
     const res = await fetch(`${API_BASE_URL}/api/cctv/streams`, {
@@ -180,10 +189,7 @@ export default function CameraPage() {
     const containerRef = useRef(null);
 
     const [viewMode, setViewMode] = useState('live');
-    const [playbackDate, setPlaybackDate] = useState(() => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
-    });
+    const [playbackDate, setPlaybackDate] = useState(() => localDateString());
     const [playbackStartHour, setPlaybackStartHour] = useState('18');
     const [playbackStartMinute, setPlaybackStartMinute] = useState('00');
     const [playbackStartSecond, setPlaybackStartSecond] = useState('00');
@@ -237,16 +243,18 @@ export default function CameraPage() {
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    const handlePlayback = async () => {
-        const startDateTime = new Date(playbackDate);
-        startDateTime.setHours(
+    const handlePlayback = async (cameraId = selectedCamera) => {
+        // สร้างวันที่จาก parts ใน local time — new Date('YYYY-MM-DD') ตีความเป็น UTC
+        const [year, month, day] = playbackDate.split('-').map(Number);
+        const startDateTime = new Date(
+            year, month - 1, day,
             parseInt(playbackStartHour),
             parseInt(playbackStartMinute),
             parseInt(playbackStartSecond)
         );
 
-        const endDateTime = new Date(playbackDate);
-        endDateTime.setHours(
+        const endDateTime = new Date(
+            year, month - 1, day,
             parseInt(playbackEndHour),
             parseInt(playbackEndMinute),
             parseInt(playbackEndSecond)
@@ -257,7 +265,7 @@ export default function CameraPage() {
         }
 
         try {
-            const url = await fetchPlaybackUrl(selectedCamera, startDateTime, endDateTime);
+            const url = await fetchPlaybackUrl(cameraId, startDateTime, endDateTime);
             setPlaybackUrl(url);
             setViewMode('playback');
         } catch (err) {
@@ -321,7 +329,7 @@ export default function CameraPage() {
                                 type="date"
                                 value={playbackDate}
                                 onChange={(e) => setPlaybackDate(e.target.value)}
-                                max={new Date().toISOString().split('T')[0]}
+                                max={localDateString()}
                                 style={styles.dateInput}
                             />
                         </div>
@@ -404,7 +412,7 @@ export default function CameraPage() {
                         <div>
                             <label style={{ ...styles.inputLabel, opacity: 0 }}>-</label>
                             <button
-                                onClick={handlePlayback}
+                                onClick={() => handlePlayback()}
                                 style={styles.playButton}
                                 onMouseOver={(e) => e.target.style.background = 'var(--color-primary-light)'}
                                 onMouseOut={(e) => e.target.style.background = 'var(--color-primary)'}
@@ -432,7 +440,8 @@ export default function CameraPage() {
                         onClick={() => {
                             setSelectedCamera(camera.id);
                             if (viewMode === 'playback' && playbackUrl) {
-                                setTimeout(() => handlePlayback(), 100);
+                                // ส่ง id ตรง ๆ — ถ้ารอ state ผ่าน setTimeout จะได้กล้องตัวเก่า (stale closure)
+                                handlePlayback(camera.id);
                             }
                         }}
                         className={`camera-btn ${selectedCamera === camera.id ? 'active' : ''}`}
