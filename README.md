@@ -12,31 +12,46 @@
 - สภาพอากาศและคุณภาพอากาศ
 - การแจ้งเตือนผ่าน LINE OA
 
+ประกอบด้วย 4 ส่วนหลัก:
+
+| ส่วน | หน้าที่ |
+|------|---------|
+| `backend/` | API Server (Express + PostgreSQL/Supabase) — รวมข้อมูลคน, อากาศ, แจ้งเตือน, Auth |
+| `frontend/` | เว็บสำหรับประชาชน/ร้านค้า (React + Vite) — ดูความหนาแน่น, อากาศ, รายงาน |
+| `dashboard/` | Dashboard สำหรับเจ้าหน้าที่ (Next.js) — แผนที่, Heatmap, CCTV, Zone Cards |
+| `ai-service/` | AI People Counting (Python + YOLOv8) — อ่าน RTSP จาก NVR แล้วส่งจำนวนคนเข้า backend |
+
 ---
 
 ## ฟีเจอร์หลัก
 
 | ฟีเจอร์ | รายละเอียด |
 |---------|------------|
-| AI People Counting | นับจำนวนคนอัตโนมัติด้วย YOLOv8 แบบ Real-time |
+| AI People Counting | นับจำนวนคนอัตโนมัติด้วย YOLOv8 แบบ Real-time (6 กล้อง 3 โซน) |
+| Zone Status | สถานะความหนาแน่นรายโซน (A, B, C) |
 | สภาพอากาศ | อุณหภูมิ, ความชื้น, ความเร็วลม |
 | คุณภาพอากาศ | ค่า PM2.5 พร้อมคำแนะนำ |
 | รายงานข้อมูล | สรุปรายวัน, รายสัปดาห์ (นับเฉพาะช่วง 16:00-22:00 น.) |
 | Daily Report | ส่งรายงานประจำวันไป LINE OA (เสาร์-อาทิตย์ 23:00 น.) |
-| Early Warning | แจ้งเตือนฝน, ความแออัด (>= 300 คน), วิกฤต (>= 600 คน) |
+| Early Warning | แจ้งเตือนฝน, ความแออัด (>= 1,201 คน), วิกฤต (>= 2,501 คน) |
 | LINE Login | ระบบยืนยันตัวตนผ่าน LINE Login v2.1 |
 | Role-based Access | แบ่งสิทธิ์ตามบทบาท (ร้านค้า, ประชาชน, นักท่องเที่ยว, เจ้าหน้าที่) |
+| CCTV Streaming | ดูภาพสด/ย้อนหลังจาก NVR ผ่าน WebRTC proxy (เจ้าหน้าที่เท่านั้น) |
 
 ---
 
 ## สถานะความหนาแน่น
 
+เกณฑ์ตามเอกสารเทศบาลนครลำปาง (ดู `backend/src/services/peopleCountService.js`):
+
 | สถานะ | จำนวนคน | คำอธิบาย |
 |-------|---------|----------|
-| ปกติ | 0-99 | พื้นที่โล่ง |
-| ปานกลาง | 100-299 | มีคนพอสมควร |
-| ค่อนข้างหนาแน่น | 300-599 | แออัด (แจ้งเตือน) |
-| หนาแน่นมาก | 600+ | วิกฤต (แจ้งเตือนฉุกเฉิน) |
+| ปกติ | 0-500 | สภาพปกติ ไหลลื่น |
+| ปานกลาง | 501-1,200 | ค่อนข้างคึกคัก |
+| หนาแน่น | 1,201-2,500 | เริ่มแออัด (ส่ง warning) |
+| หนาแน่นมาก | 2,501+ | วิกฤต (ส่ง critical alert) |
+
+ค่าที่ใช้คำนวณเป็นค่า EMA-smoothed และมี cooldown 10 นาทีกันการแจ้งเตือนซ้ำ
 
 ---
 
@@ -44,14 +59,16 @@
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React, Vite |
+| Frontend (ประชาชน) | React, Vite, Tailwind CSS |
+| Dashboard (เจ้าหน้าที่) | Next.js, React, TypeScript, Tailwind CSS, Zustand, Recharts |
 | Backend | Node.js, Express |
-| Database | SQLite |
+| Database | PostgreSQL (Supabase) |
 | AI Service | Python, YOLOv8, OpenCV |
 | Authentication | LINE Login v2.1 (OAuth 2.0) |
 | Notification | LINE Messaging API |
 | Weather API | OpenWeatherMap, Open-Meteo |
-| Deployment | Railway (Backend), Vercel (Frontend) |
+| Testing | Vitest, Supertest (backend) |
+| Deployment | Vercel (Frontend), Render/Railway via Docker (Backend), On-premise Docker (AI Service) |
 
 ---
 
@@ -61,26 +78,24 @@
 FORLP/
 ├── backend/                    # Backend API Server
 │   ├── src/
-│   │   ├── index.js           # Main server + API routes
-│   │   ├── config/
-│   │   │   └── index.js       # Configuration
-│   │   ├── db/
-│   │   │   ├── index.js       # Database connection
-│   │   │   └── schema.sql     # Database schema
-│   │   └── services/
-│   │       ├── authService.js         # LINE Login + Role management
-│   │       ├── peopleCountService.js  # People counting logic
-│   │       ├── weatherService.js      # Weather + PM2.5 API
-│   │       ├── earlyWarningService.js # Rain + Crowd alerts
-│   │       ├── dailyReportService.js  # LINE OA messaging
-│   │       └── pollingService.js      # Data polling
-│   └── data/
-│       └── kadkongta.db       # SQLite database
+│   │   ├── index.js           # Routes + app entry
+│   │   ├── config/            # env-driven config + validation
+│   │   ├── db/                # pg pool, query helpers, schema.sql
+│   │   ├── middleware/        # rate limit, sanitize, timeout, error handler
+│   │   ├── services/
+│   │   │   ├── authService.js         # LINE Login + Role management
+│   │   │   ├── peopleCountService.js  # นับคน, EMA smoothing, thresholds
+│   │   │   ├── zoneStatus.js          # สถานะความหนาแน่นรายโซน
+│   │   │   ├── weatherService.js      # Weather + PM2.5 API
+│   │   │   ├── earlyWarningService.js # Rain + Crowd alerts
+│   │   │   ├── dailyReportService.js  # LINE OA messaging
+│   │   │   └── pollingService.js      # Data polling
+│   │   └── utils/             # error classes, structured logging
+│   └── test/                  # unit / services / routes (Vitest + Supertest)
 │
-├── frontend/                   # React Frontend
+├── frontend/                   # React Frontend (ประชาชน/ร้านค้า)
 │   ├── src/
 │   │   ├── App.jsx            # Main app + routing
-│   │   ├── index.css          # Global styles
 │   │   ├── contexts/
 │   │   │   └── AuthContext.jsx    # Authentication context
 │   │   ├── pages/
@@ -94,11 +109,19 @@ FORLP/
 │   │       └── liffService.js     # LINE LIFF integration
 │   └── index.html
 │
+├── dashboard/                  # Next.js Dashboard (เจ้าหน้าที่)
+│   └── src/
+│       ├── app/               # App Router (page, layout)
+│       ├── components/        # StatCard, TrafficChart, LiveMap, HeatmapGrid, CCTVGrid, ZoneCards
+│       ├── hooks/             # useDashboardPolling, useTrafficData, useClock
+│       ├── stores/            # Zustand store
+│       └── lib/               # API client, notification service, utils
+│
 ├── ai-service/                 # AI People Counting Service
 │   ├── src/
 │   │   ├── main.py            # Main AI processing
 │   │   └── health.py          # Health check API
-│   ├── config.yaml            # Camera + AI configuration
+│   ├── config.yaml            # Camera + AI configuration (6 กล้อง: A01/B01/B02)
 │   ├── yolov8n.pt             # YOLOv8 model
 │   ├── Dockerfile             # CPU Docker image
 │   ├── Dockerfile.gpu         # GPU Docker image
@@ -119,7 +142,7 @@ FORLP/
 
 ---
 
-## หน้าจอในระบบ
+## หน้าจอในระบบ (frontend)
 
 | หน้า | Path | รายละเอียด |
 |------|------|------------|
@@ -135,8 +158,9 @@ FORLP/
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - Python 3.10+ (สำหรับ AI Service)
+- Supabase project (PostgreSQL) สำหรับ backend
 - Docker (optional)
 
 ### Installation
@@ -146,8 +170,11 @@ FORLP/
 git clone <repository-url>
 cd FORLP
 
-# Install all dependencies
+# Install backend + frontend dependencies
 npm run install:all
+
+# Dashboard (แยกต่างหาก)
+cd dashboard && npm install
 ```
 
 ### Development
@@ -159,6 +186,9 @@ npm run dev
 # หรือรันแยก
 npm run dev:backend    # Backend: http://localhost:3000
 npm run dev:frontend   # Frontend: http://localhost:5173
+
+# Dashboard เจ้าหน้าที่
+cd dashboard && npm run dev
 ```
 
 ### AI Service
@@ -192,11 +222,11 @@ npm run docker:down
 
 ## Environment Variables
 
-### Backend (.env)
+ดูรายการเต็มพร้อมคำอธิบายใน `backend/.env.example` และ `docs/ENV_SETUP.md` — ค่าหลักที่ต้องตั้ง:
 
 ```env
-PORT=3000
-NODE_ENV=production
+# Database (Supabase PostgreSQL)
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres?pgbouncer=true
 
 # LINE OA (Messaging API)
 LINE_CHANNEL_ACCESS_TOKEN=xxx
@@ -210,7 +240,18 @@ LINE_LOGIN_CALLBACK_URL=https://your-frontend.com/settings
 # Weather API
 OPENWEATHER_API_KEY=xxx
 
-# Frontend URL
+# AI Service (ต้องตรงกับ config.yaml ของ ai-service)
+AI_API_KEY=xxx
+
+# NVR / CCTV (ห้าม hardcode ในโค้ด)
+NVR_HOST_A=...
+NVR_HOST_B=...
+NVR_USER=...
+NVR_PASS=...
+WEBRTC_BASE_URL=...
+
+# Session + Frontend
+SESSION_SECRET=xxx
 FRONTEND_URL=https://your-frontend.com
 ```
 
@@ -235,17 +276,31 @@ streams:
 
 ## API Endpoints
 
-### Public APIs
+รายละเอียดเต็มดูที่ `docs/openapi.yaml` — endpoint หลัก:
+
+### People & Zones
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/people/current` | จำนวนคนปัจจุบัน |
+| GET | `/api/people/history` | ข้อมูลย้อนหลัง |
+| GET | `/api/people/hourly` | สรุปรายชั่วโมง |
 | GET | `/api/people/daily?date=YYYY-MM-DD` | สรุปรายวัน |
-| GET | `/api/reports/weekly` | สรุปรายสัปดาห์ (เฉพาะช่วง 16:00-22:00) |
-| GET | `/api/weather/current` | สภาพอากาศปัจจุบัน |
 | GET | `/api/people/crowd-level` | ระดับความแออัด |
+| GET | `/api/zones/current` | สถานะความหนาแน่นรายโซน |
+| POST | `/api/zones/update` | อัปเดตข้อมูลโซน (ต้อง auth) |
 
-### Auth APIs
+### Reports & Weather
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/reports/daily` | รายงานรายวัน |
+| GET | `/api/reports/weekly` | สรุปรายสัปดาห์ (เฉพาะช่วง 16:00-22:00) |
+| GET | `/api/reports/history` | รายงานย้อนหลัง |
+| GET | `/api/weather/current` | สภาพอากาศปัจจุบัน |
+| GET | `/api/warnings/forecast` | พยากรณ์/คำเตือน |
+
+### Auth
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -253,14 +308,26 @@ streams:
 | POST | `/api/auth/line/callback` | รับ callback จาก LINE |
 | GET | `/api/auth/me` | ข้อมูลผู้ใช้ปัจจุบัน |
 | PUT | `/api/auth/role` | เปลี่ยนบทบาท |
+| POST | `/api/auth/verify-officer` | ยืนยันตัวตนเจ้าหน้าที่ |
 | POST | `/api/auth/logout` | ออกจากระบบ |
 
-### AI Service APIs
+### AI Service & CCTV
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/ai/people-count` | รับข้อมูลจาก AI Service |
+| POST | `/api/ai/people-count/batch` | รับข้อมูลแบบ batch |
 | GET | `/api/ai/cameras` | รายการกล้อง |
+| GET | `/api/cctv/streams` | รายการ stream (เจ้าหน้าที่) |
+| POST | `/api/cctv/playback-url` | URL ดูภาพย้อนหลัง (เจ้าหน้าที่) |
+
+### System
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/system/status` | สถานะระบบ |
+| GET | `/api/dashboard` | ข้อมูลรวมสำหรับ dashboard |
 
 ---
 
@@ -269,8 +336,22 @@ streams:
 | Task | Schedule | Description |
 |------|----------|-------------|
 | Rain Check | ทุก 10 นาที | ตรวจสอบพยากรณ์ฝน |
-| Crowd Alerts | Real-time | แจ้งเตือนเมื่อคน >= 300 หรือ >= 600 |
-| Daily Report | เสาร์-อาทิตย์ 23:00 | ส่งรายงานประจำวันไป LINE OA |
+| Crowd Alerts | Real-time | แจ้งเตือนเมื่อคน >= 1,201 (warning) หรือ >= 2,501 (critical) |
+| Daily Report | เสาร์-อาทิตย์ 23:00 (Asia/Bangkok) | ส่งรายงานประจำวันไป LINE OA |
+
+---
+
+## Testing
+
+Backend มีชุดทดสอบด้วย Vitest + Supertest (unit / services / routes) รันกับ Postgres จริงใน schema แยก `forlp_test` — ไม่กระทบข้อมูล production
+
+```bash
+cd backend
+npm test          # one-shot
+npm run test:watch
+```
+
+รายละเอียดเพิ่มเติมดู `backend/README.md`
 
 ---
 
@@ -281,26 +362,21 @@ streams:
 - เก็บเฉพาะข้อมูลเชิงสถิติ (จำนวนคน, เวลา)
 - สอดคล้อง PDPA / Privacy by Design
 - กล้อง CCTV เข้าถึงได้เฉพาะเจ้าหน้าที่ที่ยืนยันตัวตนแล้ว
+- Credentials ของ NVR/LINE/Supabase ใช้ environment variables เท่านั้น (ดู `backend/SECURITY.md`)
 
 ---
 
 ## Deployment
 
-### Backend (Railway)
-
-```bash
-# railway.json configured
-# Push to main branch -> auto deploy
-```
-
 ### Frontend (Vercel)
 
-```bash
-# vercel.json configured
-# Push to main branch -> auto deploy
-```
+`vercel.json` build จาก `frontend/` และตั้ง `VITE_API_URL` ชี้ไปยัง backend — push ไป main branch แล้ว auto deploy
 
-### AI Service (Docker)
+### Backend (Render / Railway)
+
+Deploy ด้วย Docker (`backend/Dockerfile`) — มี `railway.json` สำหรับ Railway และปัจจุบัน frontend ชี้ API ไปที่ instance บน Render (`forlp.onrender.com`)
+
+### AI Service (On-premise Docker)
 
 ```bash
 # On-premise server with RTSP access
@@ -312,4 +388,3 @@ docker-compose up ai-service -d
 ## พัฒนาโดย
 
 DII CAMT CMU
-
