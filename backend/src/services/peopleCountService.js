@@ -79,7 +79,7 @@ let alertCallbacks = {
 /**
  * คำนวณ status จาก count
  */
-function calculateStatus(count) {
+export function calculateStatus(count) {
     if (count >= STATUS_THRESHOLDS.CROWDED.min) {
         return { key: 'crowded', label: 'หนาแน่นมาก', desc: 'แจ้งเตือนทันที' };
     }
