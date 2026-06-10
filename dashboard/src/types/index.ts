@@ -64,6 +64,12 @@ export interface CameraNode {
   duplicate: number;
   net: number;
   status: "online" | "offline";
+  /** กล้อง PTZ (หมุน-ซูมได้) */
+  ptz?: boolean;
+  /** รองรับ Face Recognition */
+  faceRec?: boolean;
+  /** กล้องที่ใช้นับคนในโซน (มีตัวเลข enter/leave) */
+  counting?: boolean;
 }
 
 export interface ZoneDensity {

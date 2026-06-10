@@ -1,4 +1,4 @@
-import { Cctv, Plus, Video } from "lucide-react";
+import { Cctv, ScanFace, Video } from "lucide-react";
 import type { CameraNode } from "@/types";
 
 interface CCTVGridProps {
@@ -34,11 +34,19 @@ function CCTVTile({ camera }: { camera: CameraNode }) {
         </span>
       </div>
 
-      {/* บนขวา: โซน + สถานะ */}
+      {/* บนขวา: PTZ / Face-Rec + สถานะ */}
       <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
-        <span className="rounded bg-black/40 px-1.5 py-0.5 text-[9px] font-medium text-slate-400">
-          ZONE {camera.zone}
-        </span>
+        {camera.ptz && (
+          <span className="rounded bg-black/40 px-1.5 py-0.5 text-[9px] font-medium text-cyan-400">
+            PTZ
+          </span>
+        )}
+        {camera.faceRec && (
+          <span className="flex items-center gap-0.5 rounded bg-black/40 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
+            <ScanFace className="h-2.5 w-2.5" />
+            FACE
+          </span>
+        )}
         <span
           className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
             online ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"
@@ -48,14 +56,20 @@ function CCTVTile({ camera }: { camera: CameraNode }) {
         </span>
       </div>
 
-      {/* OSD ล่าง: ตัวเลขนับแบบ NVR */}
+      {/* OSD ล่าง: ตัวเลขนับ (เฉพาะกล้องนับคน) หรือบทบาทของกล้อง */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2.5 pt-6">
-        <div className="flex items-end justify-between">
-          <div className="font-mono text-[10px] leading-relaxed text-emerald-400/90">
-            <div>Enter:{camera.enter.toLocaleString()}</div>
-            <div>Leave:{camera.leave.toLocaleString()}</div>
-            <div>Duplicate:{camera.duplicate}</div>
-          </div>
+        <div className="flex items-end justify-between gap-2">
+          {camera.counting ? (
+            <div className="font-mono text-[10px] leading-relaxed text-emerald-400/90">
+              <div>Enter:{camera.enter.toLocaleString()}</div>
+              <div>Leave:{camera.leave.toLocaleString()}</div>
+              <div>Duplicate:{camera.duplicate}</div>
+            </div>
+          ) : (
+            <div className="font-mono text-[10px] text-slate-400">
+              {camera.faceRec ? "Face Recognition" : "Monitor"}
+            </div>
+          )}
           <div className="text-right">
             <div className="text-[10px] text-slate-400 font-thai">{camera.labelTh}</div>
           </div>
@@ -66,12 +80,14 @@ function CCTVTile({ camera }: { camera: CameraNode }) {
 }
 
 export function CCTVGrid({ cameras }: CCTVGridProps) {
+  const onlineCount = cameras.filter((c) => c.status === "online").length;
+
   return (
     <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 backdrop-blur-xl">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200 font-thai">
           <Cctv className="h-4 w-4 text-amber-400" />
-          กล้อง CCTV ({cameras.length} จุด)
+          กล้อง CCTV ({onlineCount}/{cameras.length} ออนไลน์)
         </h3>
         <span className="text-[11px] text-slate-500 font-thai">
           A1 แยกกลาง • B1 ฝั่งสะพานรัษฎา • B2 ตลาดเก่า
@@ -82,12 +98,6 @@ export function CCTVGrid({ cameras }: CCTVGridProps) {
         {cameras.map((cam) => (
           <CCTVTile key={cam.id} camera={cam} />
         ))}
-
-        {/* จุดติดตั้งเพิ่มตามแผนขยายผล */}
-        <div className="flex aspect-video flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] text-slate-600">
-          <Plus className="h-5 w-5" />
-          <span className="text-[11px] font-thai">จุดติดตั้งเพิ่ม (แผนขยายผล)</span>
-        </div>
       </div>
     </div>
   );

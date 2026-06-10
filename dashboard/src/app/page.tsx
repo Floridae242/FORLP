@@ -21,7 +21,7 @@ import {
   AlertTriangle,
   Copy,
 } from "lucide-react";
-import { REPORT_SCENARIOS } from "@/lib/api";
+import { REPORT_SCENARIOS, REAL_CCTV_CAMERAS } from "@/lib/api";
 
 function LoadingSkeleton() {
   return (
@@ -184,7 +184,7 @@ export default function DashboardPage() {
             peak={traffic.hourlyPeak}
             normal={traffic.hourlyNormal}
           />
-          <CCTVGrid cameras={cameras} />
+          <CCTVGrid cameras={REAL_CCTV_CAMERAS} />
         </section>
 
         {/* ─── Data Source Reference ─── */}

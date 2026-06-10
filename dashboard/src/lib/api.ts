@@ -124,6 +124,51 @@ export const REAL_CAMERAS: CameraNode[] = [
   },
 ];
 
+// กล้อง CCTV จริงทั้ง 6 ตัวที่กาดกองต้า (3 จุด × กล้องคงที่ + PTZ/Face-Rec)
+// ยืนยัน ID / ชื่อ / สถานะ จาก Lampang Smart City IOC — snapshot 2026-06-11
+// แผนที่ใช้ REAL_CAMERAS (3 จุด) ส่วนกริด CCTV ใช้รายการนี้ (6 ตัว)
+export const REAL_CCTV_CAMERAS: CameraNode[] = [
+  // ── จุด A01: แยกกลาง (ทางเข้าหลัก) — ออฟไลน์ทั้งคู่ ──
+  {
+    id: "A1-01", cameraId: "LPG-A01-CC-01", label: "Main Entry (PTZ, Face Rec)",
+    labelTh: "แยกกลาง (ทางเข้าหลัก)", zone: "A", lat: 18.29125, lng: 99.49885,
+    x: 63, y: 51, enter: 0, leave: 0, duplicate: 0, net: 0,
+    status: "offline", ptz: true, faceRec: true,
+  },
+  {
+    id: "A1-02", cameraId: "LPG-A01-CC-02", label: "Main Entry (Counting)",
+    labelTh: "แยกกลาง (ทางเข้าหลัก)", zone: "A", lat: 18.291235, lng: 99.49882,
+    x: 63, y: 51, enter: 168, leave: 1581, duplicate: 0, net: 168 - 1581,
+    status: "offline", counting: true,
+  },
+  // ── จุด B01: ฝั่งสะพานรัษฎา — ออนไลน์ ──
+  {
+    id: "B1-01", cameraId: "LPG-B01-CC-01", label: "Kad Kong Ta 1 (Counting)",
+    labelTh: "กาดกองต้า 1 ฝั่งสะพานรัษฎา", zone: "B", lat: 18.292139, lng: 99.500222,
+    x: 85, y: 20, enter: 101, leave: 949, duplicate: 0, net: 101 - 949,
+    status: "online", counting: true,
+  },
+  {
+    id: "B1-02", cameraId: "LPG-B01-CC-02", label: "Kad Kong Ta 1 (PTZ, Face Rec)",
+    labelTh: "กาดกองต้า 1 ฝั่งสะพานรัษฎา", zone: "B", lat: 18.292116, lng: 99.50019,
+    x: 85, y: 20, enter: 0, leave: 0, duplicate: 0, net: 0,
+    status: "online", ptz: true, faceRec: true,
+  },
+  // ── จุด B02: ตลาดเก่า — ออนไลน์ ──
+  {
+    id: "B2-01", cameraId: "LPG-B02-CC-01", label: "Kad Kong Ta 2 (Counting)",
+    labelTh: "กาดกองต้า 2 ตลาดเก่า", zone: "B", lat: 18.290430, lng: 99.496150,
+    x: 15, y: 80, enter: 68, leave: 631, duplicate: 0, net: 68 - 631,
+    status: "online", counting: true,
+  },
+  {
+    id: "B2-02", cameraId: "LPG-B02-CC-02", label: "Kad Kong Ta 2 (Monitor)",
+    labelTh: "กาดกองต้า 2 ตลาดเก่า", zone: "B", lat: 18.290434, lng: 99.496197,
+    x: 15, y: 80, enter: 0, leave: 0, duplicate: 0, net: 0,
+    status: "online",
+  },
+];
+
 /** Realistic bell-curve for market hours 16:00-22:00 based on PDF data */
 function buildMarketCurve(peakEnter: number, peakLeave: number): HourlyDataPoint[] {
   // Shape: ramp 14-16, peak 17-20, decline 21-22, quiet otherwise
