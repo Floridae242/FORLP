@@ -70,7 +70,9 @@
 
 | Variable | Value | Required | คำอธิบาย |
 |----------|-------|----------|----------|
-| `DB_PATH` | `./data/kadkongta.db` | ❌ No | Path ของ SQLite Database |
+| `DB_PATH` | `./data/venues.db` | ❌ No | Path ของ SQLite Database |
+| `VENUE_NAME` | `กาดกองต้า ลำปาง` | ❌ No | ชื่อสถานที่ (แสดงบน UI) |
+| `VENUE_ID` | `kad-kong-ta` | ❌ No | รหัสสถานที่ (ต้องไม่ซ้ำ) |
 
 ### ⏰ Scheduler Settings
 

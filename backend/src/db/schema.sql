@@ -55,6 +55,25 @@ INSERT INTO system_settings (setting_key, setting_value) VALUES
   ('daily_report_time', '23:00')
 ON CONFLICT (setting_key) DO NOTHING;
 
+-- Venues Table (ข้อมูลสถานที่) — from Jeff branch, converted to PostgreSQL
+CREATE TABLE IF NOT EXISTS venues (
+  id BIGSERIAL PRIMARY KEY,
+  venue_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_venues_venue_id ON venues(venue_id);
+
+-- =====================================================
+-- USER MANAGEMENT (ระบบจัดการผู้ใช้งาน)
+-- =====================================================
+
+-- Users Table (ข้อมูลผู้ใช้จาก LINE Login)
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
   line_user_id TEXT UNIQUE NOT NULL,

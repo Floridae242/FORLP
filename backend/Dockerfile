@@ -12,7 +12,9 @@ COPY . .
 
 ENV PORT=3000
 ENV NODE_ENV=production
-ENV DB_PATH=/app/data/kadkongta.db
+ENV DB_PATH=/app/data/venues.db
+ENV VENUE_NAME="กาดกองต้า ลำปาง"
+ENV VENUE_ID=kad-kong-ta
 
 EXPOSE 3000
 
