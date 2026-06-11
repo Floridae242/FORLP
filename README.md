@@ -17,8 +17,7 @@
 | ส่วน | หน้าที่ |
 |------|---------|
 | `backend/` | API Server (Express + PostgreSQL/Supabase) — รวมข้อมูลคน, อากาศ, แจ้งเตือน, Auth |
-| `frontend/` | เว็บสำหรับประชาชน/ร้านค้า (React + Vite) — ดูความหนาแน่น, อากาศ, รายงาน |
-| `dashboard/` | Dashboard สำหรับเจ้าหน้าที่ (Next.js) — แผนที่, Heatmap, CCTV, Zone Cards |
+| `frontend/` | เว็บสำหรับประชาชน/ร้านค้า + เจ้าหน้าที่ (React + Vite) — ความหนาแน่น, อากาศ, รายงาน, CCTV |
 | `ai-service/` | AI People Counting (Python + YOLOv8) — อ่าน RTSP จาก NVR แล้วส่งจำนวนคนเข้า backend |
 
 ---
@@ -59,8 +58,7 @@
 
 | Layer | Technology |
 |-------|------------|
-| Frontend (ประชาชน) | React, Vite, Tailwind CSS |
-| Dashboard (เจ้าหน้าที่) | Next.js, React, TypeScript, Tailwind CSS, Zustand, Recharts |
+| Frontend | React, Vite, Tailwind CSS, Recharts |
 | Backend | Node.js, Express |
 | Database | PostgreSQL (Supabase) |
 | AI Service | Python, YOLOv8, OpenCV |
@@ -108,14 +106,6 @@ FORLP/
 │   │       ├── api.jsx            # API client
 │   │       └── liffService.js     # LINE LIFF integration
 │   └── index.html
-│
-├── dashboard/                  # Next.js Dashboard (เจ้าหน้าที่)
-│   └── src/
-│       ├── app/               # App Router (page, layout)
-│       ├── components/        # StatCard, TrafficChart, LiveMap, HeatmapGrid, CCTVGrid, ZoneCards
-│       ├── hooks/             # useDashboardPolling, useTrafficData, useClock
-│       ├── stores/            # Zustand store
-│       └── lib/               # API client, notification service, utils
 │
 ├── ai-service/                 # AI People Counting Service
 │   ├── src/
@@ -172,9 +162,6 @@ cd FORLP
 
 # Install backend + frontend dependencies
 npm run install:all
-
-# Dashboard (แยกต่างหาก)
-cd dashboard && npm install
 ```
 
 ### Development
@@ -186,9 +173,6 @@ npm run dev
 # หรือรันแยก
 npm run dev:backend    # Backend: http://localhost:3000
 npm run dev:frontend   # Frontend: http://localhost:5173
-
-# Dashboard เจ้าหน้าที่
-cd dashboard && npm run dev
 ```
 
 ### AI Service
