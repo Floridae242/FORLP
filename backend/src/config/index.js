@@ -62,6 +62,11 @@ export const config = {
     webrtcBaseUrl: process.env.WEBRTC_BASE_URL || '',
     aiApiKey: process.env.AI_API_KEY || '',
 
+    // ==================== Lampang IOC (สถานะกล้องจริง) ====================
+    iocBaseUrl: process.env.IOC_BASE_URL || 'https://iocpiramid.com',
+    iocUsername: process.env.IOC_USERNAME || '',
+    iocPassword: process.env.IOC_PASSWORD || '',
+
     // ==================== Polling Settings ====================
     pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 60000, 
 

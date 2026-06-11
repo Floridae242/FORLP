@@ -54,6 +54,7 @@ import {
     notFoundHandler,
     securityHeadersMiddleware
 } from './middleware/index.js';
+import { fetchCctvStatus, isIocConfigured } from './services/iocService.js';
 
 // ==================== SETUP ERROR HANDLING ====================
 // Global error handlers for unhandled rejections and exceptions
@@ -475,6 +476,44 @@ function buildCameras() {
     ];
 }
 const CAMERAS = buildCameras();
+
+// อัปเดตสถานะกล้องจริงจาก Lampang IOC (online/offline) แทนค่า default 'online'
+// จับคู่ด้วยรหัสกล้อง (token แรกของ name เช่น "LPG-A01-CC-01")
+const CAMERA_STATUS_REFRESH_MS = 60 * 1000;
+
+async function refreshCameraStatus() {
+    if (!isIocConfigured()) return; // ไม่ตั้งค่า IOC — คงสถานะเดิมไว้
+    try {
+        const statusByCode = await fetchCctvStatus();
+        let updated = 0;
+        for (const cam of CAMERAS) {
+            const code = cam.name.split(' ')[0];
+            const status = statusByCode.get(code);
+            if (status && status !== cam.status) {
+                cam.status = status;
+                updated++;
+            } else if (status) {
+                cam.status = status;
+            }
+        }
+        if (updated > 0) {
+            console.log(`[IOC] Camera status refreshed (${updated} changed)`);
+        }
+    } catch (err) {
+        // IOC ใช้ไม่ได้ชั่วคราว — คงสถานะล่าสุดไว้ ไม่ทำให้ระบบล่ม
+        console.warn('[IOC] Camera status refresh failed:', err.message);
+    }
+}
+
+// ไม่รันใน test (vitest ตั้ง NODE_ENV=test) เพื่อไม่ให้ยิง IOC จริง/ค้าง interval
+if (process.env.NODE_ENV !== 'test') {
+    if (isIocConfigured()) {
+        refreshCameraStatus();
+        setInterval(refreshCameraStatus, CAMERA_STATUS_REFRESH_MS);
+    } else {
+        console.warn('[IOC] IOC_USERNAME/IOC_PASSWORD not set — camera status stays default');
+    }
+}
 
 // API Key สำหรับ AI Service — ต้องตั้งค่า AI_API_KEY ใน environment variables
 const AI_API_KEY = config.aiApiKey;

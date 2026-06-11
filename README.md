@@ -132,15 +132,44 @@ FORLP/
 
 ---
 
-## หน้าจอในระบบ (frontend)
+## หน้าจอในระบบ (frontend = Dashboard)
+
+`frontend/` (React + Vite) เป็นแอปเดียวที่ทำหน้าที่เป็น Dashboard สำหรับทั้งประชาชนและเจ้าหน้าที่
+(รวม Dashboard เจ้าหน้าที่เข้ามาไว้ในแอปนี้แล้ว — ดู [การทำตามแผน Figma](#การทำตามแผน-figma))
 
 | หน้า | Path | รายละเอียด |
 |------|------|------------|
-| ภาพรวมพื้นที่ | `/` | แสดงจำนวนผู้คนในพื้นที่แบบ Real-time |
-| กล้องวงจรปิด | `/camera` | ดูภาพจากกล้อง CCTV (เจ้าหน้าที่เท่านั้น) |
+| ภาพรวมพื้นที่ | `/` | จำนวนผู้คน Real-time + Crowd Level + Zone A/B/C heatmap |
+| กล้องวงจรปิด | `/camera` | CCTV Live + Playback (เจ้าหน้าที่เท่านั้น) |
 | สภาพอากาศ | `/weather` | อุณหภูมิ, ความชื้น, PM2.5 |
 | รายงานข้อมูล | `/reports` | สรุปรายวัน/รายสัปดาห์ (เฉพาะช่วงตลาดเปิด) |
-| ตั้งค่าบัญชี | `/settings` | LINE Login, เลือกบทบาท |
+| ตั้งค่าบัญชี | `/settings` | LINE Login + ยืนยัน Officer Token, ปรับสัดส่วน Zone |
+
+---
+
+## การทำตามแผน Figma
+
+แผน Use Case + System Architecture: [FORLP Figma Board](https://www.figma.com/board/viJMti5DzvkZumagTLNyvS/FORLP-Use-Case-Diagram-and-System-Achitecture)
+
+### ทำแล้ว (ตรงตามแผน)
+
+- ภาพรวมจำนวนคน + Crowd Level + Zone A/B/C (`/api/people/current`, `/api/zones/current`)
+- สภาพอากาศ + PM2.5 (`/api/weather/current`)
+- รายงานรายวัน/รายสัปดาห์ (`/api/reports/daily|weekly`)
+- CCTV Live + Playback เฉพาะเจ้าหน้าที่ (`/api/cctv/streams`, `/api/cctv/playback-url`)
+- LINE Login v2.1 + ยืนยัน Officer Token (`/api/auth/*`)
+- เจ้าหน้าที่ปรับสัดส่วน Zone A/B/C (`/api/zones/update`)
+- แจ้งเตือน LINE OA: Rain / Crowd (≥1,201) / Critical (≥2,501) / Daily Report (เสาร์-อาทิตย์ 23:00)
+
+### ยังไม่ได้ทำ (planned ในแผน Figma)
+
+- Landing Page (Exhibition) + สลับภาษา TH/EN
+- Kiosk Mode `/kiosk` (4K TV, refresh 10 วิ)
+- รายงานรายเดือน + Event Comparison (`/api/reports/monthly`)
+- แจ้งจุดเสี่ยง + GPS + Safety Log (`/api/safety-reports`)
+- หน้าตั้งค่า Alert Threshold สำหรับเจ้าหน้าที่
+
+> หมายเหตุความต่างจากแผน: หน้าภาพรวมตั้ง auto-refresh ไว้ที่ **30 วินาที** (แผน Figma ระบุ 5 วินาที)
 
 ---
 
