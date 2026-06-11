@@ -3,10 +3,10 @@ import type {
   DailySummary,
   HourlyDataPoint,
   WeatherData,
-  CameraNode,
   ZoneDensity,
   ReportScenario,
 } from "@/types";
+import { PEAK_ZONE_SPLIT } from "@/lib/cctv";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -68,106 +68,9 @@ export const REPORT_SCENARIOS: ReportScenario[] = [
   { date: "2026-02-13", label: "Weekday (Fri)", enter: 27, leave: 121, duplicate: 4, net: 27 - 121 },
 ];
 
-// ID, ชื่อ, พิกัด และสถานะ online/offline ยืนยันจาก Lampang Smart City IOC
-// (iocpiramid.com /api/v1/device + /report/uptimekuma/cctv) — snapshot 2026-06-11:
-//   A01 = Offline, B01 = Online, B02 = Online
-// การแบ่ง enter/leave รายกล้องเป็นค่าประมาณ (รายงาน NVR จริงนับรวมจากกล้องชั่วคราว
-// LPG-B01-Temp-CC-01 ทั้งถนน — รวม 337/3,161 ในวัน peak 02/07) จนกว่าจะมี API นับคนรายกล้อง
-export const REAL_CAMERAS: CameraNode[] = [
-  {
-    id: "A1",
-    cameraId: "LPG-A01-CC-01",
-    label: "Kad Kong Ta — Main Entry (PTZ)",
-    labelTh: "กาดกองต้า แยกกลาง (ทางเข้าหลัก)",
-    zone: "A",
-    lat: 18.29125,
-    lng: 99.49885,
-    x: 63,
-    y: 51,
-    enter: 168,
-    leave: 1581,
-    duplicate: 0,
-    net: 168 - 1581,
-    status: "offline",
-  },
-  {
-    id: "B1",
-    cameraId: "LPG-B01-CC-01",
-    label: "Kad Kong Ta 1 — Ratsada Bridge side",
-    labelTh: "กาดกองต้า 1 ฝั่งสะพานรัษฎา",
-    zone: "B",
-    lat: 18.292139,
-    lng: 99.500222,
-    x: 85,
-    y: 20,
-    enter: 101,
-    leave: 949,
-    duplicate: 0,
-    net: 101 - 949,
-    status: "online",
-  },
-  {
-    id: "B2",
-    cameraId: "LPG-B02-CC-01",
-    label: "Kad Kong Ta 2 — Old Market",
-    labelTh: "กาดกองต้า 2 ตลาดเก่า",
-    zone: "B",
-    lat: 18.290430,
-    lng: 99.496150,
-    x: 15,
-    y: 80,
-    enter: 68,
-    leave: 631,
-    duplicate: 0,
-    net: 68 - 631,
-    status: "online",
-  },
-];
-
-// กล้อง CCTV จริงทั้ง 6 ตัวที่กาดกองต้า (3 จุด × กล้องคงที่ + PTZ/Face-Rec)
-// ยืนยัน ID / ชื่อ / สถานะ จาก Lampang Smart City IOC — snapshot 2026-06-11
-// แผนที่ใช้ REAL_CAMERAS (3 จุด) ส่วนกริด CCTV ใช้รายการนี้ (6 ตัว)
-export const REAL_CCTV_CAMERAS: CameraNode[] = [
-  // ── จุด A01: แยกกลาง (ทางเข้าหลัก) — ออฟไลน์ทั้งคู่ ──
-  {
-    id: "A1-01", cameraId: "LPG-A01-CC-01", label: "Main Entry (PTZ, Face Rec)",
-    labelTh: "แยกกลาง (ทางเข้าหลัก)", zone: "A", lat: 18.29125, lng: 99.49885,
-    x: 63, y: 51, enter: 0, leave: 0, duplicate: 0, net: 0,
-    status: "offline", ptz: true, faceRec: true,
-  },
-  {
-    id: "A1-02", cameraId: "LPG-A01-CC-02", label: "Main Entry (Counting)",
-    labelTh: "แยกกลาง (ทางเข้าหลัก)", zone: "A", lat: 18.291235, lng: 99.49882,
-    x: 63, y: 51, enter: 168, leave: 1581, duplicate: 0, net: 168 - 1581,
-    status: "offline", counting: true,
-  },
-  // ── จุด B01: ฝั่งสะพานรัษฎา — ออนไลน์ ──
-  {
-    id: "B1-01", cameraId: "LPG-B01-CC-01", label: "Kad Kong Ta 1 (Counting)",
-    labelTh: "กาดกองต้า 1 ฝั่งสะพานรัษฎา", zone: "B", lat: 18.292139, lng: 99.500222,
-    x: 85, y: 20, enter: 101, leave: 949, duplicate: 0, net: 101 - 949,
-    status: "online", counting: true,
-  },
-  {
-    id: "B1-02", cameraId: "LPG-B01-CC-02", label: "Kad Kong Ta 1 (PTZ, Face Rec)",
-    labelTh: "กาดกองต้า 1 ฝั่งสะพานรัษฎา", zone: "B", lat: 18.292116, lng: 99.50019,
-    x: 85, y: 20, enter: 0, leave: 0, duplicate: 0, net: 0,
-    status: "online", ptz: true, faceRec: true,
-  },
-  // ── จุด B02: ตลาดเก่า — ออนไลน์ ──
-  {
-    id: "B2-01", cameraId: "LPG-B02-CC-01", label: "Kad Kong Ta 2 (Counting)",
-    labelTh: "กาดกองต้า 2 ตลาดเก่า", zone: "B", lat: 18.290430, lng: 99.496150,
-    x: 15, y: 80, enter: 68, leave: 631, duplicate: 0, net: 68 - 631,
-    status: "online", counting: true,
-  },
-  {
-    id: "B2-02", cameraId: "LPG-B02-CC-02", label: "Kad Kong Ta 2 (Monitor)",
-    labelTh: "กาดกองต้า 2 ตลาดเก่า", zone: "B", lat: 18.290434, lng: 99.496197,
-    x: 15, y: 80, enter: 0, leave: 0, duplicate: 0, net: 0,
-    status: "online",
-  },
-];
+// Camera identity, coordinates and live online/offline status are no longer
+// hardcoded — they are fetched at runtime from the Lampang IOC via the
+// /api/cctv route handler (see src/lib/ioc.ts + src/lib/cctv.ts).
 
 /** Realistic bell-curve for market hours 16:00-22:00 based on PDF data */
 function buildMarketCurve(peakEnter: number, peakLeave: number): HourlyDataPoint[] {
@@ -198,18 +101,25 @@ export function realHourlyNormal(): HourlyDataPoint[] {
   return buildMarketCurve(19, 89);
 }
 
+// Fallback zone densities (used only when the FORLP /api/zones API is down).
+// Densities come from the report-derived peak split, not from camera state.
 export function realZones(): ZoneDensity[] {
-  const totalLeave = REAL_CAMERAS.reduce((s, c) => s + c.leave, 0);
-  return [
-    { zone: "A", label: "ทางเข้าหลัก (แยกกลาง)", capacity: 1500, density: 0, percentage: 0, status: "normal" as const },
-    { zone: "B", label: "สะพานรัชดาภิเษก", capacity: 2000, density: 0, percentage: 0, status: "normal" as const },
-  ].map((z) => {
-    const camerasInZone = REAL_CAMERAS.filter((c) => c.zone === z.zone);
-    const density = camerasInZone.reduce((s, c) => s + c.leave, 0);
-    const pct = Math.round((density / z.capacity) * 100);
+  const defs = [
+    { zone: "A", label: "ทางเข้าหลัก (แยกกลาง)", capacity: 1500, leave: PEAK_ZONE_SPLIT.A1.leave },
+    { zone: "B", label: "สะพานรัษฎา / ตลาดเก่า", capacity: 2000, leave: PEAK_ZONE_SPLIT.B1.leave + PEAK_ZONE_SPLIT.B2.leave },
+  ];
+  return defs.map((z) => {
+    const pct = Math.round((z.leave / z.capacity) * 100);
     const status: "crowded" | "busy" | "moderate" | "normal" =
       pct > 85 ? "crowded" : pct > 65 ? "busy" : pct > 40 ? "moderate" : "normal";
-    return { ...z, density, percentage: Math.min(pct, 100), status };
+    return {
+      zone: z.zone,
+      label: z.label,
+      density: z.leave,
+      capacity: z.capacity,
+      percentage: Math.min(pct, 100),
+      status,
+    };
   });
 }
 
@@ -237,6 +147,6 @@ export function realCurrentCount(): PeopleCount {
     source: "ai",
     source_latency_s: 3,
     is_stale: false,
-    camera_count: REAL_CAMERAS.length,
+    camera_count: 3,
   };
 }

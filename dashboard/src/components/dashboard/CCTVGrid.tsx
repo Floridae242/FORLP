@@ -3,6 +3,8 @@ import type { CameraNode } from "@/types";
 
 interface CCTVGridProps {
   cameras: CameraNode[];
+  loading?: boolean;
+  error?: string | null;
 }
 
 function CCTVTile({ camera }: { camera: CameraNode }) {
@@ -79,7 +81,7 @@ function CCTVTile({ camera }: { camera: CameraNode }) {
   );
 }
 
-export function CCTVGrid({ cameras }: CCTVGridProps) {
+export function CCTVGrid({ cameras, loading = false, error = null }: CCTVGridProps) {
   const onlineCount = cameras.filter((c) => c.status === "online").length;
 
   return (
@@ -87,18 +89,34 @@ export function CCTVGrid({ cameras }: CCTVGridProps) {
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200 font-thai">
           <Cctv className="h-4 w-4 text-amber-400" />
-          กล้อง CCTV ({onlineCount}/{cameras.length} ออนไลน์)
+          {cameras.length > 0
+            ? `กล้อง CCTV (${onlineCount}/${cameras.length} ออนไลน์)`
+            : "กล้อง CCTV"}
         </h3>
         <span className="text-[11px] text-slate-500 font-thai">
-          A1 แยกกลาง • B1 ฝั่งสะพานรัษฎา • B2 ตลาดเก่า
+          ข้อมูลสดจาก Lampang IOC
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {cameras.map((cam) => (
-          <CCTVTile key={cam.id} camera={cam} />
-        ))}
-      </div>
+      {error ? (
+        <div className="flex h-40 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/[0.04] text-center text-xs text-rose-300 font-thai">
+          ไม่สามารถดึงข้อมูลกล้องจาก IOC ได้
+          <br />
+          {error}
+        </div>
+      ) : loading && cameras.length === 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton aspect-video" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {cameras.map((cam) => (
+            <CCTVTile key={cam.id} camera={cam} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

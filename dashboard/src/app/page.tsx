@@ -3,6 +3,7 @@
 import { useDashboardStore } from "@/stores/dashboard";
 import { useDashboardPolling } from "@/hooks/useDashboardPolling";
 import { useTrafficData } from "@/hooks/useTrafficData";
+import { useCctvCameras } from "@/hooks/useCctvCameras";
 import { getStatusFromCount, formatThaiTime } from "@/lib/utils";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -21,7 +22,7 @@ import {
   AlertTriangle,
   Copy,
 } from "lucide-react";
-import { REPORT_SCENARIOS, REAL_CCTV_CAMERAS } from "@/lib/api";
+import { REPORT_SCENARIOS } from "@/lib/api";
 
 function LoadingSkeleton() {
   return (
@@ -48,7 +49,8 @@ function LoadingSkeleton() {
 
 export default function DashboardPage() {
   useDashboardPolling();
-  const traffic = useTrafficData(5000);
+  const cctv = useCctvCameras();
+  const traffic = useTrafficData(cctv.mapNodes, 5000);
 
   const {
     hourlyPeak,
@@ -184,7 +186,7 @@ export default function DashboardPage() {
             peak={traffic.hourlyPeak}
             normal={traffic.hourlyNormal}
           />
-          <CCTVGrid cameras={REAL_CCTV_CAMERAS} />
+          <CCTVGrid cameras={cctv.cameras} loading={cctv.loading} error={cctv.error} />
         </section>
 
         {/* ─── Data Source Reference ─── */}

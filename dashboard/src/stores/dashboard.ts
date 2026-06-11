@@ -4,7 +4,6 @@ import type {
   DailySummary,
   HourlyDataPoint,
   WeatherData,
-  CameraNode,
   ZoneDensity,
   Alert,
 } from "@/types";
@@ -15,9 +14,11 @@ import {
   realHourlyNormal,
   realZones,
   realWeather,
-  REAL_CAMERAS,
   REPORT_SCENARIOS,
 } from "@/lib/api";
+
+// เกณฑ์แจ้งเตือนความแออัด (ตาม PDF เทศบาลนครลำปาง)
+const CROWD_CRITICAL = 2500;
 
 interface DashboardStore {
   currentCount: PeopleCount | null;
@@ -25,7 +26,6 @@ interface DashboardStore {
   hourlyPeak: HourlyDataPoint[];
   hourlyNormal: HourlyDataPoint[];
   weather: WeatherData | null;
-  cameras: CameraNode[];
   zones: ZoneDensity[];
   alerts: Alert[];
   selectedCamera: string | null;
@@ -44,7 +44,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   hourlyPeak: [],
   hourlyNormal: [],
   weather: null,
-  cameras: [],
   zones: [],
   alerts: [],
   selectedCamera: null,
@@ -89,7 +88,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         };
       }
 
-      const cameras = REAL_CAMERAS;
       let zones: ZoneDensity[];
       try {
         zones = await api.getZones();
@@ -99,15 +97,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const hourlyPeak = realHourlyPeak();
       const hourlyNormal = realHourlyNormal();
 
-      // Build alerts from real thresholds (2500 = safety threshold from PDF)
-      const totalLeave = cameras.reduce((s, c) => s + c.leave, 0);
+      // Crowd alert from the live people-count (FORLP backend), not camera state
+      const total = currentCount.smoothed_count ?? currentCount.count;
       const alerts: Alert[] = [];
-      if (totalLeave > 2500) {
+      if (total > CROWD_CRITICAL) {
         alerts.push({
           id: "alert-crowd-" + Date.now(),
           type: "crowd",
           level: "critical",
-          message: `🚨 CROWD ALERT: ความหนาแน่นสูง — ${totalLeave.toLocaleString()} คนผ่านพื้นที่ (เกิน 2,500)`,
+          message: `🚨 CROWD ALERT: ความหนาแน่นสูง — ${total.toLocaleString()} คน (เกิน ${CROWD_CRITICAL.toLocaleString()})`,
           timestamp: new Date().toISOString(),
           acknowledged: false,
         });
@@ -119,7 +117,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         hourlyPeak,
         hourlyNormal,
         weather,
-        cameras,
         zones,
         alerts,
         isLoading: false,
