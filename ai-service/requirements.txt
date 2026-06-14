@@ -19,6 +19,6 @@ prometheus-client>=0.17.0
 torch>=2.0.0
 torchvision>=0.15.0
 
-# Optional: Advanced Tracking
-# lap>=0.4.0
-# scipy>=1.10.0
+# Tracking (จำเป็นสำหรับ line_counter.py — Ultralytics ByteTrack/BoT-SORT)
+lap>=0.5.12
+scipy>=1.10.0
