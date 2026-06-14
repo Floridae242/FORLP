@@ -1,0 +1,21 @@
+# Python virtual environment (ใหญ่มาก ห้าม commit)
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Test output (ภาพที่วาดกรอบจาก test_accuracy.py)
+annotated_*.jpg
+
+# Test artifacts (line_counter / วิดีโอจำลอง)
+pan_test.mp4
+out_line.mp4
+out.mp4
+_verify_*.jpg
+
+# Local env
+.env

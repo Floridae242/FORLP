@@ -113,6 +113,20 @@ streams:
 # Camera Configuration สำหรับ Playback Mode
 # =====================================================
 cameras:
+  # LPG-B01-Temp-CC-01 — กล้องชั่วคราว ฝั่งสะพานรัษฎา (stream source หลักสำหรับงานนี้)
+  # ⚠️ ตรวจสอบ track_id/channel และ IP ของกล้องตัวนี้กับเพื่อน/ผู้ดูแล NVR ก่อนใช้งานจริง
+  #    (ค่าด้านล่างอ้างอิงรูปแบบ NVR ฝั่ง B01 = 10.0.10.3 — channel ยังเป็นค่าตั้งต้น 701)
+  - camera_id: "LPG-B01-Temp-CC-01"
+    name: "กาดกองต้า ฝั่งสะพานรัษฎา (กล้องชั่วคราว)"
+    rtsp_url: "rtsp://admin:P1r@m1dnvrLpg@10.0.10.3:554/Streaming/Channels/701"
+    rtsp_ip: "10.0.10.3"
+    rtsp_port: 554
+    rtsp_username: "admin"
+    rtsp_password: "P1r@m1dnvrLpg"
+    track_id: "701"
+    confidence: 0.4
+    enabled: true
+
   # LPG-A01-CC-01 ตลาดกาดกองต้า (PTZ)
   - camera_id: "LPG-A01-CC-01"
     name: "ตลาดกาดกองต้า (PTZ)"
@@ -184,6 +198,47 @@ cameras:
     track_id: "601"
     confidence: 0.4
     enabled: true
+
+# =====================================================
+# Line Crossing Counting (นับคนเข้า/ออก ข้ามเส้นเสมือน)
+# ใช้กับกล้อง LPG-B01-Temp-CC-01 — ดึง RTSP จาก Hikvision NVR
+# =====================================================
+line_counting:
+  enabled: true
+  camera_id: "LPG-B01-Temp-CC-01"
+
+  # ประมวลผลกี่เฟรมต่อวินาที (0.5 = ทุก ๆ 2 วินาที เพื่อประหยัด CPU)
+  # ⚠️ ค่าต่ำช่วยประหยัด CPU แต่ทำให้ tracker จับคู่คนข้ามเฟรมยากขึ้น (ดู limitations ใน README)
+  sampling_fps: 0.5
+
+  # เส้นเสมือน: พิกัด normalized 0..1 เทียบขนาดเฟรม (A=จุดเริ่ม, B=จุดปลาย)
+  # ค่าเริ่มต้น = เส้นแนวตั้งกลางจอ
+  line:
+    ax: 0.5
+    ay: 0.05
+    bx: 0.5
+    by: 0.95
+  # ทิศทาง: ข้ามจากฝั่ง A -> B นับเป็น "เข้า" (in), B -> A นับเป็น "ออก" (out)
+  # ถ้าทิศกลับด้าน ให้สลับค่า invert_direction เป็น true
+  invert_direction: false
+
+  # deadzone (สัดส่วนความกว้างเฟรม) กันการนับซ้ำจากการสั่นของกล่องใกล้เส้น
+  deadzone: 0.01
+  # กรองกล่องที่เล็กเกินไป (สัดส่วนความสูงเฟรม) — ลด false positive จากวัตถุไกล
+  min_box_height: 0.05
+
+  # Tracker ของ Ultralytics (bytetrack เร็ว/เบา, botsort แม่นกว่าแต่หนักกว่า)
+  tracker: "bytetrack.yaml"
+
+  # Edge case helpers
+  night_enhance: false          # เปิด CLAHE ช่วยภาพย้อนแสง/กลางคืน (เพิ่มภาระ CPU เล็กน้อย)
+  roi: []                       # polygon normalized [[x,y],...] นับเฉพาะในพื้นที่นี้ (ว่าง=ทั้งเฟรม) — ใช้คร็อปบริเวณที่เต็นท์บัง
+
+  # RTSP reconnection (กันสตรีมหลุด)
+  reconnect:
+    max_retries: 0              # 0 = ลองใหม่ไม่จำกัด
+    backoff_start_s: 2          # หน่วงครั้งแรก (วินาที)
+    backoff_max_s: 30           # หน่วงสูงสุด (exponential backoff)
 
 # =====================================================
 # Location (พิกัด GPS)
