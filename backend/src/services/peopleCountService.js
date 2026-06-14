@@ -477,6 +477,67 @@ export async function getHistoricalDataMarketHours(days = 7) {
 }
 
 /**
+ * ดึงสรุปข้อมูลคนในช่วงเวลาที่กำหนด (startDate, endDate = 'YYYY-MM-DD' แบบรวมปลายทั้งสอง)
+ * ใช้สำหรับรายงานรายเดือนและการเปรียบเทียบช่วงเวลา (งบประมาณ)
+ */
+export async function getPeriodSummary(startDate, endDate) {
+    try {
+        const rows = await query(
+            `SELECT MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    MIN(count) as min_people,
+                    COUNT(*) as total_samples,
+                    COUNT(DISTINCT recorded_at::date) as days_with_data
+             FROM people_counts
+             WHERE recorded_at::date >= $1::date
+               AND recorded_at::date <= $2::date`,
+            [startDate, endDate]
+        );
+        const r = rows[0] || {};
+        const maxPeople = r.max_people || 0;
+        const status = calculateStatus(maxPeople);
+        return {
+            start_date: startDate,
+            end_date: endDate,
+            max_people: maxPeople,
+            avg_people: r.avg_people || 0,
+            min_people: r.min_people || 0,
+            total_samples: r.total_samples || 0,
+            days_with_data: r.days_with_data || 0,
+            status: status.key,
+            status_label: status.label
+        };
+    } catch (error) {
+        console.error('[PeopleCount] Period summary error:', error.message);
+        return null;
+    }
+}
+
+/**
+ * ดึงข้อมูลสรุปรายวันในช่วงเวลาที่กำหนด (สำหรับ breakdown ในรายงานรายเดือน)
+ */
+export async function getDailyBreakdown(startDate, endDate) {
+    try {
+        return await query(
+            `SELECT recorded_at::date as date,
+                    MAX(count) as max_people,
+                    ROUND(AVG(count)::numeric, 1) as avg_people,
+                    MIN(count) as min_people,
+                    COUNT(*) as total_samples
+             FROM people_counts
+             WHERE recorded_at::date >= $1::date
+               AND recorded_at::date <= $2::date
+             GROUP BY recorded_at::date
+             ORDER BY date`,
+            [startDate, endDate]
+        );
+    } catch (error) {
+        console.error('[PeopleCount] Daily breakdown error:', error.message);
+        return [];
+    }
+}
+
+/**
  * ดึงข้อมูลรายชั่วโมง
  */
 export async function getHourlyData(date) {
@@ -594,6 +655,8 @@ export const peopleCountService = {
     getDailySummaryMarketHours,
     getHistoricalData,
     getHistoricalDataMarketHours,
+    getPeriodSummary,
+    getDailyBreakdown,
     getHourlyData,
     checkCrowdLevel,
     getLatestStats,

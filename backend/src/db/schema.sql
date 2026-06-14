@@ -169,6 +169,33 @@ CREATE TABLE IF NOT EXISTS zone_estimates (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- =====================================================
+-- SAFETY REPORTS (จุดเสี่ยง/ปัญหาที่เจ้าหน้าที่แจ้ง)
+-- ใช้เก็บจุดเสี่ยงที่รายงานเข้ามา พร้อมพิกัด ประเภทปัญหา รูปภาพ สถานะ และผู้แจ้ง
+-- =====================================================
+CREATE TABLE IF NOT EXISTS safety_reports (
+  id BIGSERIAL PRIMARY KEY,
+  -- พิกัดจุดเสี่ยง
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  -- ประเภทปัญหา เช่น ไฟส่องสว่าง, ทางลื่น, สายไฟ, ความสะอาด ฯลฯ
+  issue_type TEXT NOT NULL,
+  description TEXT,
+  -- รูปภาพประกอบ (URL หรือ path)
+  image_url TEXT,
+  -- สถานะการจัดการ
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'in_progress', 'resolved', 'rejected')),
+  -- ผู้แจ้ง (ชื่อที่แสดง + อ้างอิงผู้ใช้ถ้ามี)
+  reported_by TEXT,
+  reporter_user_id BIGINT REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_safety_reports_status ON safety_reports(status);
+CREATE INDEX IF NOT EXISTS idx_safety_reports_type ON safety_reports(issue_type);
+CREATE INDEX IF NOT EXISTS idx_safety_reports_date ON safety_reports(created_at);
+
 INSERT INTO officer_tokens (token, description, expires_at) VALUES
   ('KKTOFC01','Token สำหรับเจ้าหน้าที่ ชุดที่ 1',NULL),
   ('KKTOFC02','Token สำหรับเจ้าหน้าที่ ชุดที่ 2',NULL),
