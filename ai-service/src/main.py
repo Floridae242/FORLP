@@ -107,6 +107,7 @@ class ServiceConfig:
     confidence: float = 0.4
     backend_endpoint: str = ""
     backend_api_key: str = ""
+    send_interval_s: int = 5
     metrics_port: int = 8080
 
 
@@ -166,9 +167,10 @@ class ConfigLoader:
             device=svc.get('device', 'cpu'),
             confidence=svc.get('confidence', 0.4),
             backend_endpoint=svc.get('backend_endpoint', ''),
-            backend_api_key=svc.get('backend_api_key', '')
+            backend_api_key=svc.get('backend_api_key', ''),
+            send_interval_s=svc.get('send_interval_s', 5)
         )
-    
+
     def get_playback_config(self) -> PlaybackConfig:
         """Get playback configuration"""
         pb = self.raw_config.get('playback', {})
@@ -1020,9 +1022,9 @@ class PeopleCountingService:
                 logger.warning(f"⚠️ Could not start metrics server: {e}")
         
         self.running = True
-        interval_seconds = self.playback_config.interval_minutes * 60
+        interval_seconds = self.service_config.send_interval_s
         
-        logger.info(f"🏃 Service started! Processing every {self.playback_config.interval_minutes} minutes...")
+        logger.info(f"🏃 Service started! Processing every {interval_seconds} seconds...")
         logger.info("")
         
         # Run first cycle immediately
@@ -1032,7 +1034,7 @@ class PeopleCountingService:
         while self.running:
             try:
                 # Wait for next interval
-                logger.info(f"💤 Sleeping for {self.playback_config.interval_minutes} minutes...")
+                logger.info(f"💤 Sleeping for {interval_seconds} seconds...")
                 
                 # Sleep in small chunks to respond to signals faster
                 for _ in range(interval_seconds):
