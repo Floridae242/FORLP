@@ -9,14 +9,7 @@
    ===================================================== */
 
 import { peopleCountService } from './peopleCountService.js';
-
-// =====================================================
-// CONFIGURATION
-// =====================================================
-
-// พิกัดกาดกองต้า ลำปาง
-const LAMPANG_LAT = 18.2888;
-const LAMPANG_LON = 99.4907;
+import { config } from '../config/index.js';
 
 // ช่วงเวลาตลาด (สำหรับ context)
 const MARKET_START_HOUR = 14;
@@ -131,7 +124,7 @@ function markAlertSent(alertType) {
  */
 export async function getHourlyForecast() {
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAMPANG_LAT}&longitude=${LAMPANG_LON}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code&timezone=Asia/Bangkok&forecast_days=1`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${config.defaultLat}&longitude=${config.defaultLon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code&timezone=Asia/Bangkok&forecast_days=1`;
         
         const response = await fetch(url, {
             signal: AbortSignal.timeout(10000)

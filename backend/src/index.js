@@ -7,7 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import { config, validateConfig } from './config/index.js';
-import { initDatabase, queries } from './db/index.js';
+import { initDatabase, queries, query, queryOne } from './db/index.js';
 import {
     setupGlobalErrorHandlers,
     ErrorLogger,
@@ -1077,6 +1077,219 @@ app.get('/api/reports/history', async (req, res) => {
             data: history,
             count: history.length
         });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==================== MONTHLY / COMPARE REPORTS (งบประมาณ) ====================
+
+/**
+ * แปลงพารามิเตอร์เดือน (YYYY-MM) เป็นช่วงวันที่ start/end
+ * คืนค่า null ถ้ารูปแบบไม่ถูกต้อง; ถ้าไม่ส่งมาจะใช้เดือนปัจจุบัน
+ */
+function resolveMonthRange(monthParam) {
+    let year, monthIdx;
+    if (monthParam) {
+        const m = /^(\d{4})-(\d{2})$/.exec(monthParam);
+        if (!m) return null;
+        year = parseInt(m[1], 10);
+        monthIdx = parseInt(m[2], 10) - 1;
+        if (monthIdx < 0 || monthIdx > 11) return null;
+    } else {
+        const now = new Date();
+        year = now.getFullYear();
+        monthIdx = now.getMonth();
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    const monthNum = pad(monthIdx + 1);
+    const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+    return {
+        month: `${year}-${monthNum}`,
+        start: `${year}-${monthNum}-01`,
+        end: `${year}-${monthNum}-${pad(lastDay)}`
+    };
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * สรุปจุดเสี่ยงที่แจ้งเข้ามาในช่วงเวลา (แยกตามสถานะ)
+ */
+async function getSafetyReportsSummary(startDate, endDate) {
+    try {
+        const row = await queryOne(
+            `SELECT COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE status = 'pending') as pending,
+                    COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
+                    COUNT(*) FILTER (WHERE status = 'resolved') as resolved,
+                    COUNT(*) FILTER (WHERE status = 'rejected') as rejected
+             FROM safety_reports
+             WHERE created_at::date >= $1::date AND created_at::date <= $2::date`,
+            [startDate, endDate]
+        );
+        return row || { total: 0, pending: 0, in_progress: 0, resolved: 0, rejected: 0 };
+    } catch (error) {
+        console.error('[Reports] Safety summary error:', error.message);
+        return { total: 0, pending: 0, in_progress: 0, resolved: 0, rejected: 0 };
+    }
+}
+
+/**
+ * สรุปจุดเสี่ยงแยกตามประเภทปัญหา
+ */
+async function getSafetyReportsByType(startDate, endDate) {
+    try {
+        return await query(
+            `SELECT issue_type, COUNT(*) as count
+             FROM safety_reports
+             WHERE created_at::date >= $1::date AND created_at::date <= $2::date
+             GROUP BY issue_type
+             ORDER BY count DESC`,
+            [startDate, endDate]
+        );
+    } catch (error) {
+        console.error('[Reports] Safety by-type error:', error.message);
+        return [];
+    }
+}
+
+/**
+ * สรุปจำนวน crowd alerts ในช่วงเวลา (ใช้ดูความถี่การแจ้งเตือนสำหรับวางแผนกำลังคน)
+ */
+async function getCrowdAlertsSummary(startDate, endDate) {
+    try {
+        const rows = await query(
+            `SELECT alert_level, COUNT(*) as count
+             FROM crowd_alerts
+             WHERE created_at::date >= $1::date AND created_at::date <= $2::date
+             GROUP BY alert_level`,
+            [startDate, endDate]
+        );
+        const byLevel = {};
+        let total = 0;
+        for (const r of rows) {
+            byLevel[r.alert_level] = r.count;
+            total += r.count;
+        }
+        return { total, by_level: byLevel };
+    } catch (error) {
+        console.error('[Reports] Crowd alerts summary error:', error.message);
+        return { total: 0, by_level: {} };
+    }
+}
+
+/**
+ * รวมรายงานของช่วงเวลาเดียว (คน + จุดเสี่ยง + การแจ้งเตือน)
+ */
+async function buildPeriodReport(startDate, endDate) {
+    const [people, safety, alerts] = await Promise.all([
+        peopleCountService.getPeriodSummary(startDate, endDate),
+        getSafetyReportsSummary(startDate, endDate),
+        getCrowdAlertsSummary(startDate, endDate),
+    ]);
+    return {
+        period: { start_date: startDate, end_date: endDate },
+        people,
+        safety_reports: safety,
+        crowd_alerts: alerts,
+    };
+}
+
+/**
+ * คำนวณส่วนต่างและเปอร์เซ็นต์การเปลี่ยนแปลง (period1 = ฐาน, period2 = เทียบ)
+ */
+function buildMetricDelta(fromValue, toValue) {
+    const from = fromValue || 0;
+    const to = toValue || 0;
+    const change = Math.round((to - from) * 10) / 10;
+    let changePct;
+    if (from === 0) {
+        changePct = to === 0 ? 0 : 100;
+    } else {
+        changePct = Math.round(((to - from) / from) * 1000) / 10;
+    }
+    return { from, to, change, change_pct: changePct };
+}
+
+// GET /api/reports/monthly?month=YYYY-MM - รายงานสรุปรายเดือน (ค่าเริ่มต้น = เดือนปัจจุบัน)
+app.get('/api/reports/monthly', async (req, res) => {
+    const range = resolveMonthRange(req.query.month);
+    if (!range) {
+        return res.status(400).json({ success: false, error: 'รูปแบบ month ต้องเป็น YYYY-MM (เช่น 2026-06)' });
+    }
+
+    try {
+        const [people, daily, safety, safetyByType, alerts] = await Promise.all([
+            peopleCountService.getPeriodSummary(range.start, range.end),
+            peopleCountService.getDailyBreakdown(range.start, range.end),
+            getSafetyReportsSummary(range.start, range.end),
+            getSafetyReportsByType(range.start, range.end),
+            getCrowdAlertsSummary(range.start, range.end),
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                month: range.month,
+                period: { start_date: range.start, end_date: range.end },
+                people,
+                daily,
+                safety_reports: { ...safety, by_type: safetyByType },
+                crowd_alerts: alerts,
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/reports/compare - เปรียบเทียบสองช่วงเวลา (สำหรับวางแผนงบประมาณ)
+//   แบบเดือน:    ?month1=YYYY-MM&month2=YYYY-MM
+//   แบบกำหนดเอง: ?start1=YYYY-MM-DD&end1=YYYY-MM-DD&start2=YYYY-MM-DD&end2=YYYY-MM-DD
+app.get('/api/reports/compare', async (req, res) => {
+    const { month1, month2, start1, end1, start2, end2 } = req.query;
+
+    let p1, p2;
+    if (month1 || month2) {
+        const r1 = resolveMonthRange(month1);
+        const r2 = resolveMonthRange(month2);
+        if (!r1 || !r2) {
+            return res.status(400).json({ success: false, error: 'month1 และ month2 ต้องเป็นรูปแบบ YYYY-MM' });
+        }
+        p1 = { start: r1.start, end: r1.end };
+        p2 = { start: r2.start, end: r2.end };
+    } else if (start1 && end1 && start2 && end2) {
+        if (![start1, end1, start2, end2].every(d => ISO_DATE_RE.test(d))) {
+            return res.status(400).json({ success: false, error: 'วันที่ต้องเป็นรูปแบบ YYYY-MM-DD' });
+        }
+        if (start1 > end1 || start2 > end2) {
+            return res.status(400).json({ success: false, error: 'วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด' });
+        }
+        p1 = { start: start1, end: end1 };
+        p2 = { start: start2, end: end2 };
+    } else {
+        return res.status(400).json({
+            success: false,
+            error: 'ต้องระบุ month1+month2 หรือ start1+end1+start2+end2'
+        });
+    }
+
+    try {
+        const [period1, period2] = await Promise.all([
+            buildPeriodReport(p1.start, p1.end),
+            buildPeriodReport(p2.start, p2.end),
+        ]);
+
+        const difference = {
+            avg_people: buildMetricDelta(period1.people?.avg_people, period2.people?.avg_people),
+            max_people: buildMetricDelta(period1.people?.max_people, period2.people?.max_people),
+            total_samples: buildMetricDelta(period1.people?.total_samples, period2.people?.total_samples),
+            safety_reports_total: buildMetricDelta(period1.safety_reports?.total, period2.safety_reports?.total),
+            crowd_alerts_total: buildMetricDelta(period1.crowd_alerts?.total, period2.crowd_alerts?.total),
+        };
+
+        res.json({ success: true, data: { period1, period2, difference } });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
