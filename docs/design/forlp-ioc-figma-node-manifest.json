@@ -168,7 +168,16 @@
       "statuses": "95:99"
     }
   },
-  "components": {},
+  "components": {
+    "Button": "103:194",
+    "Icon Button": "103:213",
+    "Input": "104:338",
+    "Select": "106:2",
+    "Status Badge": "107:56",
+    "Tooltip": "108:18",
+    "Tab": "108:31",
+    "Segmented Control": "109:14"
+  },
   "patterns": {},
   "templates": {},
   "prototypeFlows": {}
