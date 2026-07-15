@@ -193,7 +193,23 @@
   "componentSpecimens": {
     "responsiveCompositeWidths": "127:70"
   },
-  "patterns": {},
+  "patterns": {
+    "CCTV Tile": "143:122",
+    "Alert Item": "145:710",
+    "KPI Summary Row": "148:555",
+    "Zone Summary": "148:614",
+    "Service Health": "148:647",
+    "Hourly Chart": "150:633",
+    "Zone Map Panel": "150:683",
+    "Report Summary": "153:633"
+  },
+  "patternSpecimens": {
+    "cctvLiveOfflineComparison": "143:126",
+    "cameraGrid": "143:172",
+    "criticalAlertComparison": "145:714",
+    "alertStream": "145:787",
+    "dataStatePatterns": "153:658"
+  },
   "templates": {},
   "prototypeFlows": {}
 }

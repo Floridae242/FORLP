@@ -26,7 +26,13 @@
 
 ## Patterns
 
-- [ ] Patterns are complete and verified.
+- [x] Patterns are complete and verified on `03 Patterns` (`88:5`): CCTV Tile (`143:122`), Alert Item (`145:710`), KPI Summary Row (`148:555`), Zone Summary (`148:614`), Service Health (`148:647`), Hourly Chart (`150:633`), Zone Map Panel (`150:683`), and Report Summary (`153:633`).
+- [x] CCTV Tile covers Live, Selected, Offline, Restricted, PTZ, and Loading at an exact `480 × 270` (`16:9`) per variant. Every state includes camera ID, zone, stream status, timestamp, latency, playback, PTZ, fullscreen, and incident actions; Offline retains the last-frame region and disconnect time. The six-camera specimen (`143:172`) is arranged `3 × 2`.
+- [x] Alert Item contains the full 16-variant matrix for Info, Moderate, Dense, and Critical across New, Acknowledging, Acknowledged, and Error. Every variant includes a severity rail and shape, title, location, timestamp, source, recommendation, and acknowledge/inspect/escalate controls. The ordered stream (`145:787`) resolves Critical → Dense → Moderate → Info.
+- [x] Dense is implemented as an orange four-point diamond plus a separate split bar in all four workflow states (`145:432`/`145:433` sample); Critical is implemented as an eight-point octagon in all four states (`145:576` sample). These are geometric nodes, not labels alone.
+- [x] Dashboard/report patterns include four approved KPI Card instances, three zone summaries, four service-health items, an hourly count chart with Normal/Moderate/Dense/Critical threshold bands, a three-zone map with six camera markers, and maximum/average/minimum/peak-time report metrics.
+- [x] Required focused screenshots were reviewed: Live/Offline CCTV comparison (`143:126`), New/Acknowledged Critical alert comparison (`145:714`), and all seven approved Data State patterns (`153:658`). No overlap or clipped Thai text was observed.
+- [x] Exact audit confirmed all eight recorded pattern nodes, all six CCTV fields/action groups in every state, 16 alert variants, four Dense split diamonds, four Critical octagons, four threshold bands, three zones, six camera markers, report values `1,247`, `782`, `415`, and `11:30–13:00`, and seven Data State instances sourced from approved master `125:108`. All 384 Task 5 text nodes use available fonts.
 
 ## Templates
 
