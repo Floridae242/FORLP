@@ -36,7 +36,13 @@
 
 ## Templates
 
-- [ ] Templates are complete and verified.
+- [x] Operations Overview templates are complete and verified on `04 Templates` (`88:6`): Normal (`164:2`), Dense (`167:262`), Critical (`167:515`), Market Closed (`167:768`), Loading (`167:1021`), Partial Outage (`167:1274`), and All Data Stale (`167:1527`).
+- [x] Every template is fixed at `1920 × 1080` with expanded Sidebar, `1680 × 64` Top Bar, `24 px` workspace padding, `20 px` gaps, and `Grid/Desktop/12`; exact span widths are `393` (3 columns), `531` (4 columns), `1081` (8 columns), and `1632` (12 columns).
+- [x] The primary content height is exactly `968 px` inside the padded `1016 px` workspace. Metadata found no descendants outside any template root, no overlap, no accidental primary scroll, no visible clipping, and no remaining build placeholders.
+- [x] Operational states remain instance-driven. Dense swaps Alert Item to `145:430`; Critical swaps to `145:574`; Loading swaps map and chart to Data State Loading `125:84`; Partial Outage swaps the map to `125:103` and alert to `145:294`; All Data Stale preserves the last-known KPI/map/chart/zone values and timestamp `10:42:18`.
+- [x] The reserved `1632 × 44` banner occupies the same slot in every template, so Critical does not shift the grid. Critical, Market Closed, Partial Outage, and All Data Stale add shape plus text cues; Partial Outage names `CCTV Analytics` and `Occupancy API`, and Market Closed states operating hours `06:00–22:00`.
+- [x] High Contrast specimen `167:1780` applies Semantic mode `High Contrast Dark` (`93:3`) to the template root; all operational templates use `Operations Dark` (`93:1`). No component styling was detached or duplicated for the mode change.
+- [x] Final screenshots were reviewed at `1920 × 1080` for Normal (`164:2`) and Critical (`167:515`), with a focused Critical alert-rail screenshot (`167:530`). A separate High Contrast render was reviewed. Text audit found no missing fonts or zero-size text nodes, and status meaning is never color-only.
 
 ## Accessibility
 

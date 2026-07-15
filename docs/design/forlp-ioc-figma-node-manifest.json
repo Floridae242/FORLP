@@ -210,6 +210,20 @@
     "alertStream": "145:787",
     "dataStatePatterns": "153:658"
   },
-  "templates": {},
+  "templates": {
+    "Template/Desktop/Overview/Normal": "164:2",
+    "Template/Desktop/Overview/Dense": "167:262",
+    "Template/Desktop/Overview/Critical": "167:515",
+    "Template/Desktop/Overview/Market Closed": "167:768",
+    "Template/Desktop/Overview/Loading": "167:1021",
+    "Template/Desktop/Overview/Partial Outage": "167:1274",
+    "Template/Desktop/Overview/All Data Stale": "167:1527"
+  },
+  "templateSpecimens": {
+    "overviewHighContrast": "167:1780",
+    "overviewNormalScreenshot": "164:2",
+    "overviewCriticalScreenshot": "167:515",
+    "overviewCriticalAlertRail": "167:530"
+  },
   "prototypeFlows": {}
 }
