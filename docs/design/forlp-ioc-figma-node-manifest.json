@@ -222,13 +222,27 @@
     "Template/Desktop/Overview/Market Closed": "167:768",
     "Template/Desktop/Overview/Loading": "167:1021",
     "Template/Desktop/Overview/Partial Outage": "167:1274",
-    "Template/Desktop/Overview/All Data Stale": "167:1527"
+    "Template/Desktop/Overview/All Data Stale": "167:1527",
+    "Template/Desktop/CCTV/Grid": "186:1836",
+    "Template/Desktop/CCTV/Focus": "187:2006",
+    "Template/Desktop/CCTV/Offline": "188:2093",
+    "Template/Desktop/CCTV/Multiple Failures": "188:2308",
+    "Template/Desktop/CCTV/Restricted": "188:2543",
+    "Template/Desktop/CCTV/PTZ Active": "188:2858",
+    "Template/Desktop/CCTV/Fullscreen": "188:3073",
+    "Template/Desktop/CCTV/Playback Loading": "189:2792",
+    "Template/Desktop/CCTV/Playback Unavailable": "189:2979"
   },
   "templateSpecimens": {
     "overviewHighContrast": "167:1780",
     "overviewNormalScreenshot": "164:2",
     "overviewCriticalScreenshot": "167:515",
-    "overviewCriticalAlertRail": "167:530"
+    "overviewCriticalAlertRail": "167:530",
+    "cctvGridScreenshot": "186:1836",
+    "cctvFocusScreenshot": "187:2006",
+    "cctvOfflineScreenshot": "188:2093",
+    "cctvPlaybackLoadingDrawer": "189:2927",
+    "cctvFullscreenOverlay": "191:3030"
   },
   "templateResponsiveInstances": {
     "Normal": { "map": "175:1846", "hourlyChart": "175:1869", "zoneSummary": "175:1919" },
@@ -239,6 +253,17 @@
     "Partial Outage": { "mapDataState": "167:1287", "hourlyChart": "175:2303", "zoneSummary": "175:2353" },
     "All Data Stale": { "map": "175:2386", "hourlyChart": "175:2409", "zoneSummary": "175:2459" },
     "High Contrast": { "map": "175:2492", "hourlyChart": "175:2515", "zoneSummary": "175:2565" }
+  },
+  "cctvResponsiveInstances": {
+    "Grid": { "tiles": ["186:2115", "186:2135", "186:2155", "186:2176", "186:2196", "186:2216"] },
+    "Focus": { "selectedStream": "187:2202", "metadataPanel": "187:2222" },
+    "Offline": { "tiles": ["188:2111", "188:2112", "188:2288", "188:2115", "188:2116", "188:2117"] },
+    "Multiple Failures": { "tiles": ["188:2326", "188:2327", "188:2503", "188:2330", "188:2523", "188:2332"] },
+    "Restricted": { "tiles": ["188:2738", "188:2758", "188:2778", "188:2798", "188:2818", "188:2838"] },
+    "PTZ Active": { "tiles": ["188:2876", "188:2877", "188:2878", "188:2880", "188:3053", "188:2882"] },
+    "Fullscreen": { "selectedStream": "188:3163", "controlOverlay": "191:3030" },
+    "Playback Loading": { "selectedStream": "189:2809", "metadataPanel": "189:2810", "drawer": "189:2927", "drawerBase": "189:2928" },
+    "Playback Unavailable": { "selectedStream": "189:2996", "metadataPanel": "189:2997", "drawer": "189:3114", "drawerBase": "189:3115" }
   },
   "prototypeFlows": {}
 }
