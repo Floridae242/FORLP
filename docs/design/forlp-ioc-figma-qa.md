@@ -15,7 +15,14 @@
 
 ## Components
 
-- [ ] Components are complete and verified.
+- [x] Components are complete and verified on `02 Components` (`88:4`): Sidebar (`117:53`), Top Bar (`117:78`), Base Card (`119:44`), KPI Card (`119:88`), Table (`120:56`), Filter Bar (`120:102`), Chart Shell (`121:124`), Dialog (`121:156`), Drawer (`121:178`), Toast (`121:192`), Empty State (`125:83`), and Data State (`125:108`).
+- [x] Composite construction consumes the recorded primitive masters, including Button (`103:194`), Icon Button (`103:213`), Input (`104:338`), Select (`106:2`), Status Badge (`107:56`), Tooltip (`108:18`), Tab (`108:31`, default resolves to `108:19`), and Segmented Control (`109:14`).
+- [x] Navigation is stable: Sidebar variants are fixed at 240/72 px by 720 px with a bottom-pinned officer profile; Top Bar variants are fixed at 64 px high and include title, market state, freshness, service health, notification, and profile content.
+- [x] Base Card covers Default, Loading, Zero, No Data, Stale, Error, and Disabled; KPI specimens preserve a 240 px numeric region and verified values `999`, `1,247`, and `12,500` in IBM Plex Mono.
+- [x] Table parts cover both row densities, sortable/numeric/status/selection cells, pagination, and loading/empty/error bodies. Camera IDs and times remain single-line, numeric cells align right, and Thai description nodes `120:21` and `120:27` use 220 px fixed width with height-responsive wrapping.
+- [x] Filter Bar preserves visible primary controls and wraps additional filters at narrow widths; active variants include count and conditional clear controls. Chart, Dialog, Drawer, Toast, Empty State, and all seven Data State variants remain visually distinct.
+- [x] Responsive specimen `127:70` was verified at exact widths 396, 533, 808, and 1083 px. Top Bar, Base Card, and Filter Bar instances report horizontal Fill; labels report Hug; no measured Fill/Hug failures were found.
+- [x] Focused screenshots for responsive composites, Table, Filter Bar, Chart Shell, Dialog, Drawer, Toast, Empty State, and Data State were reviewed with no overlap or clipped Thai text. All 207 Thai text nodes report available fonts.
 
 ## Patterns
 

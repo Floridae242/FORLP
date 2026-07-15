@@ -176,7 +176,22 @@
     "Status Badge": "107:56",
     "Tooltip": "108:18",
     "Tab": "108:31",
-    "Segmented Control": "109:14"
+    "Segmented Control": "109:14",
+    "Sidebar": "117:53",
+    "Top Bar": "117:78",
+    "Base Card": "119:44",
+    "KPI Card": "119:88",
+    "Table": "120:56",
+    "Filter Bar": "120:102",
+    "Chart Shell": "121:124",
+    "Dialog": "121:156",
+    "Drawer": "121:178",
+    "Toast": "121:192",
+    "Empty State": "125:83",
+    "Data State": "125:108"
+  },
+  "componentSpecimens": {
+    "responsiveCompositeWidths": "127:70"
   },
   "patterns": {},
   "templates": {},
