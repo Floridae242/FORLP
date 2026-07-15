@@ -203,6 +203,11 @@
     "Zone Map Panel": "150:683",
     "Report Summary": "153:633"
   },
+  "responsivePatternAdapters": {
+    "Zone Map Panel / Responsive 8-col": "174:649",
+    "Hourly Chart / Responsive 8-col": "174:672",
+    "Zone Summary / Responsive 4-col": "174:722"
+  },
   "patternSpecimens": {
     "cctvLiveOfflineComparison": "143:126",
     "cameraGrid": "143:172",
@@ -224,6 +229,16 @@
     "overviewNormalScreenshot": "164:2",
     "overviewCriticalScreenshot": "167:515",
     "overviewCriticalAlertRail": "167:530"
+  },
+  "templateResponsiveInstances": {
+    "Normal": { "map": "175:1846", "hourlyChart": "175:1869", "zoneSummary": "175:1919" },
+    "Dense": { "map": "175:1952", "hourlyChart": "175:1975", "zoneSummary": "175:2025" },
+    "Critical": { "map": "175:2058", "hourlyChart": "175:2081", "zoneSummary": "175:2131" },
+    "Market Closed": { "map": "175:2164", "hourlyChart": "175:2187", "zoneSummary": "175:2237" },
+    "Loading": { "mapDataState": "167:1034", "hourlyDataState": "167:1039", "zoneSummary": "175:2270" },
+    "Partial Outage": { "mapDataState": "167:1287", "hourlyChart": "175:2303", "zoneSummary": "175:2353" },
+    "All Data Stale": { "map": "175:2386", "hourlyChart": "175:2409", "zoneSummary": "175:2459" },
+    "High Contrast": { "map": "175:2492", "hourlyChart": "175:2515", "zoneSummary": "175:2565" }
   },
   "prototypeFlows": {}
 }
