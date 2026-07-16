@@ -21,3 +21,6 @@ ai-service/.env
 
 # Graphify output
 graphify-out/
+
+# Local isolated development worktrees
+.worktrees/
