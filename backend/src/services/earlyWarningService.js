@@ -383,9 +383,9 @@ async function sendLineMessage(message) {
 /**
  * ส่งแจ้งเตือนฝน
  */
-export async function sendRainWarning(rainData) {
+export async function sendRainWarning(rainData, { skipScheduleCheck = false } = {}) {
     // ตรวจสอบวันที่เปิดทำการ
-    if (!shouldSendAlertsToday()) {
+    if (!skipScheduleCheck && !shouldSendAlertsToday()) {
         console.log('[EarlyWarning] Rain warning blocked - not weekend');
         return { success: false, reason: 'not_weekend' };
     }
@@ -409,9 +409,9 @@ export async function sendRainWarning(rainData) {
 /**
  * ส่งแจ้งเตือนความแออัด (Warning)
  */
-export async function sendCrowdWarning(crowdData) {
+export async function sendCrowdWarning(crowdData, { skipScheduleCheck = false } = {}) {
     // ตรวจสอบวันที่เปิดทำการ
-    if (!shouldSendAlertsToday()) {
+    if (!skipScheduleCheck && !shouldSendAlertsToday()) {
         console.log('[EarlyWarning] Crowd warning blocked - not weekend');
         return { success: false, reason: 'not_weekend' };
     }
@@ -435,9 +435,9 @@ export async function sendCrowdWarning(crowdData) {
 /**
  * ส่งแจ้งเตือนความแออัด (Critical)
  */
-export async function sendCrowdCritical(crowdData) {
+export async function sendCrowdCritical(crowdData, { skipScheduleCheck = false } = {}) {
     // ตรวจสอบวันที่เปิดทำการ
-    if (!shouldSendAlertsToday()) {
+    if (!skipScheduleCheck && !shouldSendAlertsToday()) {
         console.log('[EarlyWarning] Crowd critical blocked - not weekend');
         return { success: false, reason: 'not_weekend' };
     }
@@ -538,12 +538,12 @@ export async function processCrowdCheck() {
 /**
  * สร้างและส่ง Daily Report (เรียกทุกเสาร์-อาทิตย์ 23:00)
  */
-export async function processDailyReport(date = null) {
+export async function processDailyReport(date = null, { skipScheduleCheck = false } = {}) {
     const reportDate = date || new Date().toISOString().split('T')[0];
     const checkDate = date ? new Date(date) : new Date();
     
     // ตรวจสอบว่าเป็นวันเสาร์-อาทิตย์หรือไม่
-    if (!isWeekend(checkDate)) {
+    if (!skipScheduleCheck && !isWeekend(checkDate)) {
         const dayName = checkDate.toLocaleDateString('th-TH', { weekday: 'long', timeZone: 'Asia/Bangkok' });
         console.log(`[EarlyWarning] Daily report skipped for ${reportDate} (${dayName}) - not weekend`);
         return { success: false, reason: 'not_weekend', message: 'Daily reports are only sent on weekends' };
@@ -617,7 +617,7 @@ export async function testSendWarning(type = 'rain') {
             probability: 0.65,
             description: 'ฝนปานกลาง'
         };
-        return await sendRainWarning(mockRainData);
+        return await sendRainWarning(mockRainData, { skipScheduleCheck: true });
     }
     
     if (type === 'crowd') {
@@ -626,7 +626,7 @@ export async function testSendWarning(type = 'rain') {
             status_label: 'หนาแน่น',
             timestamp: new Date().toISOString()
         };
-        return await sendCrowdWarning(mockCrowdData);
+        return await sendCrowdWarning(mockCrowdData, { skipScheduleCheck: true });
     }
     
     if (type === 'critical') {
@@ -636,11 +636,11 @@ export async function testSendWarning(type = 'rain') {
             status_label: 'หนาแน่นมาก',
             timestamp: new Date().toISOString()
         };
-        return await sendCrowdCritical(mockCrowdData);
+        return await sendCrowdCritical(mockCrowdData, { skipScheduleCheck: true });
     }
     
     if (type === 'daily') {
-        return await processDailyReport();
+        return await processDailyReport(null, { skipScheduleCheck: true });
     }
     
     return { success: false, error: 'Unknown test type' };
