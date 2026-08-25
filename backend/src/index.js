@@ -455,24 +455,30 @@ function buildCameras() {
 
     const makeRtsp = (host, channel) =>
         nvrUser ? `rtsp://${nvrUser}:${nvrPass}@${host}:554/Streaming/Channels/${channel}` : '';
-    const makeWebrtc = (host, channel) =>
-        webrtcBaseUrl ? `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${host}%3A554%2FStreaming%2FChannels%2F${channel}` : '';
+    const makeWebrtc = (host, channel, iocCode) => {
+        if (!webrtcBaseUrl) return '';
+        const stream = config.webrtcStreams[iocCode];
+        if (stream) {
+            return `${webrtcBaseUrl.replace(/\/$/, '')}/webrtc.html?src=${encodeURIComponent(stream)}&media=video`;
+        }
+        return `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${host}%3A554%2FStreaming%2FChannels%2F${channel}`;
+    };
     const makePlaybackWebrtc = (host, track, start, end) =>
         webrtcBaseUrl ? `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${host}%3A554%2FStreaming%2Ftracks%2F${track}%3Fstarttime%3D${start}%26endtime%3D${end}` : '';
 
     return [
         { id: 1, ioc_code: 'LPG-A01-CC-01', name: 'ตลาดกาดกองต้า (PTZ) (Face Rec.)', zone: 'โซน A', channel: '201', host: nvrHostB, status: 'online',
-          rtsp_url: makeRtsp(nvrHostB, '201'), webrtc_url: makeWebrtc(nvrHostB, '201') },
+          rtsp_url: makeRtsp(nvrHostB, '201'), webrtc_url: makeWebrtc(nvrHostB, '201', 'LPG-A01-CC-01') },
         { id: 2, ioc_code: 'LPG-A01-CC-02', name: 'ตลาดกาดกองต้า', zone: 'โซน A', channel: '201', host: nvrHostA, status: 'online',
-          rtsp_url: makeRtsp(nvrHostA, '201'), webrtc_url: makeWebrtc(nvrHostA, '201') },
+          rtsp_url: makeRtsp(nvrHostA, '201'), webrtc_url: makeWebrtc(nvrHostA, '201', 'LPG-A01-CC-02') },
         { id: 3, ioc_code: 'LPG-B01-CC-01', name: 'ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา', zone: 'โซน B', channel: '301', host: nvrHostA, status: 'online',
-          rtsp_url: makeRtsp(nvrHostA, '301'), webrtc_url: makeWebrtc(nvrHostA, '301') },
+          rtsp_url: makeRtsp(nvrHostA, '301'), webrtc_url: makeWebrtc(nvrHostA, '301', 'LPG-B01-CC-01') },
         { id: 4, ioc_code: 'LPG-B01-CC-02', name: 'ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา (PTZ) (Face Rec.)', zone: 'โซน B', channel: '401', host: nvrHostB, status: 'online',
-          rtsp_url: makeRtsp(nvrHostB, '401'), webrtc_url: makeWebrtc(nvrHostB, '401') },
+          rtsp_url: makeRtsp(nvrHostB, '401'), webrtc_url: makeWebrtc(nvrHostB, '401', 'LPG-B01-CC-02') },
         { id: 5, ioc_code: 'LPG-B02-CC-01', name: 'ตลาดกาดกองต้า 2 ตลาดเก่า', zone: 'โซน B', channel: '501', host: nvrHostA, status: 'online',
-          rtsp_url: makeRtsp(nvrHostA, '501'), webrtc_url: makeWebrtc(nvrHostA, '501') },
+          rtsp_url: makeRtsp(nvrHostA, '501'), webrtc_url: makeWebrtc(nvrHostA, '501', 'LPG-B02-CC-01') },
         { id: 6, ioc_code: 'LPG-B02-CC-02', name: 'ตลาดกาดกองต้า 2 ตลาดเก่า', zone: 'โซน B', channel: '601', host: nvrHostA, status: 'online',
-          rtsp_url: makeRtsp(nvrHostA, '601'), webrtc_url: makeWebrtc(nvrHostA, '601') },
+          rtsp_url: makeRtsp(nvrHostA, '601'), webrtc_url: makeWebrtc(nvrHostA, '601', 'LPG-B02-CC-02') },
     ];
 }
 const CAMERAS = buildCameras();

@@ -1,5 +1,14 @@
 import 'dotenv/config';
 
+function parseJsonEnv(name, fallback = {}) {
+    try {
+        return process.env[name] ? JSON.parse(process.env[name]) : fallback;
+    } catch {
+        console.warn(`${name} is not valid JSON; using an empty mapping`);
+        return fallback;
+    }
+}
+
 export const config = {
     // ==================== General Settings ====================
     port: process.env.PORT || 3001,
@@ -60,6 +69,7 @@ export const config = {
     nvrUser: process.env.NVR_USER || '',
     nvrPass: process.env.NVR_PASS || '',
     webrtcBaseUrl: process.env.WEBRTC_BASE_URL || '',
+    webrtcStreams: parseJsonEnv('WEBRTC_STREAMS'),
     aiApiKey: process.env.AI_API_KEY || '',
 
     // ==================== Lampang IOC (สถานะกล้องจริง) ====================
