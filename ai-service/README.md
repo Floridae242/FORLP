@@ -56,7 +56,7 @@ docker run -d \
   --name ai-service \
   -p 8080:8080 \
   -p 8081:8081 \
-  -e BACKEND_ENDPOINT=https://forlp-production.up.railway.app/api/ai/people-count \
+  -e BACKEND_ENDPOINT=https://forlp.onrender.com/api/ai/people-count \
   -e BACKEND_API_KEY=kadkongta-ai-secret-2024 \
   kadkongta-ai-service
 ```

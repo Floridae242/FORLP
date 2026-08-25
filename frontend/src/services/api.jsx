@@ -4,7 +4,7 @@
    ตาม PROMPT: ไม่ใช้ mock data แล้ว
    ===================================================== */
 
-// Backend API URL (Railway production หรือ localhost dev)
+// Backend API URL (Render production หรือ localhost dev)
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://forlp.onrender.com';
 
 // Default fetch options

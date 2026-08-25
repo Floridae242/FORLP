@@ -10,7 +10,7 @@
 
 | Variable | Value | Required |
 |----------|-------|----------|
-| `VITE_API_URL` | `https://forlp-production.up.railway.app` | ✅ Yes |
+| `VITE_API_URL` | `https://forlp.onrender.com` | ✅ Yes |
 
 > **หมายเหตุ:** ค่านี้ตั้งไว้ใน `vercel.json` แล้ว ไม่ต้องตั้งเพิ่ม
 
