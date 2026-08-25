@@ -1362,6 +1362,14 @@ app.get('/api/warnings/rain-check', async (req, res) => {
     try {
         const result = await earlyWarningService.checkRainForecast();
 
+        if (result.error) {
+            return res.status(503).json({
+                success: false,
+                data: result,
+                error: 'Weather forecast is temporarily unavailable'
+            });
+        }
+
         res.json({
             success: true,
             data: result
@@ -1381,7 +1389,11 @@ app.get('/api/warnings/forecast', async (req, res) => {
             data: forecast
         });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(503).json({
+            success: false,
+            error: 'Weather forecast is temporarily unavailable',
+            details: error.message
+        });
     }
 });
 

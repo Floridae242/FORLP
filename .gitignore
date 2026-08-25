@@ -24,3 +24,6 @@ graphify-out/
 
 # Local isolated development worktrees
 .worktrees/
+
+# Word documents are local project artifacts
+*.docx

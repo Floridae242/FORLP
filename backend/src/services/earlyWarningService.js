@@ -119,10 +119,20 @@ function markAlertSent(alertType) {
 // WEATHER FORECAST
 // =====================================================
 
+const FORECAST_CACHE_TTL_MS = 10 * 60 * 1000;
+const FORECAST_STALE_MAX_AGE_MS = 60 * 60 * 1000;
+let forecastCache = null;
+
 /**
  * ดึงพยากรณ์อากาศรายชั่วโมงจาก Open-Meteo (ฟรี, ไม่ต้อง API key)
  */
 export async function getHourlyForecast() {
+    const now = Date.now();
+
+    if (forecastCache && now - forecastCache.fetchedAt < FORECAST_CACHE_TTL_MS) {
+        return forecastCache.data;
+    }
+
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${config.defaultLat}&longitude=${config.defaultLon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,weather_code&timezone=Asia/Bangkok&forecast_days=1`;
         
@@ -134,8 +144,15 @@ export async function getHourlyForecast() {
             throw new Error(`Open-Meteo API error: ${response.status}`);
         }
         
-        return await response.json();
+        const data = await response.json();
+        forecastCache = { data, fetchedAt: Date.now() };
+        return data;
     } catch (error) {
+        if (forecastCache && now - forecastCache.fetchedAt < FORECAST_STALE_MAX_AGE_MS) {
+            console.warn('[EarlyWarning] Using cached forecast after upstream failure');
+            return forecastCache.data;
+        }
+
         console.error('[EarlyWarning] Forecast fetch error:', error.message);
         throw error;
     }
