@@ -330,8 +330,8 @@ app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) =
     res.json({
         success: true,
         data: {
-            cameras: CAMERAS.map(({ id, name, zone, channel, status, webrtc_url }) =>
-                ({ id, name, zone, channel, status, webrtc_url }))
+            cameras: CAMERAS.map(({ id, ioc_code, name, zone, channel, status, webrtc_url }) =>
+                ({ id, ioc_code, name, zone, channel, status, webrtc_url }))
         }
     });
 });
@@ -339,7 +339,7 @@ app.get('/api/cctv/streams', authMiddleware, officerOnlyMiddleware, (req, res) =
 // POST /api/cctv/playback-url — สร้าง playback URL ฝั่ง server โดยไม่เปิดเผย credentials ให้ frontend
 app.post('/api/cctv/playback-url', authMiddleware, officerOnlyMiddleware, (req, res) => {
     const { cameraId, startTime, endTime } = req.body;
-    const camera = CAMERAS.find(c => c.id === parseInt(cameraId));
+    const camera = findCamera(cameraId);
 
     if (!camera) {
         return res.status(404).json({ success: false, error: 'Camera not found' });
@@ -461,24 +461,29 @@ function buildCameras() {
         webrtcBaseUrl ? `${webrtcBaseUrl}/webrtc.html?src=rtsp%3A%2F%2F${u}%3A${p}%40${host}%3A554%2FStreaming%2Ftracks%2F${track}%3Fstarttime%3D${start}%26endtime%3D${end}` : '';
 
     return [
-        { id: 1, name: 'LPG-A01-CC-01 ตลาดกาดกองต้า (PTZ)', zone: 'โซน A', channel: '201', host: nvrHostB, status: 'online',
+        { id: 1, ioc_code: 'LPG-A01-CC-01', name: 'ตลาดกาดกองต้า (PTZ) (Face Rec.)', zone: 'โซน A', channel: '201', host: nvrHostB, status: 'online',
           rtsp_url: makeRtsp(nvrHostB, '201'), webrtc_url: makeWebrtc(nvrHostB, '201') },
-        { id: 2, name: 'LPG-A01-CC-02 ตลาดกาดกองต้า', zone: 'โซน A', channel: '201', host: nvrHostA, status: 'online',
+        { id: 2, ioc_code: 'LPG-A01-CC-02', name: 'ตลาดกาดกองต้า', zone: 'โซน A', channel: '201', host: nvrHostA, status: 'online',
           rtsp_url: makeRtsp(nvrHostA, '201'), webrtc_url: makeWebrtc(nvrHostA, '201') },
-        { id: 3, name: 'LPG-B01-CC-01 ฝั่งสะพานรัษฎา', zone: 'โซน B', channel: '301', host: nvrHostA, status: 'online',
+        { id: 3, ioc_code: 'LPG-B01-CC-01', name: 'ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา', zone: 'โซน B', channel: '301', host: nvrHostA, status: 'online',
           rtsp_url: makeRtsp(nvrHostA, '301'), webrtc_url: makeWebrtc(nvrHostA, '301') },
-        { id: 4, name: 'LPG-B01-CC-02 ฝั่งสะพานรัษฎา (PTZ)', zone: 'โซน B', channel: '401', host: nvrHostB, status: 'online',
+        { id: 4, ioc_code: 'LPG-B01-CC-02', name: 'ตลาดกาดกองต้า 1 ฝั่งสะพานรัษฎา (PTZ) (Face Rec.)', zone: 'โซน B', channel: '401', host: nvrHostB, status: 'online',
           rtsp_url: makeRtsp(nvrHostB, '401'), webrtc_url: makeWebrtc(nvrHostB, '401') },
-        { id: 5, name: 'LPG-B02-CC-01 ตลาดเก่า', zone: 'โซน B', channel: '501', host: nvrHostA, status: 'online',
+        { id: 5, ioc_code: 'LPG-B02-CC-01', name: 'ตลาดกาดกองต้า 2 ตลาดเก่า', zone: 'โซน B', channel: '501', host: nvrHostA, status: 'online',
           rtsp_url: makeRtsp(nvrHostA, '501'), webrtc_url: makeWebrtc(nvrHostA, '501') },
-        { id: 6, name: 'LPG-B02-CC-02 ตลาดเก่า', zone: 'โซน B', channel: '601', host: nvrHostA, status: 'online',
+        { id: 6, ioc_code: 'LPG-B02-CC-02', name: 'ตลาดกาดกองต้า 2 ตลาดเก่า', zone: 'โซน B', channel: '601', host: nvrHostA, status: 'online',
           rtsp_url: makeRtsp(nvrHostA, '601'), webrtc_url: makeWebrtc(nvrHostA, '601') },
     ];
 }
 const CAMERAS = buildCameras();
 
+function findCamera(cameraId) {
+    const value = String(cameraId ?? '').trim();
+    return CAMERAS.find((camera) => String(camera.id) === value || camera.ioc_code === value);
+}
+
 // อัปเดตสถานะกล้องจริงจาก Lampang IOC (online/offline) แทนค่า default 'online'
-// จับคู่ด้วยรหัสกล้อง (token แรกของ name เช่น "LPG-A01-CC-01")
+// จับคู่ด้วยรหัสกล้อง IOC ที่กำหนดแยกจากชื่อกล้อง
 const CAMERA_STATUS_REFRESH_MS = 60 * 1000;
 
 async function refreshCameraStatus() {
@@ -487,8 +492,7 @@ async function refreshCameraStatus() {
         const statusByCode = await fetchCctvStatus();
         let updated = 0;
         for (const cam of CAMERAS) {
-            const code = cam.name.split(' ')[0];
-            const status = statusByCode.get(code);
+            const status = statusByCode.get(cam.ioc_code);
             if (status && status !== cam.status) {
                 cam.status = status;
                 updated++;
@@ -539,6 +543,7 @@ app.get('/api/ai/cameras', aiAuthMiddleware, (req, res) => {
         data: {
             cameras: CAMERAS.map(cam => ({
                 id: cam.id,
+                ioc_code: cam.ioc_code,
                 name: cam.name,
                 zone: cam.zone,
                 channel: cam.channel,
@@ -552,8 +557,7 @@ app.get('/api/ai/cameras', aiAuthMiddleware, (req, res) => {
 
 // GET /api/ai/cameras/:id - ดึงข้อมูลกล้องเฉพาะตัว
 app.get('/api/ai/cameras/:id', aiAuthMiddleware, (req, res) => {
-    const cameraId = parseInt(req.params.id);
-    const camera = CAMERAS.find(c => c.id === cameraId);
+    const camera = findCamera(req.params.id);
 
     if (!camera) {
         return res.status(404).json({
@@ -566,6 +570,7 @@ app.get('/api/ai/cameras/:id', aiAuthMiddleware, (req, res) => {
         success: true,
         data: {
             id: camera.id,
+            ioc_code: camera.ioc_code,
             name: camera.name,
             zone: camera.zone,
             channel: camera.channel,
@@ -577,8 +582,7 @@ app.get('/api/ai/cameras/:id', aiAuthMiddleware, (req, res) => {
 
 // GET /api/ai/cameras/:id/stream-url - ดึง Stream URL สำหรับกล้องเฉพาะตัว
 app.get('/api/ai/cameras/:id/stream-url', aiAuthMiddleware, (req, res) => {
-    const cameraId = parseInt(req.params.id);
-    const camera = CAMERAS.find(c => c.id === cameraId);
+    const camera = findCamera(req.params.id);
 
     if (!camera) {
         return res.status(404).json({
@@ -591,6 +595,7 @@ app.get('/api/ai/cameras/:id/stream-url', aiAuthMiddleware, (req, res) => {
         success: true,
         data: {
             camera_id: camera.id,
+            ioc_code: camera.ioc_code,
             camera_name: camera.name,
             rtsp_url: camera.rtsp_url,
             protocol: 'rtsp',
